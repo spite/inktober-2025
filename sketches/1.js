@@ -27,23 +27,23 @@ palette.range = [
   "#8da0b4",
   "#cdd9e6",
   "#f5f8fb",
-  "#3a8beb",
+  // "#3a8beb",
   "#6b9dd8",
-  "#3ab485",
+  // "#3ab485",
   "#ebb43a",
   "#e74c3c",
 ];
 
-palette.range = [
-  "#DDAA44",
-  "#B9384C",
-  "#7E9793",
-  "#F8F6F2",
-  "#3D5443",
-  "#2F2D30",
-  "#AEC2DA",
-  "#8C7F70",
-];
+// palette.range = [
+//   "#DDAA44",
+//   "#B9384C",
+//   "#7E9793",
+//   "#F8F6F2",
+//   "#3D5443",
+//   "#2F2D30",
+//   "#AEC2DA",
+//   "#8C7F70",
+// ];
 
 const gradient = new gradientLinear(palette.range);
 
@@ -56,7 +56,7 @@ const controls = new OrbitControls(camera, canvas);
 camera.position.set(7.8, 3.6, 7.3);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
-painted.backgroundColor.set(gradient.getAt(Maf.randomInRange(0, 1)));
+painted.backgroundColor.set(new Color(0xf6f2e9));
 
 const circleRadius = 2;
 const geometry = new BufferGeometry();
@@ -88,9 +88,8 @@ for (let i = 0; i < SIDES; i++) {
     color: new Color().setHSL(i / SIDES, 1, 0.5),
     lineWidth: 0.3,
     resolution: resolution,
-    sizeAttenuation: true,
     offset: Maf.randomInRange(-100, 100),
-    opacity: 1,
+    opacity: 0.8,
   });
   line.setGeometry(geometry, (p) => p);
   const mesh = new Mesh(line.geometry, material);
@@ -128,18 +127,15 @@ function draw(startTime) {
   const t = performance.now();
   if (isRunning) {
     time += (t - lastTime) / 1000 / 10;
-
-    circles.forEach((c, id) => {
-      c.pivot.rotation.y = -c.speed * time * Maf.TAU + c.a;
-      c.mesh.material.uniforms.resolution.value.set(
-        canvas.width,
-        canvas.height
-      );
-      c.mesh.material.uniforms.color.value.copy(gradient.getAt(c.c));
-    });
-
-    group.rotation.x = Maf.PI / 8;
   }
+
+  circles.forEach((c, id) => {
+    c.pivot.rotation.y = -c.speed * time * Maf.TAU + c.a;
+    c.mesh.material.uniforms.color.value.copy(gradient.getAt(c.c));
+  });
+
+  group.rotation.x = Maf.PI / 8;
+
   //   renderer.render(scene, camera);
   painted.render(scene, camera);
   lastTime = t;

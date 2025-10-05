@@ -5,24 +5,34 @@ import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { KnotCurve } from "../third_party/CurveExtras.js";
+import { TorusKnot } from "../third_party/CurveExtras.js";
 
 import Painted from "../modules/painted.js";
 
-const painted = Painted(renderer, { minLevel: -0.5 });
+const painted = Painted(renderer, { minLevel: -0.4 });
 
-palette.range = [
-  "#1e242c",
-  "#4a5b6b",
-  "#8da0b4",
-  "#cdd9e6",
-  "#f5f8fb",
-  // "#3a8beb",
-  // "#6b9dd8",
-  // "#3ab485",
-  "#ebb43a",
-  "#e74c3c",
-];
+// palette.range = [
+//   "#FFFFFF",
+//   "#B9131E",
+//   "#FF1F54",
+//   "#34373C",
+//   "#9C9092",
+//   "#FE5587",
+//   "#0FB3BF",
+// ];
+
+// palette.range = [
+//   "#b88845",
+//   "#26170b",
+//   "#794c23",
+//   "#f4e9ca",
+//   "#533117",
+//   "#a23809",
+//   "#15543d",
+//   "#948c6c",
+//   "#948474",
+//   "#584c44",
+// ];
 
 // palette.range = [
 //   "#DDAA44",
@@ -34,10 +44,13 @@ palette.range = [
 //   "#AEC2DA",
 //   "#8C7F70",
 // ];
-//palette.range = ["#000000", "#555555"];
+
+palette.range = ["#20a0aa", "#ec4039", "#ffae12"];
+
+// palette.range = ["#000", "#eee"];
 
 const gradient = new gradientLinear(palette.range);
-const curve = new KnotCurve();
+const curve = new TorusKnot();
 
 const canvas = renderer.domElement;
 const camera = getCamera();
@@ -53,7 +66,7 @@ painted.backgroundColor.set(new Color(0xf6f2e9));
 const strokeTexture = new TextureLoader().load("./assets/brush4.png");
 const resolution = new Vector2(canvas.width, canvas.height);
 
-const POINTS = 50;
+const POINTS = 200;
 const meshes = [];
 
 function prepareMesh(w, c) {
@@ -69,9 +82,8 @@ function prepareMesh(w, c) {
     map: strokeTexture,
     color: gradient.getAt(c),
     resolution: resolution,
-    lineWidth: w,
+    lineWidth: w / 2,
     offset: Maf.randomInRange(-100, 100),
-    opacity: 0.8,
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -82,31 +94,28 @@ function prepareMesh(w, c) {
 }
 
 const spread = 1;
-const LINES = 80;
+const LINES = 30;
+const REPEAT = 3;
 for (let i = 0; i < LINES; i++) {
-  const w = Maf.randomInRange(0.4, 0.6);
+  const w = 1 * Maf.randomInRange(0.8, 1.2);
   const radius = 0.05 * Maf.randomInRange(4.5, 5.5);
-  const color = i / LINES;
-  const offset = Maf.randomInRange(0, Maf.TAU);
-  const range = Maf.randomInRange(0.125 * Maf.TAU, 0.25 * Maf.TAU);
+  const color = Maf.randomInRange(0, 1); // i / LINES;
+  const offset = Maf.randomInRange(0, Maf.TAU / 8);
+  const range = Maf.TAU / 2;
+  const x = Maf.randomInRange(-spread, spread);
+  const y = Maf.randomInRange(-spread, spread);
+  const z = Maf.randomInRange(-spread, spread);
   const mesh = prepareMesh(w, color);
-  const speed = Maf.randomInRange(1, 10);
-  mesh.position.set(
-    Maf.randomInRange(-spread, spread),
-    Maf.randomInRange(-spread, spread),
-    Maf.randomInRange(-spread, spread)
-  );
+  mesh.position.set(x, y, z);
   group.add(mesh);
   meshes.push({
     mesh,
     radius,
     offset,
-    speed,
     range,
   });
 }
-group.scale.setScalar(0.5);
-group.position.y = -4;
+group.scale.setScalar(0.75);
 scene.add(group);
 
 let lastTime = performance.now();
@@ -114,16 +123,18 @@ let time = 0;
 
 function draw(startTime) {
   const t = performance.now();
+
   if (isRunning) {
     time += (t - lastTime) / 1000 / 20;
   }
+
   meshes.forEach((m) => {
     const geo = m.mesh.geo;
     const g = m.mesh.g;
     const range = m.range;
     const r = m.radius;
     for (var j = 0; j < geo.length; j += 3) {
-      const t2 = time * Maf.TAU * m.speed + (j * range) / geo.length + m.offset;
+      const t2 = time * Maf.TAU + (j * range) / geo.length + m.offset;
       const p = curve.getPoint(1 - Maf.mod(t2 / Maf.TAU, 1));
       geo[j] = r * p.x;
       geo[j + 1] = r * p.y;
@@ -132,9 +143,8 @@ function draw(startTime) {
     g.setPoints(geo);
   });
 
-  group.rotation.y = (time * Maf.TAU) / 4;
+  group.rotation.y = time * Maf.TAU;
 
-  // renderer.render(scene, camera);
   painted.render(scene, camera);
   lastTime = t;
 }

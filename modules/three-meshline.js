@@ -499,6 +499,12 @@ ShaderChunk["meshline_frag"] = `
     return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
   }
 
+  vec2 rot2d(vec2 position, float theta) {
+    float dx = position.x * cos(theta) - position.y * sin(theta);
+    float dy = position.x * sin(theta) + position.y * cos(theta);
+	  return vec2(dx, dy);
+  }
+
   void main() {
   
     ${ShaderChunk.logdepthbuf_fragment}
@@ -508,14 +514,14 @@ ShaderChunk["meshline_frag"] = `
 
     t.a *= opacity;
 
-    if(t.a < .1) {
+    if(t.a < .01) {
       discard;
     }
 
     vec2 uv = gl_FragCoord.xy / resolution.xy;
     uv = uv * resolution.xy / vec2(textureSize(blueNoiseMap, 0).xy);
-    uv += offset ;
-
+    uv = rot2d(uv, time);
+    uv += offset;
 
     if(blueNoise(uv) > t.a) {
       discard;
@@ -545,6 +551,8 @@ class MeshLineMaterial extends ShaderMaterial {
         opacity: { value: 1 },
         resolution: { value: new Vector2(1, 1) },
         sizeAttenuation: { value: 1 },
+        depthWrite: { value: 1 },
+        depthTest: { value: 1 },
         dashArray: { value: 0 },
         dashOffset: { value: 0 },
         offset: { value: 0 },
@@ -732,6 +740,12 @@ class MeshLineMaterial extends ShaderMaterial {
     this.setValues(parameters);
   }
 }
+
+MeshLineMaterial.prototype.onBeforeRender = (...args) => {
+  const canvas = args[0].domElement;
+  args[4].material.uniforms.time.value = performance.now() / 1000;
+  args[4].material.uniforms.resolution.value.set(canvas.width, canvas.height);
+};
 
 MeshLineMaterial.prototype.copy = function (source) {
   ShaderMaterial.prototype.copy.call(this, source);
