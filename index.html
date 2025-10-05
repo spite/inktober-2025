@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Inktober 2025</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="css/styles.css"
+      media="screen"
+    />
+    <link
+      href="https://fonts.googleapis.com/css?family=Krona+One|Open+Sans"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body>
+    <header>
+      <h1>Inktober 2025</h1>
+      <div class="recordPanel">
+        <a href="#" class="btn orange" id="start">⚫ Record</a>
+        <a href="#" id="snapshotButton" class="btn orange">📸 Snapshot</a>
+        <a href="#" id="backButton" class="btn green">◀&nbsp;&nbsp;Previous</a>
+        <a href="#" id="nextButton" class="btn green">Next&nbsp;&nbsp;▶</a>
+      </div>
+    </header>
+    <script>
+      function getIndex() {
+        return parseInt(window.location.hash.replace("#", ""));
+      }
+
+      function prev(e) {
+        let index = getIndex();
+
+        // beginning, dont do anything
+        if (index === 1) return;
+        window.location.hash = `${--index}`;
+        e.preventDefault();
+      }
+
+      function next(e) {
+        let index = getIndex();
+        window.location.hash = ++index;
+        e.preventDefault();
+      }
+
+      document
+        .getElementById("backButton")
+        .addEventListener("click", (e) => prev(e));
+      document
+        .getElementById("nextButton")
+        .addEventListener("click", (e) => next(e));
+
+      const cur = getIndex();
+      if (isNaN(cur) || cur === "" || cur === undefined) {
+        window.location.hash = 1;
+      }
+    </script>
+    <script type="importmap">
+      {
+        "imports": {
+          "maf": "./modules/maf.js",
+          "three": "./third_party/three.module.min.js",
+          "OrbitControls": "./third_party/OrbitControls.js"
+        }
+      }
+    </script>
+    <!-- <script src="js/CCapture.all.min.js"></script> -->
+    <script async type="module" src="modules/looper.js"></script>
+  </body>
+</html>
