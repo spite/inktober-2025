@@ -65,4 +65,8 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+document.getElementById("pauseButton").addEventListener("click", (e) => {
+  isRunning = !isRunning;
+});
+
 export { renderer, getCamera, getOrthoCamera, isRunning, onResize };

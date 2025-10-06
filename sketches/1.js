@@ -47,7 +47,30 @@ palette.range = [
 //   "#AEC2DA",
 //   "#8C7F70",
 // ];
-
+// palette.range = [
+//   "#ceccc2",
+//   "#32567b",
+//   "#914251",
+//   "#fa8f59",
+//   "#7b7c76",
+//   "#3eb9d6",
+//   "#9ca198",
+//   "#c77d80",
+//   "#aba185",
+//   "#d89e9d",
+// ];
+// palette.range = [
+//   "#1f4164",
+//   "#4a789c",
+//   "#7ab1cc",
+//   "#6e8a84",
+//   "#e9e4d9",
+//   "#aeb9c4",
+//   "#4c5b6c",
+//   "#e09a56",
+//   "#b47b86",
+//   "#d6b77b",
+// ];
 const gradient = new gradientLinear(palette.range);
 
 const canvas = renderer.domElement;
