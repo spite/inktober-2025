@@ -6,6 +6,7 @@ function getWebGLRenderer() {
   renderer.setPixelRatio(window.devicePixelRatio);
   return renderer;
 }
+const resizeFns = [];
 
 const renderer = getWebGLRenderer();
 resize();
@@ -31,10 +32,19 @@ window.addEventListener("resize", () => {
   resize();
 });
 
+function onResize(fn) {
+  resizeFns.push(fn);
+  resize();
+}
+
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   renderer.setSize(w, h);
+
+  for (const fn of resizeFns) {
+    fn(w, h);
+  }
 
   for (const camera of cameras) {
     if (camera instanceof PerspectiveCamera) {
@@ -55,4 +65,4 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-export { renderer, getCamera, getOrthoCamera, isRunning };
+export { renderer, getCamera, getOrthoCamera, isRunning, onResize };

@@ -7,19 +7,22 @@ import {
   Vector3,
   BufferAttribute,
   TextureLoader,
-  AdditiveBlending,
   Color,
 } from "three";
-import { renderer, getCamera, isRunning } from "../modules/three.js";
+import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
+import { Painted } from "../modules/painted.js";
 
-import Painted from "../modules/painted.js";
+const painted = new Painted({ minLevel: -0.5 });
 
-const painted = Painted(renderer, { minLevel: -0.5 });
+onResize((w, h) => {
+  const dPR = renderer.getPixelRatio();
+  painted.setSize(w * dPR, h * dPR);
+});
 
 palette.range = [
   "#1e242c",
@@ -52,6 +55,10 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+
+controls.addEventListener("change", () => {
+  painted.invalidate();
+});
 
 camera.position.set(7.8, 3.6, 7.3);
 camera.lookAt(group.position);
@@ -127,6 +134,7 @@ function draw(startTime) {
   const t = performance.now();
   if (isRunning) {
     time += (t - lastTime) / 1000 / 10;
+    painted.invalidate();
   }
 
   circles.forEach((c, id) => {
@@ -136,8 +144,8 @@ function draw(startTime) {
 
   group.rotation.x = Maf.PI / 8;
 
-  //   renderer.render(scene, camera);
-  painted.render(scene, camera);
+  painted.render(renderer, scene, camera);
+
   lastTime = t;
 }
 

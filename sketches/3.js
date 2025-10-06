@@ -5,11 +5,12 @@ import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { TorusKnot } from "../third_party/CurveExtras.js";
+// import { TorusKnot } from "../third_party/CurveExtras.js";
+import { KnotCurve } from "../third_party/CurveExtras.js";
 
 import Painted from "../modules/painted.js";
 
-const painted = Painted(renderer, { minLevel: -0.4 });
+const painted = new Painted(renderer, { minLevel: -0.4 });
 
 // palette.range = [
 //   "#FFFFFF",
@@ -50,7 +51,7 @@ palette.range = ["#20a0aa", "#ec4039", "#ffae12"];
 // palette.range = ["#000", "#eee"];
 
 const gradient = new gradientLinear(palette.range);
-const curve = new TorusKnot();
+const curve = new KnotCurve();
 
 const canvas = renderer.domElement;
 const camera = getCamera();

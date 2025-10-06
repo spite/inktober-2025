@@ -23,7 +23,7 @@ import { levelRange } from "../shaders/levels.js";
 import { blur5 } from "../shaders/fast-separable-gaussian-blur.js";
 import highPass from "../shaders/high-pass.js";
 import { noise2d } from "../shaders/noise2d.js";
-import ShaderPass from "../modules/shader-pass.js";
+import { ShaderPass } from "../modules/shader-pass.js";
 import { shader as median } from "../shaders/median.js";
 import { ShaderPingPongPass } from "../modules/shader-ping-pong-pass.js";
 
@@ -157,6 +157,7 @@ precision highp float;
 uniform sampler2D prevTexture;
 uniform sampler2D inputTexture;
 uniform float samples;
+uniform bool invalidate;
 
 in vec2 vUv;
 
@@ -165,8 +166,12 @@ out vec4 fragColor;
 void main() {
   vec4 p = texture(prevTexture, vUv);
   vec4 c = texture(inputTexture, vUv);
-  vec3 color = mix(p.rgb, c.rgb, .05);
-  fragColor = vec4(color, 1.);
+  if(invalidate) {
+    fragColor = c;
+  } else {
+    vec3 color = mix(p.rgb, c.rgb, .05);
+    fragColor = vec4(color, 1.);
+  }
 }`;
 
 const finalFragmentShader = `
@@ -187,215 +192,231 @@ const loader = new TextureLoader();
 const paper = loader.load("./assets/Sketchbook.jpg");
 // const paper = loader.load("./assets/Parchment.jpg");
 
-function Painted(renderer, params = {}) {
-  let w = 1;
-  let h = 1;
+class Painted {
+  constructor(params = {}) {
+    this.maxAccumFrames = 120;
+    this.framesPerFrame = 1;
+    this.frames = 0;
 
-  const colorFBO = new WebGLRenderTarget(w, h, {
-    wrapS: ClampToEdgeWrapping,
-    wrapT: ClampToEdgeWrapping,
-    minFilter: LinearFilter,
-    format: RGBAFormat,
-    stencilBuffer: false,
-    depthBuffer: true,
-  });
+    let w = 1;
+    let h = 1;
 
-  const antialiasShader = new RawShaderMaterial({
-    uniforms: {
-      resolution: { value: new Vector2(w, h) },
-      inputTexture: { value: colorFBO.texture },
-      minLevel: { value: 0 },
-      maxLevel: { value: 1 },
-    },
-    vertexShader: orthoVertexShader,
-    fragmentShader: antialiasFragmentShader,
-    glslVersion: GLSL3,
-  });
-  const antialiasPass = new ShaderPass(
-    renderer,
-    antialiasShader,
-    w,
-    h,
-    RGBAFormat,
-    UnsignedByteType,
-    LinearFilter,
-    LinearFilter,
-    ClampToEdgeWrapping,
-    ClampToEdgeWrapping
-  );
+    this.colorFBO = new WebGLRenderTarget(w, h, {
+      wrapS: ClampToEdgeWrapping,
+      wrapT: ClampToEdgeWrapping,
+      minFilter: LinearFilter,
+      format: RGBAFormat,
+      stencilBuffer: false,
+      depthBuffer: true,
+    });
 
-  const edgesShader = new RawShaderMaterial({
-    uniforms: {
-      resolution: { value: new Vector2(w, h) },
-      inputTexture: { value: colorFBO.texture },
-    },
-    vertexShader: orthoVertexShader,
-    fragmentShader: edgesFragmentShader,
-    glslVersion: GLSL3,
-  });
-  const edgesPass = new ShaderPass(
-    renderer,
-    edgesShader,
-    w,
-    h,
-    RGBAFormat,
-    UnsignedByteType,
-    LinearFilter,
-    LinearFilter,
-    ClampToEdgeWrapping,
-    ClampToEdgeWrapping
-  );
-
-  const blurShader = new RawShaderMaterial({
-    uniforms: {
-      resolution: { value: new Vector2(w, h) },
-      direction: { value: new Vector2(10, 0) },
-      inputTexture: { value: edgesPass.fbo.texture },
-    },
-    vertexShader: orthoVertexShader,
-    fragmentShader: grayscaleFragmentShader,
-    glslVersion: GLSL3,
-  });
-  const blurHPass = new ShaderPass(
-    renderer,
-    blurShader,
-    w,
-    h,
-    RGBAFormat,
-    UnsignedByteType,
-    LinearFilter,
-    LinearFilter,
-    ClampToEdgeWrapping,
-    ClampToEdgeWrapping
-  );
-  const blurVPass = new ShaderPass(
-    renderer,
-    blurShader,
-    w,
-    h,
-    RGBAFormat,
-    UnsignedByteType,
-    LinearFilter,
-    LinearFilter,
-    ClampToEdgeWrapping,
-    ClampToEdgeWrapping
-  );
-
-  const shader = new RawShaderMaterial({
-    uniforms: {
-      resolution: { value: new Vector2(w, h) },
-      vignetteBoost: { value: 0.5 },
-      vignetteReduction: { value: 0.5 },
-      inputTexture: { value: colorFBO.texture },
-      edgesTexture: { value: edgesPass.fbo.texture },
-      grayscaleTexture: { value: blurVPass.fbo.texture },
-      backgroundColor: { value: new Color() },
-      lightenPass: {
-        value: params.lightenPass !== undefined ? params.lightenPass : 1,
+    const antialiasShader = new RawShaderMaterial({
+      uniforms: {
+        resolution: { value: new Vector2(w, h) },
+        inputTexture: { value: this.colorFBO.texture },
+        minLevel: { value: 0 },
+        maxLevel: { value: 1 },
       },
-      paperTexture: { value: paper },
-    },
-    vertexShader: orthoVertexShader,
-    fragmentShader: fragmentShader,
-    glslVersion: GLSL3,
-  });
-  const pass = new ShaderPass(
-    renderer,
-    shader,
-    w,
-    h,
-    RGBAFormat,
-    UnsignedByteType,
-    LinearFilter,
-    LinearFilter,
-    ClampToEdgeWrapping,
-    ClampToEdgeWrapping
-  );
+      vertexShader: orthoVertexShader,
+      fragmentShader: antialiasFragmentShader,
+      glslVersion: GLSL3,
+    });
+    this.antialiasPass = new ShaderPass(
+      antialiasShader,
+      w,
+      h,
+      RGBAFormat,
+      UnsignedByteType,
+      LinearFilter,
+      LinearFilter,
+      ClampToEdgeWrapping,
+      ClampToEdgeWrapping
+    );
 
-  const accumShader = new RawShaderMaterial({
-    uniforms: {
-      prevTexture: { value: pass.fbo.texture },
-      inputTexture: { value: pass.fbo.texture },
-    },
-    vertexShader: orthoVertexShader,
-    fragmentShader: accumFragmentShader,
-    glslVersion: GLSL3,
-  });
-  const accumPass = new ShaderPingPongPass(accumShader);
+    const edgesShader = new RawShaderMaterial({
+      uniforms: {
+        resolution: { value: new Vector2(w, h) },
+        inputTexture: { value: this.colorFBO.texture },
+      },
+      vertexShader: orthoVertexShader,
+      fragmentShader: edgesFragmentShader,
+      glslVersion: GLSL3,
+    });
+    this.edgesPass = new ShaderPass(
+      edgesShader,
+      w,
+      h,
+      RGBAFormat,
+      UnsignedByteType,
+      LinearFilter,
+      LinearFilter,
+      ClampToEdgeWrapping,
+      ClampToEdgeWrapping
+    );
 
-  const finalShader = new RawShaderMaterial({
-    uniforms: {
-      inputTexture: { value: null },
-    },
-    vertexShader: orthoVertexShader,
-    fragmentShader: finalFragmentShader,
-    glslVersion: GLSL3,
-  });
-  const finalPass = new ShaderPass(renderer, finalShader);
+    const blurShader = new RawShaderMaterial({
+      uniforms: {
+        resolution: { value: new Vector2(w, h) },
+        direction: { value: new Vector2(10, 0) },
+        inputTexture: { value: this.edgesPass.fbo.texture },
+      },
+      vertexShader: orthoVertexShader,
+      fragmentShader: grayscaleFragmentShader,
+      glslVersion: GLSL3,
+    });
+    this.blurHPass = new ShaderPass(
+      blurShader,
+      w,
+      h,
+      RGBAFormat,
+      UnsignedByteType,
+      LinearFilter,
+      LinearFilter,
+      ClampToEdgeWrapping,
+      ClampToEdgeWrapping
+    );
+    this.blurVPass = new ShaderPass(
+      blurShader,
+      w,
+      h,
+      RGBAFormat,
+      UnsignedByteType,
+      LinearFilter,
+      LinearFilter,
+      ClampToEdgeWrapping,
+      ClampToEdgeWrapping
+    );
 
-  function render(scene, camera) {
-    const size = new Vector2();
-    renderer.getSize(size);
-    if (size.width !== w || size.height !== h) {
-      console.log(`Resize ${size.width}, ${size.height}`);
-      const dPR = 1; //renderer.getPixelRatio();
-      w = size.width * dPR;
-      h = size.height * dPR;
-      colorFBO.setSize(w, h);
-      antialiasPass.setSize(w, h);
-      antialiasShader.uniforms.resolution.value.set(w, h);
-      edgesPass.setSize(w, h);
-      edgesShader.uniforms.resolution.value.set(w, h);
-      blurHPass.setSize(w, h);
-      blurShader.uniforms.resolution.value.set(w, h);
-      blurVPass.setSize(w, h);
-      pass.setSize(w, h);
-      shader.uniforms.resolution.value.set(w, h);
-      accumPass.setSize(w, h);
-      finalPass.setSize(w, h);
-    }
+    const shader = new RawShaderMaterial({
+      uniforms: {
+        resolution: { value: new Vector2(w, h) },
+        vignetteBoost: { value: 0.5 },
+        vignetteReduction: { value: 0.5 },
+        inputTexture: { value: this.colorFBO.texture },
+        edgesTexture: { value: this.edgesPass.fbo.texture },
+        grayscaleTexture: { value: this.blurVPass.fbo.texture },
+        backgroundColor: { value: new Color() },
+        lightenPass: {
+          value: params.lightenPass !== undefined ? params.lightenPass : 1,
+        },
+        paperTexture: { value: paper },
+      },
+      vertexShader: orthoVertexShader,
+      fragmentShader: fragmentShader,
+      glslVersion: GLSL3,
+    });
+    this.pass = new ShaderPass(
+      shader,
+      w,
+      h,
+      RGBAFormat,
+      UnsignedByteType,
+      LinearFilter,
+      LinearFilter,
+      ClampToEdgeWrapping,
+      ClampToEdgeWrapping
+    );
 
-    renderer.setRenderTarget(colorFBO);
-    renderer.render(scene, camera);
-    renderer.setRenderTarget(null);
-    // antialiasPass.shader.uniforms.inputTexture.value = colorFBO.texture;
-    // antialiasPass.shader.uniforms.minLevel.value = params.minLevel || 0.2;
-    // antialiasPass.shader.uniforms.maxLevel.value = params.maxLevel || 1;
-    // antialiasPass.render();
-    // edgesPass.render();
-    // const d = (2 * w) / 800;
-    // blurHPass.shader.uniforms.inputTexture.value = edgesPass.fbo.texture;
-    // blurHPass.shader.uniforms.direction.value.set(d, 0);
-    // blurHPass.render();
-    // blurVPass.shader.uniforms.inputTexture.value = blurHPass.fbo.texture;
-    // blurVPass.shader.uniforms.direction.value.set(0, d);
-    // blurVPass.render();
-    // blurHPass.shader.uniforms.inputTexture.value = blurVPass.fbo.texture;
-    // blurHPass.shader.uniforms.direction.value.set(d, 0);
-    // blurHPass.render();
-    // blurVPass.shader.uniforms.inputTexture.value = blurHPass.fbo.texture;
-    // blurVPass.shader.uniforms.direction.value.set(0, d);
-    // blurVPass.render();
+    const accumShader = new RawShaderMaterial({
+      uniforms: {
+        prevTexture: { value: this.pass.fbo.texture },
+        inputTexture: { value: this.pass.fbo.texture },
+        invalidate: { value: false },
+        samples: { value: 0 },
+      },
+      vertexShader: orthoVertexShader,
+      fragmentShader: accumFragmentShader,
+      glslVersion: GLSL3,
+    });
+    this.accumPass = new ShaderPingPongPass(accumShader);
 
-    pass.render();
+    const finalShader = new RawShaderMaterial({
+      uniforms: {
+        inputTexture: { value: null },
+      },
+      vertexShader: orthoVertexShader,
+      fragmentShader: finalFragmentShader,
+      glslVersion: GLSL3,
+    });
+    this.finalPass = new ShaderPass(finalShader);
 
-    accumPass.shader.uniforms.inputTexture.value = pass.fbo.texture;
-    accumPass.shader.uniforms.prevTexture.value = accumPass.texture;
-    accumPass.render(renderer);
-
-    finalPass.shader.uniforms.inputTexture.value = accumPass.texture;
-    finalPass.render(true);
-
-    // antialiasPass.shader.uniforms.minLevel.value = 0;
-    // antialiasPass.shader.uniforms.maxLevel.value = 1;
-    // antialiasPass.shader.uniforms.inputTexture.value = pass.fbo.texture;
-    // antialiasPass.render(true);
+    this.invalidate();
   }
 
-  return {
-    render,
-    backgroundColor: shader.uniforms.backgroundColor.value,
-  };
+  get backgroundColor() {
+    return this.pass.shader.uniforms.backgroundColor.value;
+  }
+
+  invalidate() {
+    this.accumPass.shader.uniforms.invalidate.value = true;
+    this.accumPass.shader.uniforms.samples.value = 0;
+    this.frames = 0;
+  }
+
+  setSize(w, h) {
+    this.colorFBO.setSize(w, h);
+    this.antialiasPass.setSize(w, h);
+    this.antialiasPass.shader.uniforms.resolution.value.set(w, h);
+    // this.edgesPass.setSize(w, h);
+    // this.edgesPass.shader.uniforms.resolution.value.set(w, h);
+    // this.blurHPass.setSize(w, h);
+    // this.blurHPPass.shader.uniforms.resolution.value.set(w, h);
+    // this.blurVPass.setSize(w, h);
+    this.pass.setSize(w, h);
+    this.pass.shader.uniforms.resolution.value.set(w, h);
+    this.accumPass.setSize(w, h);
+    this.finalPass.setSize(w, h);
+
+    this.invalidate();
+  }
+
+  render(renderer, scene, camera) {
+    if (this.frames > this.maxAccumFrames) {
+      return;
+    }
+    for (let i = 0; i < this.framesPerFrame; i++) {
+      this.frames++;
+
+      renderer.setRenderTarget(this.colorFBO);
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(null);
+      // antialiasPass.shader.uniforms.inputTexture.value = colorFBO.texture;
+      // antialiasPass.shader.uniforms.minLevel.value = params.minLevel || 0.2;
+      // antialiasPass.shader.uniforms.maxLevel.value = params.maxLevel || 1;
+      // antialiasPass.render();
+      // edgesPass.render();
+      // const d = (2 * w) / 800;
+      // blurHPass.shader.uniforms.inputTexture.value = edgesPass.fbo.texture;
+      // blurHPass.shader.uniforms.direction.value.set(d, 0);
+      // blurHPass.render();
+      // blurVPass.shader.uniforms.inputTexture.value = blurHPass.fbo.texture;
+      // blurVPass.shader.uniforms.direction.value.set(0, d);
+      // blurVPass.render();
+      // blurHPass.shader.uniforms.inputTexture.value = blurVPass.fbo.texture;
+      // blurHPass.shader.uniforms.direction.value.set(d, 0);
+      // blurHPass.render();
+      // blurVPass.shader.uniforms.inputTexture.value = blurHPass.fbo.texture;
+      // blurVPass.shader.uniforms.direction.value.set(0, d);
+      // blurVPass.render();
+
+      this.pass.render(renderer);
+
+      this.accumPass.shader.uniforms.inputTexture.value = this.pass.fbo.texture;
+      this.accumPass.shader.uniforms.prevTexture.value = this.accumPass.texture;
+      this.accumPass.render(renderer);
+
+      this.finalPass.shader.uniforms.inputTexture.value =
+        this.accumPass.texture;
+      this.finalPass.render(renderer, true);
+
+      // antialiasPass.shader.uniforms.minLevel.value = 0;
+      // antialiasPass.shader.uniforms.maxLevel.value = 1;
+      // antialiasPass.shader.uniforms.inputTexture.value = pass.fbo.texture;
+      // antialiasPass.render(true);
+
+      this.accumPass.shader.uniforms.invalidate.value = false;
+    }
+  }
 }
 
-export default Painted;
+export { Painted };
