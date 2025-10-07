@@ -17,6 +17,7 @@ onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
+
 // palette.range = [
 //   "#FFFFFF",
 //   "#B9131E",
@@ -135,7 +136,7 @@ function draw(startTime) {
   const t = performance.now();
 
   if (isRunning) {
-    time += (t - lastTime) / 1000;
+    time += (t - lastTime) / 5000;
     painted.invalidate();
   }
 
