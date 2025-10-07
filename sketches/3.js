@@ -1,17 +1,22 @@
 import { Scene, Mesh, Group, Vector2, TextureLoader, Color } from "three";
-import { renderer, getCamera, isRunning } from "../modules/three.js";
+import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 // import { TorusKnot } from "../third_party/CurveExtras.js";
-import { KnotCurve } from "../third_party/CurveExtras.js";
+// import { KnotCurve as Curve } from "../third_party/CurveExtras.js";
+import { GrannyKnot as Curve } from "../third_party/CurveExtras.js";
 
-import Painted from "../modules/painted.js";
+import { Painted } from "../modules/painted.js";
 
 const painted = new Painted(renderer, { minLevel: -0.4 });
 
+onResize((w, h) => {
+  const dPR = renderer.getPixelRatio();
+  painted.setSize(w * dPR, h * dPR);
+});
 // palette.range = [
 //   "#FFFFFF",
 //   "#B9131E",
@@ -35,39 +40,42 @@ const painted = new Painted(renderer, { minLevel: -0.4 });
 //   "#584c44",
 // ];
 
-// palette.range = [
-//   "#DDAA44",
-//   "#B9384C",
-//   "#7E9793",
-//   "#F8F6F2",
-//   "#3D5443",
-//   "#2F2D30",
-//   "#AEC2DA",
-//   "#8C7F70",
-// ];
+palette.range = [
+  "#DDAA44",
+  "#B9384C",
+  "#7E9793",
+  "#F8F6F2",
+  "#3D5443",
+  "#2F2D30",
+  "#AEC2DA",
+  "#8C7F70",
+];
 
-palette.range = ["#20a0aa", "#ec4039", "#ffae12"];
+// palette.range = ["#20a0aa", "#ec4039", "#ffae12"];
 
 // palette.range = ["#000", "#eee"];
 
 const gradient = new gradientLinear(palette.range);
-const curve = new KnotCurve();
+const curve = new Curve();
 
 const canvas = renderer.domElement;
 const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.addEventListener("change", () => {
+  painted.invalidate();
+});
 
 camera.position.set(5, -2.5, -26);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.png");
+const strokeTexture = new TextureLoader().load("./assets/brush3.png");
 const resolution = new Vector2(canvas.width, canvas.height);
 
-const POINTS = 200;
+const POINTS = 100;
 const meshes = [];
 
 function prepareMesh(w, c) {
@@ -83,8 +91,9 @@ function prepareMesh(w, c) {
     map: strokeTexture,
     color: gradient.getAt(c),
     resolution: resolution,
-    lineWidth: w / 2,
+    lineWidth: w / 3,
     offset: Maf.randomInRange(-100, 100),
+    opacity: Maf.randomInRange(0.9, 1),
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -95,18 +104,18 @@ function prepareMesh(w, c) {
 }
 
 const spread = 1;
-const LINES = 30;
+const LINES = 20;
 const REPEAT = 3;
 for (let i = 0; i < LINES; i++) {
-  const w = 1 * Maf.randomInRange(0.8, 1.2);
+  const w = 1 * Maf.randomInRange(0.1, 1.2);
   const radius = 0.05 * Maf.randomInRange(4.5, 5.5);
   const color = Maf.randomInRange(0, 1); // i / LINES;
-  const offset = Maf.randomInRange(0, Maf.TAU / 8);
-  const range = Maf.TAU / 2;
+  const offset = Maf.randomInRange(0, Maf.TAU);
+  const range = Maf.TAU / 4;
   const x = Maf.randomInRange(-spread, spread);
   const y = Maf.randomInRange(-spread, spread);
   const z = Maf.randomInRange(-spread, spread);
-  const mesh = prepareMesh(w, color);
+  const mesh = prepareMesh(w * 2, color);
   mesh.position.set(x, y, z);
   group.add(mesh);
   meshes.push({
@@ -126,7 +135,8 @@ function draw(startTime) {
   const t = performance.now();
 
   if (isRunning) {
-    time += (t - lastTime) / 1000 / 20;
+    time += (t - lastTime) / 1000;
+    painted.invalidate();
   }
 
   meshes.forEach((m) => {
@@ -144,9 +154,9 @@ function draw(startTime) {
     g.setPoints(geo);
   });
 
-  group.rotation.y = time * Maf.TAU;
+  group.rotation.y = (time * Maf.TAU) / 10;
 
-  painted.render(scene, camera);
+  painted.render(renderer, scene, camera);
   lastTime = t;
 }
 
