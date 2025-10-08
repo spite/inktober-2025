@@ -14,7 +14,7 @@ import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { Easings } from "../modules/Easings.js";
+import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
 
 const painted = new Painted({ minLevel: -0.2 });
