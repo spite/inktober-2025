@@ -65,7 +65,6 @@ function prepareMesh(w, c) {
     sizeAttenuation: true,
     lineWidth: w / 2,
     opacity: 0.75,
-    alphaTest: 0.75 * 0.5,
   });
 
   var mesh = new Mesh(g.geometry, material);
