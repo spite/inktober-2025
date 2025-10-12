@@ -99,7 +99,7 @@ function prepareMesh(w, c) {
     sizeAttenuation: true,
     lineWidth: w / 10,
     opacity: 0.7,
-    repeat: new Vector2(Maf.randomInRange(10, 50), 1),
+    repeat: new Vector2(Math.round(Maf.randomInRange(1, 5)) * 10, 1),
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -124,10 +124,10 @@ for (let j = 0; j < LINES; j++) {
   const r1 = 0.5 * Maf.randomInRange(2, 2.5);
   const r2 = 0.75 * Maf.randomInRange(0.5, 1);
   const offAngle = Maf.randomInRange(0, 0.1 * Maf.TAU);
-  for (let i = 0; i < N - 1; i++) {
+  for (let i = 0; i < N; i++) {
     const segment = i / RSEGS;
     const ringAngle = (i * Maf.TAU) / RSEGS;
-    const segAngle = (segment * Maf.TAU) / ((N - 1) / RSEGS);
+    const segAngle = (segment * Maf.TAU) / (N / RSEGS);
     const p = new Vector3(r1 * Math.cos(segAngle), 0, r1 * Math.sin(segAngle));
     const d = new Vector3(
       r2 * Math.cos(ringAngle),
