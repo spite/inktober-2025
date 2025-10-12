@@ -75,7 +75,7 @@ camera.position.set(35, 15, -35).multiplyScalar(0.075);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.png");
+const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
@@ -98,7 +98,7 @@ function prepareMesh(w, c) {
     resolution: resolution,
     sizeAttenuation: true,
     lineWidth: w / 10,
-    opacity: 0.7,
+    opacity: Maf.randomInRange(0.6, 0.8),
     repeat: new Vector2(Math.round(Maf.randomInRange(1, 5)) * 10, 1),
   });
 

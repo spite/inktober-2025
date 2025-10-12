@@ -41,7 +41,7 @@ camera.position.set(15, 21, -3);
 camera.lookAt(group.position);
 renderer.setClearColor(0xfff6c7, 1);
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.png");
+const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 const resolution = new Vector2(canvas.width, canvas.height);
 
 const N = 400;

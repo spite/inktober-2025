@@ -35,7 +35,14 @@ palette.range = [
   "#7C6297",
   "#B43944",
 ];
-//palette.range = ["#F4E3C4", "#221006", "#682510", "#C5521E", "#A21C07", "#CE945F", "#EAC9A3"];
+palette.range = [
+  "#F62D62",
+  "#FFFFFF",
+  "#FDB600",
+  "#F42D2D",
+  "#544C98",
+  "#ECACBC",
+];
 const gradient = new gradientLinear(palette.range);
 
 const canvas = renderer.domElement;
@@ -52,9 +59,7 @@ painted.backgroundColor.set(new Color(0xf6f2e9));
 camera.position.set(35, 15, -35).multiplyScalar(0.075);
 camera.lookAt(group.position);
 
-const strokeTexture = new TextureLoader().load(
-  "./assets/PaintBrushStroke05.png"
-);
+const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
@@ -77,8 +82,9 @@ function prepareMesh(w, c) {
     resolution: resolution,
     sizeAttenuation: true,
     lineWidth: w,
-    repeat: new Vector2(5, 1),
-    useDash: true,
+    // useDash: true,
+    transparent: true,
+    opacity: Maf.randomInRange(0.5, 1),
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -88,11 +94,11 @@ function prepareMesh(w, c) {
   return mesh;
 }
 
-const LINES = 1;
+const LINES = 40;
 const meshes = [];
 for (let j = 0; j < LINES; j++) {
   const mesh = prepareMesh(
-    0.125 * Maf.randomInRange(0.1, 2),
+    0.05 * Maf.randomInRange(0.1, 2),
     Maf.randomInRange(0, 1)
   );
   group.add(mesh);
@@ -124,10 +130,13 @@ for (let j = 0; j < LINES; j++) {
   vertices[(N - 1) * 3] = vertices[0];
   vertices[(N - 1) * 3 + 1] = vertices[1];
   vertices[(N - 1) * 3 + 2] = vertices[2];
-  mesh.material.uniforms.dashArray.value.set(Maf.randomInRange(0.5, 0.5), 2);
+  //   mesh.material.uniforms.dashArray.value.set(Maf.randomInRange(0.5, 0.5), 2);
+  //   mesh.material.uniforms.dashArray.value.set(1, 1);
   mesh.g.setPoints(vertices);
   mesh.scale.setScalar(5);
-  mesh.material.uniforms.repeat.value.x = Math.floor(Maf.randomInRange(1, 5));
+  mesh.material.uniforms.repeat.value.x = Math.round(
+    Math.floor(Maf.randomInRange(5, 10))
+  );
   const speed = Math.floor(Maf.randomInRange(1, 5));
   meshes.push({ mesh, offset, speed });
 }
@@ -147,7 +156,7 @@ function draw(startTime) {
 
   meshes.forEach((m) => {
     const tt = Maf.mod(m.speed * time, 1);
-    m.mesh.material.uniforms.dashOffset.value = -1 * tt - m.offset;
+    m.mesh.material.uniforms.uvOffset.value.x = -1 * time - m.offset;
   });
 
   group.rotation.y = time * Maf.TAU;

@@ -73,7 +73,7 @@ camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-const strokeTexture = new TextureLoader().load("./assets/brush3.png");
+const strokeTexture = new TextureLoader().load("./assets/brush3.jpg");
 const resolution = new Vector2(canvas.width, canvas.height);
 
 const POINTS = 100;

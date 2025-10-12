@@ -1,6 +1,6 @@
 import {
   BufferGeometry,
-  Material,
+  GLSL3,
   Color,
   ShaderChunk,
   Vector2,
@@ -404,13 +404,11 @@ ShaderChunk["meshline_vert"] = `
   varying vec4 vColor;
   varying float vCounters;
   
-  vec2 fix( vec4 i, float aspect ) {
-  
-      vec2 res = i.xy / i.w;
-      res.x *= aspect;
-  	 vCounters = counters;
-      return res;
-  
+  vec2 fix( vec4 i, float aspect ) {  
+    vec2 res = i.xy / i.w;
+    res.x *= aspect;
+    vCounters = counters;
+    return res;
   }
   
   void main() {
@@ -471,9 +469,10 @@ ShaderChunk["meshline_frag"] = `
   
   uniform sampler2D map;
   uniform sampler2D alphaMap;
-  uniform float useMap;
-  uniform float useAlphaMap;
-  uniform float useDash;
+  uniform bool useMap;
+  uniform bool useAlphaMap;
+  uniform bool useNormalMap;
+  uniform bool useDash;
   uniform vec2 dashArray;
   uniform float dashOffset;
   uniform float dashRatio;
@@ -486,10 +485,13 @@ ShaderChunk["meshline_frag"] = `
   uniform float offset;
   uniform float opacity;
   uniform float time;
+  uniform sampler2D normalMap;
 
   varying vec2 vUV;
   varying vec4 vColor;
   varying float vCounters;
+  
+  out vec4 color;
   
   float blueNoise(in vec2 uv) {
     return texture(blueNoiseMap, uv).r;
@@ -513,15 +515,34 @@ ShaderChunk["meshline_frag"] = `
     return x - y * trunc(x/y);
   }
   
+  vec4 calcNormal(in sampler2D map, in vec2 uv) {
+    vec4 i = texture(map, uv);
+    float s11 = i.x;
+
+    const vec2 size = vec2(.2,0.0);
+    const ivec3 off = ivec3(-1,0,1);
+
+    float s01 = textureOffset(map, uv, off.xy).x;
+    float s21 = textureOffset(map, uv, off.zy).x;
+    float s10 = textureOffset(map, uv, off.yx).x;
+    float s12 = textureOffset(map, uv, off.yz).x;
+    vec3 va = normalize(vec3(size.xy,s21-s01));
+    vec3 vb = normalize(vec3(size.yx,s12-s10));
+    vec4 bump = vec4( cross(va,vb), s11 );
+
+    return bump;
+  }
+  
   void main() {
   
     ${ShaderChunk.logdepthbuf_fragment}
   
     vec4 c = vColor;
-
-    vec2 tuv = fmod((vUV + uvOffset) * repeat, vec2(1.));
-    if(useDash == 1.) {
-      tuv.x = fmod((tuv.x + dashOffset), 1.);
+    
+    vec2 tuv = mod((vUV + uvOffset) * repeat, vec2(1.));
+    
+    if(useDash) {
+      tuv.x = mod((tuv.x + dashOffset), 1.);
     }
 
     float e = .01;
@@ -529,16 +550,15 @@ ShaderChunk["meshline_frag"] = `
       discard;
     }
 
-    vec4 t = texture( map, tuv );
+    vec4 t = texture(map, tuv);
+    // vec4 n = calcNormal(map, tuv);
 
-    float alpha = t.r * opacity *t.a;
+    float alpha = t.r * opacity;
 
-    if( useDash == 1. ){
-      alpha *= ceil(mod(vCounters*repeat.x+dashOffset,1.) - (dashArray.x / (dashArray.x+dashArray.y)));
-    }
-    
-    if(alpha < .01) {
-      discard;
+    if( useDash ){
+      if(mod(vCounters * repeat.x + dashOffset,1.) > (dashArray.x / (dashArray.x+dashArray.y))) {
+        alpha = 0.;
+      }
     }
 
     vec2 uv = gl_FragCoord.xy / resolution.xy;
@@ -550,8 +570,10 @@ ShaderChunk["meshline_frag"] = `
       discard;
     }
     
-    c.a = 1.;
-    gl_FragColor = c;
+    c.a = t.r;
+    // c.rgb = n.rgb;
+    // c.rgb = vec3(1.-dot(n.rgb, vec3(-1., 1., 1.)));
+    color = c;
 
     ${ShaderChunk.fog_fragment}
   }`;
@@ -566,9 +588,11 @@ class MeshLineMaterial extends ShaderMaterial {
         blueNoiseMap: { value: blueNoise },
         lineWidth: { value: 1 },
         map: { value: null },
-        useMap: { value: 0 },
+        useMap: { value: false },
         alphaMap: { value: null },
-        useAlphaMap: { value: 0 },
+        useAlphaMap: { value: false },
+        normalMap: { value: null },
+        useNormalMap: { value: false },
         color: { value: new Color(0xffffff) },
         opacity: { value: 1 },
         resolution: { value: new Vector2(1, 1) },
@@ -587,10 +611,9 @@ class MeshLineMaterial extends ShaderMaterial {
         repeat: { value: new Vector2(1, 1) },
         uvOffset: { value: new Vector2(0, 0) },
       }),
-
       vertexShader: ShaderChunk.meshline_vert,
-
       fragmentShader: ShaderChunk.meshline_frag,
+      glslVersion: GLSL3,
     });
     this.isMeshLineMaterial = true;
     this.type = "MeshLineMaterial";
@@ -639,6 +662,24 @@ class MeshLineMaterial extends ShaderMaterial {
         },
         set: function (value) {
           this.uniforms.useAlphaMap.value = value;
+        },
+      },
+      normalMap: {
+        enumerable: true,
+        get: function () {
+          return this.uniforms.normalMap.value;
+        },
+        set: function (value) {
+          this.uniforms.normalMap.value = value;
+        },
+      },
+      useNormalMap: {
+        enumerable: true,
+        get: function () {
+          return this.uniforms.useNormalMap.value;
+        },
+        set: function (value) {
+          this.uniforms.useNormalMap.value = value;
         },
       },
       color: {

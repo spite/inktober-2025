@@ -116,7 +116,8 @@ geometry.setAttribute(
 );
 
 const resolution = new Vector2(canvas.width, canvas.height);
-const strokeTexture = new TextureLoader().load("./assets/brush4.png");
+const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
+const normalMapTexture = new TextureLoader().load("./assets/NormalMap.png");
 
 const circles = [];
 const SIDES = 72;
@@ -125,6 +126,8 @@ for (let i = 0; i < SIDES; i++) {
   const material = new MeshLineMaterial({
     map: strokeTexture,
     useMap: true,
+    normalMap: normalMapTexture,
+    useNormalMap: true,
     color: new Color().setHSL(i / SIDES, 1, 0.5),
     lineWidth: 0.3,
     resolution: resolution,
