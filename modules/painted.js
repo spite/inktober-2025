@@ -127,8 +127,30 @@ float gradientNoise(in vec2 uv) {
 	return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
 }
 
+vec4 calcNormal(in sampler2D map, in vec2 uv) {
+  vec4 i = texture(map, uv);
+  float s11 = i.x;
+
+  const vec2 size = vec2(.2,0.0);
+  const ivec3 off = ivec3(-1,0,1);
+
+  float s01 = textureOffset(map, uv, off.xy).x;
+  float s21 = textureOffset(map, uv, off.zy).x;
+  float s10 = textureOffset(map, uv, off.yx).x;
+  float s12 = textureOffset(map, uv, off.yz).x;
+  vec3 va = normalize(vec3(size.xy,s21-s01));
+  vec3 vb = normalize(vec3(size.yx,s12-s10));
+  vec4 bump = vec4( cross(va,vb), s11 );
+
+  return bump;
+}
+  
 void main() {
   vec4 color = texture(inputTexture, vUv);
+  
+  vec4 normal = calcNormal(inputTexture, vUv);
+  float l = dot(normal.rgb, normalize(vec3(-1., -1., 0.)));
+  l = clamp(pow(l, 200.), 0., 1.);
   
   vec2 offset = 10.  / resolution.xy;
   vec4 shadow = texture(inputTexture, vUv + vec2(-1., 1.) * offset);
@@ -152,6 +174,7 @@ void main() {
   color = softLight(color, vec4(vec3(vignette(vUv, vignetteBoost, vignetteReduction)),1.));
   color += (1. / 255.) * gradientNoise(gl_FragCoord.xy) - (.5 / 255.);
 
+  color = overlay(color, vec4(l), .5);
   fragColor = color;
 }
 `;
