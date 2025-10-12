@@ -71,6 +71,16 @@ palette.range = [
 //   "#b47b86",
 //   "#d6b77b",
 // ];
+palette.range = [
+  "#FD7555",
+  "#FE4F2E",
+  "#040720",
+  "#EB9786",
+  "#E02211",
+  "#3A0724",
+  "#F9C163",
+];
+
 const gradient = new gradientLinear(palette.range);
 
 const canvas = renderer.domElement;
