@@ -26,6 +26,11 @@ import { noise2d } from "../shaders/noise2d.js";
 import { ShaderPass } from "../modules/shader-pass.js";
 import { shader as median } from "../shaders/median.js";
 import { ShaderPingPongPass } from "../modules/shader-ping-pong-pass.js";
+import {
+  updateProjectionMatrixJitter,
+  incPointer,
+  resetPointer,
+} from "./jitter.js";
 
 const antialiasFragmentShader = `
 precision highp float;
@@ -201,6 +206,8 @@ class Painted {
     let w = 1;
     let h = 1;
 
+    this.size = new Vector2(w, h);
+
     this.colorFBO = new WebGLRenderTarget(w, h, {
       wrapS: ClampToEdgeWrapping,
       wrapT: ClampToEdgeWrapping,
@@ -351,6 +358,7 @@ class Painted {
     this.accumPass.shader.uniforms.invalidate.value = true;
     this.accumPass.shader.uniforms.samples.value = 0;
     this.frames = 0;
+    resetPointer();
   }
 
   setSize(w, h) {
@@ -366,7 +374,7 @@ class Painted {
     this.pass.shader.uniforms.resolution.value.set(w, h);
     this.accumPass.setSize(w, h);
     this.finalPass.setSize(w, h);
-
+    this.size.set(w, h);
     this.invalidate();
   }
 
@@ -375,6 +383,7 @@ class Painted {
       return;
     }
     for (let i = 0; i < this.framesPerFrame; i++) {
+      updateProjectionMatrixJitter(camera, this.size);
       this.frames++;
 
       renderer.setRenderTarget(this.colorFBO);
@@ -415,6 +424,8 @@ class Painted {
       // antialiasPass.render(true);
 
       this.accumPass.shader.uniforms.invalidate.value = false;
+
+      incPointer();
     }
   }
 }
