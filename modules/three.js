@@ -2,7 +2,7 @@ import { WebGLRenderer, PerspectiveCamera, OrthographicCamera } from "three";
 const cameras = [];
 
 function getWebGLRenderer() {
-  const renderer = new WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = new WebGLRenderer({ antialias: false, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   return renderer;
 }
