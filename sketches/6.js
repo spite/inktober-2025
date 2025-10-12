@@ -6,6 +6,7 @@ import {
   Vector3,
   TextureLoader,
   Color,
+  RepeatWrapping,
   Matrix4,
 } from "three";
 import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
@@ -32,6 +33,31 @@ palette.range = [
   "#544C98",
   "#ECACBC",
 ];
+
+palette.range = [
+  "#1e242c",
+  "#4a5b6b",
+  "#8da0b4",
+  "#cdd9e6",
+  "#f5f8fb",
+  // "#3a8beb",
+  "#6b9dd8",
+  // "#3ab485",
+  "#ebb43a",
+  "#e74c3c",
+];
+palette.range = [
+  "#1e242c",
+  "#4a5b6b",
+  "#8da0b4",
+  "#cdd9e6",
+  "#f5f8fb",
+  // "#3a8beb",
+  // "#6b9dd8",
+  // "#3ab485",
+  "#ebb43a",
+  "#e74c3c",
+];
 const gradient = new gradientLinear(palette.range);
 
 const canvas = renderer.domElement;
@@ -43,12 +69,14 @@ controls.screenSpacePanning = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
+painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position.set(35, 15, -35).multiplyScalar(0.075);
 camera.lookAt(group.position);
-renderer.setClearColor(0xeaba6d, 1);
+renderer.setClearColor(0, 0);
 
-const strokeTexture = new TextureLoader().load("./assets/stroke.png");
+const strokeTexture = new TextureLoader().load("./assets/brush4.png");
+strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
 const N = 200;
@@ -70,8 +98,8 @@ function prepareMesh(w, c) {
     resolution: resolution,
     sizeAttenuation: true,
     lineWidth: w / 10,
-    alphaTest: 0.75 * 0.5,
     opacity: 0.7,
+    repeat: new Vector2(Maf.randomInRange(10, 50), 1),
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -85,7 +113,7 @@ const LINES = 40;
 const meshes = [];
 for (let j = 0; j < LINES; j++) {
   const mesh = prepareMesh(
-    0.125 * Maf.randomInRange(1, 2),
+    0.5 * Maf.randomInRange(0.1, 2),
     Maf.randomInRange(0, 1)
   );
   group.add(mesh);
@@ -131,7 +159,7 @@ function draw(startTime) {
   const t = performance.now();
 
   if (isRunning) {
-    time += (t - lastTime) / 5000;
+    time += (t - lastTime) / 10000;
     painted.invalidate();
   }
 
@@ -139,6 +167,7 @@ function draw(startTime) {
     const tt = Maf.mod(m.speed * time, 1);
     //m.mesh.material.uniforms.dashArray.value.set(.5 + .5 * Maf.parabola(tt, 1), 2);
     m.mesh.material.uniforms.dashOffset.value = -1 * tt - m.offset;
+    m.mesh.material.uniforms.uvOffset.value.x = m.offset + tt * m.speed;
   });
 
   group.rotation.y = time * Maf.TAU;
