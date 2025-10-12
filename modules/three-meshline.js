@@ -505,15 +505,28 @@ ShaderChunk["meshline_frag"] = `
 	  return vec2(dx, dy);
   }
 
+  float fmod(in float x, in float y) {
+    return x - y * trunc(x/y);
+  }
+  
+  vec2 fmod(in vec2 x, in vec2 y) {
+    return x - y * trunc(x/y);
+  }
+  
   void main() {
   
     ${ShaderChunk.logdepthbuf_fragment}
   
     vec4 c = vColor;
 
-    vec2 tuv = (vUV + uvOffset) * repeat;
+    vec2 tuv = fmod((vUV + uvOffset) * repeat, vec2(1.));
     if(useDash == 1.) {
-      tuv.x = mod((tuv.x + dashOffset),1.);
+      tuv.x = fmod((tuv.x + dashOffset), 1.);
+    }
+
+    float e = .01;
+    if(tuv.x < e || tuv.x > 1. - e  || tuv.y < e  || tuv.y > 1. - e ) {
+      discard;
     }
 
     vec4 t = texture( map, tuv );
