@@ -98,7 +98,7 @@ function prepareMesh(w, c) {
     resolution: resolution,
     sizeAttenuation: true,
     lineWidth: w / 10,
-    opacity: Maf.randomInRange(0.6, 0.8),
+    opacity: Maf.randomInRange(0.5, 1),
     repeat: new Vector2(Math.round(Maf.randomInRange(1, 5)) * 10, 1),
   });
 
