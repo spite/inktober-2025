@@ -117,7 +117,6 @@ geometry.setAttribute(
 
 const resolution = new Vector2(canvas.width, canvas.height);
 const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
-const normalMapTexture = new TextureLoader().load("./assets/NormalMap.png");
 
 const circles = [];
 const SIDES = 72;
@@ -126,31 +125,30 @@ for (let i = 0; i < SIDES; i++) {
   const material = new MeshLineMaterial({
     map: strokeTexture,
     useMap: true,
-    normalMap: normalMapTexture,
-    useNormalMap: true,
     color: new Color().setHSL(i / SIDES, 1, 0.5),
-    lineWidth: 0.3,
+    lineWidth: Maf.randomInRange(0.3, 0.5),
     resolution: resolution,
     offset: Maf.randomInRange(-100, 100),
-    opacity: 0.8,
+    opacity: Maf.randomInRange(0.7, 0.9),
   });
   line.setGeometry(geometry, (p) => p);
   const mesh = new Mesh(line.geometry, material);
   const pivot = new Group();
   const a = Maf.randomInRange(0, Maf.TAU);
   const x = 3 * Math.sin(a);
-  const y = (4 * (-0.5 * SIDES + i)) / SIDES;
+  const y = Maf.randomInRange(-2, 2);
   const z = 3 * Math.cos(a);
   pivot.position.set(0, y, 0);
-  const tilt = 0.15;
+  const tilt = 0.1;
   pivot.rotation.x = Maf.randomInRange(-tilt, tilt);
   pivot.rotation.z = Maf.randomInRange(-tilt, tilt);
   mesh.rotation.x = Math.PI / 2;
   pivot.add(mesh);
   group.add(pivot);
   mesh.scale.setScalar(
-    Maf.parabola(i / SIDES, 0.5) + Maf.randomInRange(-0.1, 0.1)
+    Maf.parabola((y + 2) / 4, 0.5) + Maf.randomInRange(-0.1, 0.1)
   );
+  material.lineWidth *= Maf.parabola((y + 2) / 4, 0.5);
   circles.push({
     mesh,
     pivot,
