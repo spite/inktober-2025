@@ -154,7 +154,7 @@ void main() {
   l = 1. - l;
   l = smoothstep(.4, .6, l);
   
-  vec2 offset = 10.  / resolution.xy;
+  vec2 offset = 10. / resolution.xy;
   vec4 shadow = texture(inputTexture, vUv + vec2(-1., 1.) * offset);
   shadow = vec4(mix(vec3(.9), vec3(1.0), 1. - shadow.a), 1.);
   shadow.rgb = mix(shadow.rgb, vec3(1.), color.a);  
