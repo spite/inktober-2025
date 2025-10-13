@@ -9,6 +9,7 @@ import {
   ShaderMaterial,
   Matrix4,
   UniformsLib,
+  NearestFilter,
   TextureLoader,
   BufferAttribute,
 } from "three";
@@ -515,24 +516,6 @@ ShaderChunk["meshline_frag"] = `
     return x - y * trunc(x/y);
   }
   
-  vec4 calcNormal(in sampler2D map, in vec2 uv) {
-    vec4 i = texture(map, uv);
-    float s11 = i.x;
-
-    const vec2 size = vec2(.2,0.0);
-    const ivec3 off = ivec3(-1,0,1);
-
-    float s01 = textureOffset(map, uv, off.xy).x;
-    float s21 = textureOffset(map, uv, off.zy).x;
-    float s10 = textureOffset(map, uv, off.yx).x;
-    float s12 = textureOffset(map, uv, off.yz).x;
-    vec3 va = normalize(vec3(size.xy,s21-s01));
-    vec3 vb = normalize(vec3(size.yx,s12-s10));
-    vec4 bump = vec4( cross(va,vb), s11 );
-
-    return bump;
-  }
-  
   void main() {
   
     ${ShaderChunk.logdepthbuf_fragment}
@@ -551,7 +534,6 @@ ShaderChunk["meshline_frag"] = `
     }
 
     vec4 t = texture(map, tuv);
-    // vec4 n = calcNormal(map, tuv);
 
     float alpha = t.r * opacity;
 
@@ -566,13 +548,14 @@ ShaderChunk["meshline_frag"] = `
     uv = rot2d(uv, time);
     uv += offset;
 
+    // color = vec4(vec3(blueNoise(uv)), 1.);
+    // return;
+
     if(blueNoise(uv) > alpha) {
       discard;
     }
     
     c.a = t.r;
-    // c.rgb = n.rgb;
-    // c.rgb = vec3(1.-dot(n.rgb, vec3(-1., 1., 1.)));
     color = c;
 
     ${ShaderChunk.fog_fragment}
@@ -583,6 +566,7 @@ class MeshLineMaterial extends ShaderMaterial {
     const loader = new TextureLoader();
     const blueNoise = loader.load("./assets/bluenoise64.png");
     blueNoise.wrapS = blueNoise.wrapT = RepeatWrapping;
+    blueNoise.minFilter = blueNoise.magFilter = NearestFilter;
     super({
       uniforms: Object.assign({}, UniformsLib.fog, {
         blueNoiseMap: { value: blueNoise },
