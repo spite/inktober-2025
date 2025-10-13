@@ -149,8 +149,10 @@ void main() {
   vec4 color = texture(inputTexture, vUv);
   
   vec4 normal = calcNormal(inputTexture, vUv);
-  float l = dot(normal.rgb, normalize(vec3(-1., -1., 0.)));
-  l = clamp(pow(l, 200.), 0., 1.);
+  float l = dot(normal.rgb, normalize(vec3(1., -1., 0.)));
+  l = .5 + .5 * l;
+  l = 1. - l;
+  l = smoothstep(.4, .6, l);
   
   vec2 offset = 10.  / resolution.xy;
   vec4 shadow = texture(inputTexture, vUv + vec2(-1., 1.) * offset);
@@ -174,7 +176,8 @@ void main() {
   color = softLight(color, vec4(vec3(vignette(vUv, vignetteBoost, vignetteReduction)),1.));
   color += (1. / 255.) * gradientNoise(gl_FragCoord.xy) - (.5 / 255.);
 
-  color = overlay(color, vec4(l), .5);
+  color = overlay(color, vec4(l), 1.);
+  // color = vec4(l);
   fragColor = color;
 }
 `;
