@@ -45,7 +45,7 @@ palette.range = [
   "#5D2F25",
   "#EDC09E",
 ];
-palette.range = ["#000", "#111", "#ddd", "#fff"];
+// palette.range = ["#000", "#111", "#ddd", "#fff"];
 
 const gradient = new gradientLinear(palette.range);
 
@@ -102,15 +102,15 @@ function prepareMesh(w, c) {
   return mesh;
 }
 
-const func = generateNoiseFunction();
-// const func = seedFunc(
-//   18.544783278875173,
-//   28.42511319136372,
-//   -90.6111180920508,
-//   74.47577632946141,
-//   -89.16647745747825,
-//   -55.989028992098966
-// );
+// const func = generateNoiseFunction();
+const func = seedFunc(
+  18.544783278875173,
+  28.42511319136372,
+  -90.6111180920508,
+  74.47577632946141,
+  -89.16647745747825,
+  -55.989028992098966
+);
 
 const up = new Vector3(0, 1, 0);
 const LINES = 100;
