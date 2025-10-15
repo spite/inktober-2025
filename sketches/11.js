@@ -82,8 +82,6 @@ function prepareMesh(w, c) {
     resolution: resolution,
     sizeAttenuation: true,
     lineWidth: w,
-    near: camera.near,
-    far: camera.far,
     repeat: new Vector2(5, 1),
     dashArray: new Vector2(1, 3),
     dashOffset: 0,
