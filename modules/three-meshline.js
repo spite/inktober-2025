@@ -13,6 +13,7 @@ import {
   TextureLoader,
   BufferAttribute,
 } from "three";
+import { noise2d } from "../shaders/noise2d.js";
 
 class MeshLine extends BufferGeometry {
   constructor() {
@@ -400,7 +401,9 @@ ShaderChunk["meshline_vert"] = `
   uniform vec3 color;
   uniform float opacity;
   uniform float sizeAttenuation;
-  
+  uniform sampler2D blueNoiseMap;
+  uniform float time;
+
   varying vec2 vUV;
   varying vec4 vColor;
   varying float vCounters;
@@ -412,6 +415,13 @@ ShaderChunk["meshline_vert"] = `
     return res;
   }
   
+
+  vec2 rot2d(vec2 position, float theta) {
+    float dx = position.x * cos(theta) - position.y * sin(theta);
+    float dy = position.x * sin(theta) + position.y * cos(theta);
+	  return vec2(dx, dy);
+  }
+
   void main() {
   
       float aspect = resolution.x / resolution.y;
@@ -454,6 +464,12 @@ ShaderChunk["meshline_vert"] = `
       }
   
       finalPosition.xy += normal.xy * side;
+
+      vec2 uv = finalPosition.xy;
+      // uv = uv  / vec2(textureSize(blueNoiseMap, 0).xy);
+      uv = rot2d(uv, time);
+      uv += length(position);
+      finalPosition.z += .001 * texture(blueNoiseMap, uv).r;;
   
       gl_Position = finalPosition;
   
