@@ -70,7 +70,7 @@ const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
-const N = 200;
+const N = 500;
 
 const geo = new Float32Array(N * 3);
 const radius = 2;
@@ -89,10 +89,7 @@ function prepareMesh(w, c) {
     resolution: resolution,
     sizeAttenuation: true,
     lineWidth: w,
-    repeat: new Vector2(1, 1),
-    dashArray: new Vector2(1, 0),
-    dashOffset: 0,
-    useDash: !true,
+    useDash: true,
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -102,18 +99,18 @@ function prepareMesh(w, c) {
   return mesh;
 }
 
-// const func = generateNoiseFunction();
-const func = seedFunc(
-  18.544783278875173,
-  28.42511319136372,
-  -90.6111180920508,
-  74.47577632946141,
-  -89.16647745747825,
-  -55.989028992098966
-);
+const func = generateNoiseFunction();
+// const func = seedFunc(
+//   18.544783278875173,
+//   28.42511319136372,
+//   -90.6111180920508,
+//   74.47577632946141,
+//   -89.16647745747825,
+//   -55.989028992098966
+// );
 
 const up = new Vector3(0, 1, 0);
-const LINES = 100;
+const LINES = 500;
 const points = pointsOnSphere(LINES);
 const meshes = [];
 for (let j = 0; j < LINES; j++) {
@@ -141,13 +138,15 @@ for (let j = 0; j < LINES; j++) {
     p.add(res);
     p.normalize().multiplyScalar(0.5);
     tmp.copy(p);
-    p.multiplyScalar(1 + (0.1 * j) / LINES);
+    p.multiplyScalar(1 + (1 * j) / LINES);
     vertices[i * 3] = p.x;
     vertices[i * 3 + 1] = p.y;
     vertices[i * 3 + 2] = p.z;
   }
+  const repeat = 10; // Math.round(Maf.randomInRange(5, 10));
+
   mesh.material.uniforms.dashArray.value.set(1, 1);
-  mesh.material.uniforms.repeat.value.x = 10;
+  mesh.material.uniforms.repeat.value.x = repeat;
   mesh.g.setPoints(vertices, (p) => 2 * Maf.parabola(p, 0.5));
   mesh.scale.setScalar(5);
   const speed = Math.round(Maf.randomInRange(1, 3));
@@ -168,7 +167,7 @@ function draw(startTime) {
   }
 
   meshes.forEach((m) => {
-    // m.mesh.material.uniforms.dashOffset.value = -(time + m.offset);
+    m.mesh.material.uniforms.uvOffset.value.x = -(time + m.offset);
   });
 
   group.rotation.y = time * Maf.TAU;
