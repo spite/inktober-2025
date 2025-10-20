@@ -5,10 +5,10 @@ import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-
+import { TrefoilKnot as Curve } from "../third_party/CurveExtras.js";
 import { Painted } from "../modules/painted.js";
 
-const painted = new Painted({ minLevel: -0.4 });
+const painted = new Painted({ minLevel: -0.5 });
 
 onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
@@ -16,53 +16,88 @@ onResize((w, h) => {
 });
 
 palette.range = [
-  "#FD3579",
-  "#532DD8",
-  "#EA44B6",
-  "#371ABE",
-  "#FAD1DF",
-  "#520D28",
-  "#E0123A",
+  "#1e242c",
+  "#4a5b6b",
+  "#8da0b4",
+  "#cdd9e6",
+  "#f5f8fb",
+  // "#3a8beb",
+  // "#6b9dd8",
+  // "#3ab485",
+  "#ebb43a",
+  "#e74c3c",
 ];
 
+// palette.range = [
+//   "#DDAA44",
+//   "#B9384C",
+//   "#7E9793",
+//   "#F8F6F2",
+//   "#3D5443",
+//   "#2F2D30",
+//   "#AEC2DA",
+//   "#8C7F70",
+// ];
+//palette.range = ["#000000", "#555555"];
+
 const gradient = new gradientLinear(palette.range);
+const curve = new Curve();
 
 const canvas = renderer.domElement;
 const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
+
 const controls = new OrbitControls(camera, canvas);
-controls.screenSpacePanning = true;
+
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
 
-camera.position.set(15, 21, -3);
+camera.position.set(5, -2.5, -26);
 camera.lookAt(group.position);
-renderer.setClearColor(0xfff6c7, 1);
+renderer.setClearColor(0, 0);
+painted.backgroundColor.set(new Color(0xf6f2e9));
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
+const strokeTexture = new TextureLoader().load("./assets/brush3.jpg");
 const resolution = new Vector2(canvas.width, canvas.height);
 
-const N = 400;
-const LINES = 15;
+const POINTS = 500;
+const meshes = [];
 
-const geo = new Float32Array(N * 3);
+function prepareMesh(w, c, r) {
+  var geo = new Float32Array(POINTS * 3);
+  let ptr = 0;
+  for (var j = 0; j < geo.length; j += 3) {
+    let i = ptr / (POINTS - 1);
+    if (i === 1) {
+      i = 0;
+    }
+    const p = curve.getPoint(i);
+    geo[j] = r * p.x;
+    geo[j + 1] = r * p.y;
+    geo[j + 2] = r * p.z;
+    ptr++;
+  }
 
-function prepareMesh(w, c) {
   var g = new MeshLine();
-  g.setPoints(geo, function (p) {
-    return p;
-  });
+  g.setPoints(geo);
 
+  const repeat = Math.round(Maf.randomInRange(10, 20));
   const material = new MeshLineMaterial({
     map: strokeTexture,
     useMap: true,
     color: gradient.getAt(c),
     resolution: resolution,
-    sizeAttenuation: true,
     lineWidth: w,
-    opacity: 0.75,
+    offset: Maf.randomInRange(-100, 100),
+    repeat: new Vector2(repeat, 1),
+    dashArray: new Vector2(
+      1,
+      Math.round(Maf.randomInRange(0.5 * repeat, repeat - 1))
+    ),
+    useDash: true,
+    opacity: 0.8,
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -72,58 +107,53 @@ function prepareMesh(w, c) {
   return mesh;
 }
 
-const meshes = [];
-for (let j = 0; j < LINES; j++) {
-  const mesh = prepareMesh(Maf.randomInRange(0.1, 2), Maf.randomInRange(0, 1));
-  group.add(mesh);
-  mesh.scale.setScalar(1 + 0.05 * j);
-  mesh.rotation.set(
-    Maf.randomInRange(0, Maf.TAU),
-    Maf.randomInRange(0, Maf.TAU),
-    Maf.randomInRange(0, Maf.TAU)
-  );
+const spread = 1;
+const LINES = 200;
+for (let i = 0; i < LINES; i++) {
+  const w = Maf.randomInRange(0.1, 0.6);
+  const radius = 0.05 * Maf.randomInRange(4.5, 5.5);
+  const color = i / LINES;
   const offset = Maf.randomInRange(0, Maf.TAU);
-  const twist = Maf.randomInRange(0.25, 1);
-  meshes.push({ mesh, offset, twist });
+  const range = Maf.randomInRange(0.125 * Maf.TAU, 0.25 * Maf.TAU);
+  const mesh = prepareMesh(w, color, radius);
+  const speed = Maf.randomInRange(1, 10);
+  mesh.position.set(
+    Maf.randomInRange(-spread, spread),
+    Maf.randomInRange(-spread, spread),
+    Maf.randomInRange(-spread, spread)
+  );
+  group.add(mesh);
+  meshes.push({
+    mesh,
+    radius,
+    offset,
+    speed,
+    range,
+  });
 }
-group.scale.setScalar(1.5);
+group.scale.setScalar(0.5);
 scene.add(group);
-
-const r = 2;
 
 let lastTime = performance.now();
 let time = 0;
 
 function draw(startTime) {
   const t = performance.now();
-
   if (isRunning) {
-    time += (t - lastTime) / 5000;
+    time += (t - lastTime) / 1000 / 20;
     painted.invalidate();
   }
 
   meshes.forEach((m) => {
-    const q = m.twist; //easings.InOutQuad(.5 + .5 * Math.cos(Maf.PI + t * Maf.TAU + m.offset));
-    const vertices = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) {
-      const tw = 2.5 * Math.PI * q;
-      const th = (0.25 * i * Maf.TAU) / N + (time + m.offset) * 1 * Maf.TAU;
-
-      const ph = Math.cos(th) * tw;
-      const y = r * Math.cos(th);
-      const x = r * Math.sin(th) * Math.cos(ph);
-      const z = r * Math.sin(th) * Math.sin(ph);
-
-      vertices[i * 3] = x;
-      vertices[i * 3 + 1] = y;
-      vertices[i * 3 + 2] = z;
-    }
-    //m.mesh.rotation.y = m.offset + t * Maf.TAU;
-    m.mesh.g.setPoints(vertices);
+    m.mesh.material.uniforms.uvOffset.value.x = -(
+      m.offset +
+      0.5 * m.speed * time
+    );
   });
 
-  //group.rotation.y = t * Maf.TAU;
+  group.rotation.y = (time * Maf.TAU) / 4;
 
+  // renderer.render(scene, camera);
   painted.render(renderer, scene, camera);
   lastTime = t;
 }
