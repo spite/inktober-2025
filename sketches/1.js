@@ -101,7 +101,8 @@ painted.backgroundColor.set(new Color(0xf6f2e9));
 const circleRadius = 2;
 const geometry = new BufferGeometry();
 const vertices = [];
-for (let j = 0; j <= 1 * Math.PI; j += Math.PI / 72) {
+const SEGMENTS = 100;
+for (let j = 0; j <= 1 * Math.PI; j += Math.PI / SEGMENTS) {
   const v = new Vector3(
     0,
     circleRadius * Math.cos(j),
