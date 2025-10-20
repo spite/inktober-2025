@@ -466,10 +466,9 @@ ShaderChunk["meshline_vert"] = `
       finalPosition.xy += normal.xy * side;
 
       vec2 uv = finalPosition.xy;
-      // uv = uv  / vec2(textureSize(blueNoiseMap, 0).xy);
       uv = rot2d(uv, time);
       uv += length(position);
-      finalPosition.z += .001 * texture(blueNoiseMap, uv).r;;
+      finalPosition.z += .001 * texture(blueNoiseMap, uv).r;
   
       gl_Position = finalPosition;
   
@@ -535,29 +534,38 @@ ShaderChunk["meshline_frag"] = `
   void main() {
   
     ${ShaderChunk.logdepthbuf_fragment}
+
+    // color = vec4(1.,0.,1.,1.);
+    // color = vec4(vUV, 0., 1.);
+    // return;
   
     vec4 c = vColor;
     
     vec2 tuv = mod((vUV + uvOffset) * repeat, vec2(1.));
     
     if(useDash) {
-      tuv.x = mod((tuv.x + dashOffset), 1.);
-    }
-
-    float e = .01;
-    if(tuv.x < e || tuv.x > 1. - e  || tuv.y < e  || tuv.y > 1. - e ) {
-      discard;
-    }
-
-    vec4 t = texture(map, tuv);
-
-    float alpha = t.r * opacity;
-
-    if( useDash ){
-      if(mod(vCounters * repeat.x + dashOffset,1.) > (dashArray.x / (dashArray.x+dashArray.y))) {
-        alpha = 0.;
+      //tuv.x = mod((tuv.x + dashOffset), 1.);
+      // if(mod(vCounters * repeat.x + dashOffset,1.) > (dashArray.x / (dashArray.x+dashArray.y))) {
+      //   alpha = 0.;
+      // }
+      float dash = (vCounters + uvOffset.x) * repeat.x;
+      float i = floor((mod(vUV.x + uvOffset.x, 1.)) * repeat.x );
+      if((mod(i, length(dashArray))) >= dashArray.x) {
+        discard;
       }
     }
+    vec4 t = vec4(1.);
+    if(useMap) {
+      float e = .01;
+      if(tuv.x < e || tuv.x > 1. - e  || tuv.y < e  || tuv.y > 1. - e ) {
+        discard;
+      }
+        
+      t = texture(map, tuv);
+    }
+  
+    float alpha = t.r * opacity;
+
 
     vec2 uv = gl_FragCoord.xy / resolution.xy;
     uv = uv * resolution.xy / vec2(textureSize(blueNoiseMap, 0).xy);
