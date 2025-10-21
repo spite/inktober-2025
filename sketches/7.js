@@ -106,7 +106,7 @@ function prepareMesh(w, c) {
   return mesh;
 }
 
-const LINES = 40;
+const LINES = 80;
 const meshes = [];
 for (let j = 0; j < LINES; j++) {
   const mesh = prepareMesh(
@@ -146,9 +146,10 @@ for (let j = 0; j < LINES; j++) {
   //   mesh.material.uniforms.dashArray.value.set(1, 1);
   mesh.g.setPoints(vertices);
   mesh.scale.setScalar(5);
-  mesh.material.uniforms.repeat.value.x = Math.round(
-    Math.floor(Maf.randomInRange(5, 10))
-  );
+  const repeat = Math.floor(Maf.randomInRange(5, 10));
+  mesh.material.uniforms.repeat.value.x = repeat;
+  mesh.material.uniforms.dashArray.value.set(1, repeat - 1);
+  mesh.material.uniforms.useDash.value = true;
   const speed = Math.floor(Maf.randomInRange(1, 5));
   meshes.push({ mesh, offset, speed });
 }
