@@ -544,16 +544,13 @@ ShaderChunk["meshline_frag"] = `
     vec2 tuv = mod((vUV + uvOffset) * repeat, vec2(1.));
     
     if(useDash) {
-      //tuv.x = mod((tuv.x + dashOffset), 1.);
-      // if(mod(vCounters * repeat.x + dashOffset,1.) > (dashArray.x / (dashArray.x+dashArray.y))) {
-      //   alpha = 0.;
-      // }
       float dash = (vCounters + uvOffset.x) * repeat.x;
       float i = floor((mod(vUV.x + uvOffset.x, 1.)) * repeat.x );
       if((mod(i, length(dashArray))) >= dashArray.x) {
         discard;
       }
     }
+      
     vec4 t = vec4(1.);
     if(useMap) {
       float e = .01;
@@ -565,7 +562,6 @@ ShaderChunk["meshline_frag"] = `
     }
   
     float alpha = t.r * opacity;
-
 
     vec2 uv = gl_FragCoord.xy / resolution.xy;
     uv = uv * resolution.xy / vec2(textureSize(blueNoiseMap, 0).xy);
