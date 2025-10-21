@@ -51,7 +51,9 @@ camera.position.set(35, 15, -35).multiplyScalar(0.08);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
-const strokeTexture = new TextureLoader().load("./assets/brush2.jpg");
+const strokeTexture = new TextureLoader().load(
+  "./assets/PaintBrushStroke05.jpg"
+);
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
@@ -75,9 +77,10 @@ function prepareMesh(w, c) {
     sizeAttenuation: true,
     lineWidth: w,
     repeat: new Vector2(5, 1),
-    dashArray: new Vector2(1, 1),
+    dashArray: new Vector2(1, 4),
     dashOffset: 0,
     useDash: true,
+    opacity: Maf.randomInRange(0.6, 1),
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -127,8 +130,11 @@ for (let j = 0; j < LINES; j++) {
   mesh.g.setPoints(vertices);
   mesh.scale.setScalar(5);
   mesh.rotation.y = Maf.randomInRange(-0.1, 0.1);
-  mesh.material.uniforms.repeat.value.x =
-    2 * Math.floor(Maf.randomInRange(3, 5));
+  const repeat = 10 * Math.floor(Maf.randomInRange(3, 5));
+  mesh.material.uniforms.repeat.value.x = repeat;
+  const start = 1;
+  const end = Math.round(Maf.randomInRange(start, repeat - 1));
+  mesh.material.uniforms.dashArray.value.set(start, end);
   const speed = Math.floor(Maf.randomInRange(1, 2));
   meshes.push({ mesh, offset, speed });
 }
@@ -147,7 +153,7 @@ function draw(startTime) {
   }
 
   meshes.forEach((m) => {
-    m.mesh.material.uniforms.dashOffset.value = -1 * time - m.offset;
+    m.mesh.material.uniforms.uvOffset.value.x = -1 * time * m.speed - m.offset;
   });
 
   group.rotation.y = time * Maf.TAU;
