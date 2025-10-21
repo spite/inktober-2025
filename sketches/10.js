@@ -53,7 +53,9 @@ camera.lookAt(group.position);
 group.position.y -= 0.3;
 renderer.setClearColor(0, 0);
 
-const strokeTexture = new TextureLoader().load("./assets/brush2.jpg");
+const strokeTexture = new TextureLoader().load(
+  "./assets/watercolor-brush-stroke.jpg"
+);
 const resolution = new Vector2(canvas.width, canvas.height);
 
 const N = 80 * 6;
@@ -75,11 +77,9 @@ function prepareMesh(w, c) {
     color: gradient.getAt(c),
     resolution: resolution,
     sizeAttenuation: true,
-    lineWidth: w,
-    repeat: new Vector2(3, 1),
-    dashArray: new Vector2(1, 1),
-    dashOffset: 0,
+    lineWidth: Maf.map(0, 1, 0.01, 0.2, w),
     useDash: true,
+    opacity: Maf.map(0, 1, 0.5, 1, 1 - w),
   });
 
   var mesh = new Mesh(g.geometry, material);
@@ -90,13 +90,10 @@ function prepareMesh(w, c) {
 }
 
 const up = new Vector3(0, 1, 0);
-const LINES = 50;
+const LINES = 100;
 const meshes = [];
 for (let j = 0; j < LINES; j++) {
-  const mesh = prepareMesh(
-    Maf.randomInRange(0.01, 0.2),
-    Maf.randomInRange(0, 1)
-  );
+  const mesh = prepareMesh(Maf.randomInRange(0, 1), Maf.randomInRange(0, 1));
   group.add(mesh);
   const offset = Maf.randomInRange(0, 1);
   const vertices = new Float32Array(N * 3);
@@ -123,8 +120,13 @@ for (let j = 0; j < LINES; j++) {
   vertices[(N - 1) * 3] = vertices[0];
   vertices[(N - 1) * 3 + 1] = vertices[1];
   vertices[(N - 1) * 3 + 2] = vertices[2];
-  mesh.material.uniforms.dashArray.value.set(1, 3);
-  mesh.material.uniforms.repeat.value.x = 10;
+  const repeat = Math.round(Maf.randomInRange(10, 20));
+  mesh.material.uniforms.repeat.value.x = repeat;
+  mesh.material.uniforms.dashArray.value.set(
+    1,
+    Math.floor(Maf.randomInRange(0.5 * repeat, repeat - 1))
+  );
+  mesh.material.uniforms.uvOffset.value.x = Maf.randomInRange(-10, 10);
   mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.5));
   mesh.scale.setScalar(5);
   mesh.rotation.x = Maf.randomInRange(-0.1, 0.1);
@@ -147,7 +149,7 @@ function draw(startTime) {
 
   meshes.forEach((m) => {
     const tt = Maf.mod(m.speed * time, 1);
-    m.mesh.material.uniforms.dashOffset.value = -1 * tt - m.offset;
+    m.mesh.material.uniforms.uvOffset.value.x = -1 * tt - m.offset;
   });
 
   group.rotation.y = time * Maf.TAU;
