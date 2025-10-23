@@ -21,7 +21,7 @@ import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
 import { pointsOnSphere } from "../modules/points-sphere.js";
 import { curl, seedFunc } from "../modules/curl.js";
-import { RoundedBoxGeometry } from "../third_party/three-rounded-box.js";
+import { march, sdRoundBox } from "../modules/raymarch.js";
 
 const painted = new Painted({ minLevel: -0.2 });
 // const curl = generateNoiseFunction();
@@ -108,12 +108,13 @@ const func = seedFunc(
   -59.007133755175765
 );
 
-const side = 1;
-const raycaster = new Raycaster(new Vector3(), new Vector3());
-const cube = new Mesh(
-  new RoundedBoxGeometry(side, side, side, 5, 0.1 * side),
-  new MeshNormalMaterial({ side: DoubleSide })
-);
+function map(p) {
+  let d = sdRoundBox(p, new Vector3(0.5, 0.5, 0.5), 0.1);
+  //   let d = sdRoundedCylinder(p, 0.4, 0.1, 0.1);
+  //   let d = fIcosahedron(p, 0.5, 50);
+  // let d = sdDodecahedron(p, 0.5, 50);
+  return d;
+}
 
 const up = new Vector3(0, 1, 0);
 const center = new Vector3(0, 0, 0);
@@ -138,10 +139,15 @@ for (let j = 0; j < LINES; j++) {
     const res = curl(tmp.multiplyScalar(1 + (0.5 * j) / LINES), func);
     res.multiplyScalar(0.02);
     p.add(res);
-    raycaster.ray.origin.copy(center);
-    raycaster.ray.direction.copy(p).normalize();
-    const intersects = raycaster.intersectObject(cube);
-    p.copy(intersects[0].point).multiplyScalar(0.5 - (0.1 * j) / LINES);
+
+    const ro = p.clone().normalize().sub(center).normalize().multiplyScalar(1);
+
+    const rd = ro.clone().sub(center).normalize().multiplyScalar(-1);
+
+    const d = march(ro, rd, map);
+    const intersects = rd.multiplyScalar(d).add(ro);
+
+    p.copy(intersects).multiplyScalar(0.5 - (0.1 * j) / LINES);
     tmp.copy(p);
     vertices[i * 3] = p.x;
     vertices[i * 3 + 1] = p.y;
