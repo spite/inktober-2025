@@ -24,8 +24,11 @@ import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
 import { pointsOnSphere } from "../modules/points-sphere.js";
 import { curl, seedFunc, generateNoiseFunction } from "../modules/curl.js";
-import { RoundedCylinderGeometry } from "../modules/rounded-cylinder-geometry.js";
-import { march, sdIcosahedron, sdDodecahedron } from "../modules/raymarch.js";
+import {
+  march,
+  sdRoundedCylinder,
+  sdDodecahedron,
+} from "../modules/raymarch.js";
 
 const painted = new Painted({ minLevel: -0.2 });
 // const curl = generateNoiseFunction();
@@ -77,7 +80,9 @@ camera.position
 camera.lookAt(group.position);
 renderer.setClearColor(0xf8fcfe, 1);
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
+const strokeTexture = new TextureLoader().load(
+  "./assets/watercolor-brush-stroke.jpg"
+);
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
@@ -91,24 +96,13 @@ const func = seedFunc(
   24.71859960593177
 );
 
-const cylinderGeo = RoundedCylinderGeometry(0.25, 0.06, 0.1, 5);
-const tube = new Mesh(
-  cylinderGeo,
-  new MeshNormalMaterial({
-    side: DoubleSide,
-  })
-);
-const m = new Matrix4();
-m.makeTranslation(0, 0, -0.5);
-tube.geometry.applyMatrix4(m);
-
 const rot = new Vector3(0.1, 0.2, 0.3).normalize();
 
 function map(p) {
   //   let d = sdRoundBox(p, new Vector3(0.5, 0.5, 0.5), 0.1);
-  //   let d = sdRoundedCylinder(p, 0.4, 0.1, 0.1);
+  let d = sdRoundedCylinder(p, 0.6, 0.1, 0.25);
   //   let d = fIcosahedron(p, 0.5, 50);
-  let d = sdDodecahedron(p, 0.5, 50);
+  //   let d = sdDodecahedron(p, 0.5, 50);
   return d;
 }
 
@@ -130,7 +124,7 @@ function prepareMesh(w, c) {
     return p;
   });
 
-  const repeat = Math.round(Maf.randomInRange(1, 10));
+  const repeat = Math.round(Maf.randomInRange(5, 15));
   const material = new MeshLineMaterial({
     map: strokeTexture,
     useMap: true,
