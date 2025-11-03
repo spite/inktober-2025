@@ -156,7 +156,7 @@ function renderLines() {
       color: gradient.getAt(Maf.randomInRange(0, 1)),
       resolution,
       sizeAttenuation: true,
-      lineWidth: 0.05,
+      lineWidth: 0.05 / 4,
       // repeat: new Vector2(repeat, 1),
       // dashArray: new Vector2(1, repeat - 1),
       // useDash: true,
@@ -181,6 +181,7 @@ function renderLines() {
     // group.add(line);
   }
 }
+group.scale.set(0.25, 0.25, 0.25);
 
 renderLines();
 scene.add(group);
