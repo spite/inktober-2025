@@ -87,7 +87,7 @@ camera.position
   .multiplyScalar(2);
 // camera.position.set(3, 3, 3);
 camera.lookAt(group.position);
-renderer.setClearColor(0xf8fcfe, 1);
+renderer.setClearColor(0, 0);
 
 const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
