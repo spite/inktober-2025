@@ -18,7 +18,7 @@ import { OrbitControls } from "OrbitControls";
 import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
 import { pointsOnSphere } from "../modules/points-sphere.js";
-import { curl, seedFunc } from "../modules/curl.js";
+import { curl, seedFunc, generateNoiseFunction } from "../modules/curl.js";
 
 const painted = new Painted({ minLevel: -0.2 });
 // const curl = generateNoiseFunction();
@@ -29,15 +29,15 @@ onResize((w, h) => {
 });
 
 palette.range = [
-  "#ECECEC",
-  "#A8A7A7",
-  "#AC050A",
-  "#0E0E0C",
-  "#F38606",
-  "#3D583F",
-  "#0966C4",
-  "#C54A35",
+  "#FE695A",
+  "#0F2246",
+  "#CE451C",
+  "#FEF2CD",
+  "#EEC1A6",
+  "#57424A",
+  "#E2902D",
 ];
+
 const gradient = new gradientLinear(palette.range);
 
 const canvas = renderer.domElement;
@@ -57,13 +57,13 @@ camera.position.set(
   0.3548472598819808
 );
 camera.lookAt(group.position);
-renderer.setClearColor(0xefefef, 1);
+renderer.setClearColor(0, 0);
 
 const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
-const N = 1000;
+const N = 2000;
 
 const geo = new Float32Array(N * 3);
 const radius = 2;
@@ -75,16 +75,18 @@ function prepareMesh(w, c) {
     return p;
   });
 
+  const repeat = Math.round(Maf.randomInRange(1, 10));
+
   const material = new MeshLineMaterial({
     map: strokeTexture,
     useMap: true,
     color: gradient.getAt(c),
     resolution: resolution,
     sizeAttenuation: true,
-    lineWidth: w,
-    repeat: new Vector2(2, 1),
+    lineWidth: w / 2,
+    repeat: new Vector2(repeat, 1),
     opacity: 1,
-    dashArray: new Vector2(1, 1),
+    dashArray: new Vector2(1, repeat - 1),
     dashOffset: 0,
   });
 
@@ -95,7 +97,7 @@ function prepareMesh(w, c) {
   return mesh;
 }
 
-//const func = generateNoiseFunction();
+// const func = generateNoiseFunction();
 //const func = seedFunc(-53.82730791212893,45.48216468394176,44.866734022764945,-33.39552077431472,95.75097771694763,-1.7435116651043785);
 const func = seedFunc(
   47.979861439134766,
