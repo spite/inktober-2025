@@ -151,14 +151,14 @@ async function loadModel(file) {
 }
 
 async function loadSuzanne() {
-  const model = await loadModel("../assets/suzanne.obj");
+  const model = await loadModel("./assets/suzanne.obj");
   const geo = mergeMesh(model);
   const modified = LoopSubdivision.modify(geo, 2);
   return modified;
 }
 
 async function loadLeePerrySmith() {
-  const model = await loadModel("../assets/LeePerrySmith.obj");
+  const model = await loadModel("./assets/LeePerrySmith.obj");
   const geo = mergeMesh(model);
   return geo;
 }
