@@ -28,8 +28,6 @@ import { pointsOnSphere } from "../modules/points-sphere.js";
 import { curl, seedFunc, generateNoiseFunction } from "../modules/curl.js";
 import { march, sdRoundBox } from "../modules/raymarch.js";
 import { RoundedBoxGeometry } from "../third_party/three-rounded-box.js";
-import { OBJLoader } from "../third_party/OBJLoader.js";
-import { LoopSubdivision } from "../third_party/LoopSubdivision.js";
 import {
   computeBoundsTree,
   disposeBoundsTree,
@@ -37,6 +35,7 @@ import {
 } from "../third_party/bvh.js";
 import { MeshSurfaceSampler } from "../third_party/MeshSurfaceSampler.js";
 import { init } from "../modules/dipoles-3d.js";
+import { loadSuzanne } from "../modules/models.js";
 
 // Add the extension functions
 BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -82,7 +81,7 @@ camera.position.set(
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
+const strokeTexture = new TextureLoader().load("./assets/brush2.jpg");
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const resolution = new Vector2(canvas.width, canvas.height);
 
@@ -112,61 +111,7 @@ function prepareMesh(w, c) {
   return mesh;
 }
 
-function mergeMesh(mesh) {
-  let count = 0;
-  mesh.traverse((m) => {
-    if (m instanceof Mesh) {
-      count += m.geometry.attributes.position.count;
-    }
-  });
-  let geo = new BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  count = 0;
-  mesh.traverse((m) => {
-    if (m instanceof Mesh) {
-      const mat = new Matrix4().makeTranslation(
-        m.position.x,
-        m.position.y,
-        m.position.z
-      );
-      m.geometry.applyMatrix4(mat);
-      const pos = m.geometry.attributes.position;
-      for (let j = 0; j < pos.count; j++) {
-        positions[(count + j) * 3] = pos.array[j * 3];
-        positions[(count + j) * 3 + 1] = pos.array[j * 3 + 1];
-        positions[(count + j) * 3 + 2] = pos.array[j * 3 + 2];
-      }
-      count += pos.count;
-    }
-  });
-  geo.setAttribute("position", new BufferAttribute(positions, 3));
-  return geo;
-}
-
-async function loadModel(file) {
-  return new Promise((resolve, reject) => {
-    const loader = new OBJLoader();
-    loader.load(file, resolve, null, reject);
-  });
-}
-
-async function loadSuzanne() {
-  const model = await loadModel("../assets/suzanne.obj");
-  const geo = mergeMesh(model);
-  const modified = LoopSubdivision.modify(geo, 2);
-  return modified;
-}
-
-async function loadLeePerrySmith() {
-  const model = await loadModel("../assets/LeePerrySmith.obj");
-  const geo = mergeMesh(model);
-  return geo;
-}
-
 const suzanneGeo = await loadSuzanne();
-// const suzanneGeo = await loadLeePerrySmith();
-// suzanneGeo.scale(5, 5, 5);
-suzanneGeo.center();
 suzanneGeo.computeBoundsTree();
 
 const raycaster = new Raycaster(new Vector3(), new Vector3());
@@ -182,7 +127,7 @@ const cube = new Mesh(suzanneGeo, new MeshBasicMaterial({ color: 0xf6f2e9 }));
 const sampler = new MeshSurfaceSampler(cube).build();
 const position = new Vector3();
 
-const charges = init(20, 1, 1, 1, 1);
+const charges = init(50, 1, 1, 1, 1);
 charges.charges.forEach((p, i) => {
   sampler.sample(position);
   p.x = position.x;
