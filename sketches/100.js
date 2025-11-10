@@ -15,6 +15,7 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   DoubleSide,
+  TorusKnotGeometry,
   ArrowHelper,
   LineBasicMaterial,
   TubeGeometry,
@@ -38,7 +39,11 @@ import {
   acceleratedRaycast,
 } from "../third_party/bvh.js";
 import { MeshSurfaceSampler } from "../third_party/MeshSurfaceSampler.js";
-import { loadStanfordBunny, loadSuzanne } from "../modules/models.js";
+import {
+  loadStanfordBunny,
+  loadSuzanne,
+  mergeMesh,
+} from "../modules/models.js";
 
 // Add the extension functions
 BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -50,29 +55,28 @@ const group = new Group();
 const WIDTH = 1;
 const HEIGHT = 1;
 const DEPTH = 1;
-const NUMCHARGES = 50;
-const POINTS = 2000;
 
 let obj = {};
 let points = [];
 let charges = [];
 
 async function initPoints() {
-  // obj = initSphere();
+  obj = initSphere();
   // obj = await initSuzanne();
-  obj = await initStanfordBunnt();
+  // obj = await initStanfordBunnt();
+  // obj = intTorus();
 
   renderLines();
 }
 
 function initSphere() {
   const r = 0.25;
-  points = pointsOnSphere(POINTS, r);
-  const chargePoints = pointsOnSphere(NUMCHARGES);
+  points = pointsOnSphere(2000, r);
+  const chargePoints = pointsOnSphere(20);
   const mesh = new Mesh(new IcosahedronGeometry(r, 7), material);
   group.add(mesh);
 
-  charges = init(NUMCHARGES, WIDTH, HEIGHT, DEPTH, 0.01);
+  charges = init(chargePoints.length, WIDTH, HEIGHT, DEPTH, 0.01);
   const tmp = new Vector3();
   charges.charges.forEach((p, i) => {
     const pc = chargePoints[i];
@@ -90,6 +94,45 @@ function initSphere() {
       tmp.set(dir.x, dir.y, dir.z).clampLength(0, 0.002);
       v.add(tmp);
       v.normalize().multiplyScalar(r);
+    },
+  };
+}
+
+function intTorus() {
+  const geo = new TorusKnotGeometry(0.75, 0.25, 300, 72);
+  geo.scale(0.25, 0.25, 0.25);
+  geo.computeBoundsTree();
+
+  const mesh = new Mesh(geo, material);
+  group.add(mesh);
+
+  const sampler = new MeshSurfaceSampler(mesh).build();
+  const position = new Vector3();
+
+  for (let i = 0; i < 4000; i++) {
+    sampler.sample(position);
+    points.push(position.clone());
+  }
+
+  charges = init(50, 1, 1, 1, 1);
+  charges.charges.forEach((p, i) => {
+    sampler.sample(position);
+    p.x = position.x;
+    p.y = position.y;
+    p.z = position.z;
+    p.charge = Maf.randomInRange(-100, 100);
+  });
+
+  const tmp = new Vector3();
+  return {
+    step: (v) => {
+      // const dir = charges.calcDirection(v.x, v.y, v.z);
+      tmp.copy(v).multiplyScalar(6);
+      const dir = curl(tmp);
+      tmp.copy(dir).clampLength(0, 0.002);
+      v.add(tmp);
+      geo.boundsTree.closestPointToPoint(v, tmp);
+      v.copy(tmp.point);
     },
   };
 }
@@ -264,8 +307,8 @@ function renderLines() {
       Maf.map(
         Math.exp(0),
         Math.exp(1 * 2),
-        0.001,
-        0.004,
+        0.002,
+        0.008,
         Math.exp((2 * (curve.getLength() - minLength)) / range)
       ),
       36,
