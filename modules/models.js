@@ -4,6 +4,11 @@ import { Mesh, BufferGeometry, Matrix4, BufferAttribute } from "three";
 
 function mergeMesh(mesh) {
   let count = 0;
+  //   mesh.traverse((m) => {
+  //     if (m instanceof Mesh) {
+  //       m.geometry = m.geometry.toNonIndexed();
+  //     }
+  //   });
   mesh.traverse((m) => {
     if (m instanceof Mesh) {
       count += m.geometry.attributes.position.count;
@@ -41,22 +46,22 @@ async function loadModel(file) {
 }
 
 async function loadSuzanne() {
-  const model = await loadModel("../assets/suzanne.obj");
+  const model = await loadModel("./assets/suzanne.obj");
   const geo = mergeMesh(model);
   const modified = LoopSubdivision.modify(geo, 2);
   return modified;
 }
 
 async function loadLeePerrySmith() {
-  const model = await loadModel("../assets/LeePerrySmith.obj");
+  const model = await loadModel("./assets/LeePerrySmith.obj");
   const geo = mergeMesh(model);
   return geo;
 }
 
 async function loadStanfordBunny() {
-  const model = await loadModel("../assets/bunny.obj");
+  const model = await loadModel("./assets/bunny.obj");
   const geo = mergeMesh(model);
   return geo;
 }
 
-export { loadSuzanne, loadLeePerrySmith, loadStanfordBunny };
+export { loadSuzanne, loadLeePerrySmith, loadStanfordBunny, mergeMesh };
