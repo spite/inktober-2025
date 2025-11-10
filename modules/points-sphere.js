@@ -1,10 +1,10 @@
 import { Vector3 } from "three";
 
-function pointsOnSphere(n) {
+function pointsOnSphere(n, r = 1) {
   const pts = [];
   const inc = Math.PI * (3 - Math.sqrt(5));
   const off = 2.0 / n;
-  let r;
+  let rr;
   var phi;
   let dmin = 10000;
   const prev = new Vector3();
@@ -12,15 +12,15 @@ function pointsOnSphere(n) {
 
   for (var k = 0; k < n; k++) {
     cur.y = k * off - 1 + off / 2;
-    r = Math.sqrt(1 - cur.y * cur.y);
+    rr = Math.sqrt(1 - cur.y * cur.y);
     phi = k * inc;
-    cur.x = Math.cos(phi) * r;
-    cur.z = Math.sin(phi) * r;
+    cur.x = Math.cos(phi) * rr;
+    cur.z = Math.sin(phi) * rr;
 
     const dist = cur.distanceTo(prev);
     if (dist < dmin) dmin = dist;
 
-    pts.push(cur.clone());
+    pts.push(cur.clone().normalize().multiplyScalar(r));
     prev.copy(cur);
   }
 
