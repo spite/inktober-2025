@@ -16,6 +16,7 @@ import {
   Float32BufferAttribute,
   DoubleSide,
   TorusKnotGeometry,
+  TorusGeometry,
   ArrowHelper,
   LineBasicMaterial,
   TubeGeometry,
@@ -44,11 +45,38 @@ import {
   loadSuzanne,
   mergeMesh,
 } from "../modules/models.js";
+import { generate as generateMetaballs } from "./metaballs.js";
+import { march, sdIcosahedron } from "../modules/raymarch.js";
 
 // Add the extension functions
 BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 Mesh.prototype.raycast = acceleratedRaycast;
+
+function map(p) {
+  let d = sdIcosahedron(p, 1, 50);
+  return d;
+}
+
+function shrinkWrap() {
+  const geometry = new IcosahedronGeometry(3, 10);
+  const v = new Vector3();
+  const ro = new Vector3();
+  const rd = new Vector3();
+  const center = new Vector3(0, 0, 0);
+  const positions = geometry.attributes.position.array;
+  for (let i = 0; i < positions.length; i += 3) {
+    v.set(positions[i], positions[i + 1], positions[i + 2]);
+    ro.copy(v);
+    const rd = ro.clone().sub(center).normalize().multiplyScalar(-1);
+    const d = march(ro, rd, map);
+    const intersects = rd.multiplyScalar(d).add(ro);
+    positions[i] = intersects.x;
+    positions[i + 1] = intersects.y;
+    positions[i + 2] = intersects.z;
+  }
+  return geometry;
+}
 
 const group = new Group();
 
@@ -61,10 +89,10 @@ let points = [];
 let charges = [];
 
 async function initPoints() {
-  obj = initSphere();
+  // obj = initSphere();
   // obj = await initSuzanne();
   // obj = await initStanfordBunnt();
-  // obj = intTorus();
+  obj = intTorus();
 
   renderLines();
 }
@@ -99,7 +127,11 @@ function initSphere() {
 }
 
 function intTorus() {
-  const geo = new TorusKnotGeometry(0.75, 0.25, 300, 72);
+  // const geo = generateMetaballs();
+  // const geo = new IcosahedronGeometry(0.75, 1);
+  // const geo = new TorusGeometry(0.75, 0.25, 300, 72);
+  // const geo = new TorusKnotGeometry(0.75, 0.25, 300, 72, 2, 1);
+  const geo = shrinkWrap();
   geo.scale(0.25, 0.25, 0.25);
   geo.computeBoundsTree();
 
@@ -126,9 +158,9 @@ function intTorus() {
   const tmp = new Vector3();
   return {
     step: (v) => {
-      // const dir = charges.calcDirection(v.x, v.y, v.z);
-      tmp.copy(v).multiplyScalar(6);
-      const dir = curl(tmp);
+      const dir = charges.calcDirection(v.x, v.y, v.z);
+      // tmp.copy(v).multiplyScalar(6);
+      // const dir = curl(tmp);
       tmp.copy(dir).clampLength(0, 0.002);
       v.add(tmp);
       geo.boundsTree.closestPointToPoint(v, tmp);
@@ -258,6 +290,7 @@ strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
 const meshes = [];
 
 const material = new MeshNormalMaterial({ wireframe: !true });
+// material.flatShading = true;
 // const material = new MeshBasicMaterial(); //{ wireframe: true, color: 0 });
 
 function renderLines() {
@@ -311,7 +344,7 @@ function renderLines() {
         0.008,
         Math.exp((2 * (curve.getLength() - minLength)) / range)
       ),
-      36,
+      8,
       false,
       (p) => Maf.parabola(p, 1)
     );
