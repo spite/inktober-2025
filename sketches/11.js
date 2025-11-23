@@ -101,20 +101,16 @@ const LINES = 400;
 const points = pointsOnSphere(LINES);
 const meshes = [];
 for (let j = 0; j < LINES; j++) {
-  const mesh = prepareMesh(
-    0.01 * Maf.randomInRange(0.01, 1.5),
-    Maf.randomInRange(0, 1)
-  );
-  group.add(mesh);
   const offset = Maf.randomInRange(-1, 1);
   const vertices = new Float32Array(N * 3);
-  const r = 0.2;
+  const r = 0.8;
   let p = new Vector3(
     Maf.randomInRange(-r, r),
     Maf.randomInRange(-r, r),
     Maf.randomInRange(-r, r)
   );
-  p.copy(points[j]).multiplyScalar(r);
+  // p.copy(points[j]).multiplyScalar(r);
+  const y = p.length();
   const tmp = p.clone();
   for (let i = 0; i < N; i++) {
     const res = curl(tmp.multiplyScalar(1));
@@ -125,10 +121,15 @@ for (let j = 0; j < LINES; j++) {
     vertices[i * 3 + 1] = p.y;
     vertices[i * 3 + 2] = p.z;
   }
+  const mesh = prepareMesh(
+    0.01 * Maf.randomInRange(0.01, 1.5),
+    Maf.map(0, Math.sqrt(r * r + r * r), 1, 0, y)
+  );
+  group.add(mesh);
   mesh.material.uniforms.dashArray.value.set(1, Maf.randomInRange(0, 1));
   mesh.material.uniforms.repeat.value.x =
     1 * Math.round(Maf.randomInRange(3, 6));
-  mesh.g.setPoints(vertices);
+  mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.4));
   mesh.scale.setScalar(5);
   const speed = 4 * Math.round(Maf.randomInRange(1, 3));
   meshes.push({ mesh, offset, speed });
@@ -148,8 +149,8 @@ function draw(startTime) {
   }
 
   meshes.forEach((m) => {
-    const tt = Maf.mod(m.speed * time, 1);
-    m.mesh.material.uniforms.dashOffset.value = -1 * tt - m.offset;
+    m.mesh.material.uniforms.uvOffset.value.x =
+      -0.5 * time * m.speed - m.offset;
   });
 
   group.rotation.y = time * Maf.TAU;
