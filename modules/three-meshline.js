@@ -544,8 +544,8 @@ ShaderChunk["meshline_frag"] = `
     vec2 tuv = mod((vUV + uvOffset) * repeat, vec2(1.));
     
     if(useDash) {
-      float dash = (vCounters + uvOffset.x) * repeat.x;
-      float i = floor((mod(vUV.x + uvOffset.x, 1.)) * repeat.x );
+      float dash = (vCounters + uvOffset.x) * repeat.x + dashOffset;
+      float i = floor((mod(vUV.x + uvOffset.x, 1.)) * repeat.x + dashOffset);
       if((mod(i, length(dashArray))) >= dashArray.x) {
         discard;
       }
