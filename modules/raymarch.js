@@ -144,8 +144,7 @@ function sdDodecahedron(p, r, e) {
   return u.end();
 }
 
-function march(ro, rd, map) {
-  let d = EPSILON;
+function march(ro, rd, map, d = EPSILON) {
   let t = 0.0;
   for (let i = 0; i < MAXSTEPS; ++i) {
     tmp.copy(rd).multiplyScalar(d).add(ro);
@@ -859,6 +858,7 @@ function scene(p) {
   // limit to inside unit sphere as neural sdf is not really defined
   return Math.max(d, p.length() - 1.0);
 }
+
 export {
   march,
   sdRoundBox,
