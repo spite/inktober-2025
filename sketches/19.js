@@ -79,6 +79,18 @@ palette.range = [
   "#ebb43a",
   "#e74c3c",
 ];
+// palette.range = [
+//   "#2f7f8d",
+//   "#ca3542",
+//   "#f3b440",
+//   "#f8f5f1",
+//   "#98bec0",
+//   "#f3d394",
+//   "#61c8b0",
+//   "#e09599",
+//   "#dcc4c9",
+//   "#616735",
+// ];
 
 const gradient = new gradientLinear(palette.range);
 
@@ -111,6 +123,7 @@ function renderLines() {
   const v = new Vector3();
   for (const pt of points) {
     v.set(pt.x, pt.y, pt.z).normalize();
+    const y = v.y;
     let m = 5;
     let d = { x: 0, y: 0, z: 0 };
     let a;
@@ -153,7 +166,8 @@ function renderLines() {
     const material = new MeshLineMaterial({
       map: strokeTexture,
       useMap: true,
-      color: gradient.getAt(Maf.randomInRange(0, 1)),
+      color: gradient.getAt(Maf.map(-1, 1, 0, 1, y)),
+      // color: gradient.getAt(Maf.randomInRange(0, 1)),
       resolution,
       sizeAttenuation: true,
       lineWidth: 0.05 / 4,
