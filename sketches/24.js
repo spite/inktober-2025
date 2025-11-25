@@ -111,6 +111,12 @@ const func = seedFunc(
   -59.007133755175765
 );
 
+const offset = new Vector3(
+  Maf.randomInRange(-100, 100),
+  Maf.randomInRange(-100, 100),
+  Maf.randomInRange(-100, 100)
+);
+
 function fbm(x, y, z, scale, octaves, lacunarity, gain) {
   scale = scale || 1;
   octaves = octaves || 1;
@@ -137,7 +143,11 @@ function fbm(x, y, z, scale, octaves, lacunarity, gain) {
 }
 
 function pattern1(x, y, z, scale = 1) {
-  return perlin.simplex3(x * scale, y * scale, z * scale);
+  return perlin.simplex3(
+    x * scale + offset.x,
+    y * scale + offset.y,
+    z * scale + offset.z
+  );
 }
 
 function generate(d = 10) {
