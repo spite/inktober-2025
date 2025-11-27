@@ -249,8 +249,12 @@ const meshes = [];
 const latSteps = WIDTH;
 const lonSteps = HEIGHT;
 
-const center = new Vector3(0.5 * WIDTH, 0, 0.5 * HEIGHT);
-const p = new Vector3();
+const rotDir = new Vector3(
+  Maf.randomInRange(-1, 1),
+  Maf.randomInRange(-1, 1),
+  Maf.randomInRange(-1, 1)
+).normalize();
+
 function generateIsoLines() {
   const values = [];
 
@@ -344,7 +348,8 @@ function generateIsoLines() {
       var mesh = new Mesh(g.geometry, material);
       mesh.g = g;
 
-      mesh.rotation.y = (i * 0.1) / LINES;
+      mesh.rotateOnAxis(rotDir, (i * 0.1) / LINES);
+      // mesh.rotation.y = (i * 1) / LINES;
       group.add(mesh);
 
       meshes.push({
