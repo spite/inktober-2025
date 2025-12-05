@@ -174,7 +174,7 @@ function map(offset) {
 
 const meshes = [];
 
-const LAYERS = 200;
+const LAYERS = 300;
 const RADIUS = 1.5;
 const WIDTH = 100;
 const DEPTH = 100;
@@ -196,6 +196,8 @@ async function generateLines() {
   const spread = 0.01;
 
   for (let k = 0; k < LAYERS; k++) {
+    await waitForRender();
+    painted.invalidate();
     const fn = map(Maf.randomInRange(-spread, spread));
     const y = Maf.map(0, LAYERS - 1, -RADIUS, RADIUS, k);
 
@@ -233,6 +235,9 @@ async function generateLines() {
     );
 
     for (const line of lines) {
+      await waitForRender();
+      painted.invalidate();
+
       const repeat = Math.round(
         Maf.randomInRange(1, Math.round(line.length / 10))
       );
@@ -315,9 +320,9 @@ function draw(startTime) {
     painted.invalidate();
   }
 
-  // group.rotation.x = 0.9 * time * Maf.TAU;
-  // group.rotation.y = 2 * time * Maf.TAU;
-  // group.rotation.z = 1.1 * time * Maf.TAU;
+  group.rotation.x = 0.9 * time * Maf.TAU;
+  group.rotation.y = 2 * time * Maf.TAU;
+  group.rotation.z = 1.1 * time * Maf.TAU;
 
   painted.render(renderer, scene, camera);
   lastTime = t;
