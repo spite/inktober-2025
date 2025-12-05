@@ -11,7 +11,13 @@ import {
   BoxGeometry,
   Raycaster,
 } from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+import {
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  waitForRender,
+} from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
@@ -100,7 +106,13 @@ const func = seedFunc(
   -59.007133755175765
 );
 
-function fbm(x, y, scale, octaves, lacunarity, gain) {
+const offset = new Vector3(
+  Maf.randomInRange(-100, 100),
+  Maf.randomInRange(-100, 100),
+  Maf.randomInRange(-100, 100)
+);
+
+function fbm(x, y, z, scale, octaves, lacunarity, gain) {
   scale = scale || 1;
   octaves = octaves || 1;
   lacunarity = lacunarity || 2;
@@ -112,8 +124,11 @@ function fbm(x, y, scale, octaves, lacunarity, gain) {
 
   for (var i = 0; i < octaves; i++) {
     var v =
-      perlin.simplex2((x / scale) * frequency, (y / scale) * frequency) *
-      amplitude;
+      perlin.simplex3(
+        (x / scale) * frequency,
+        (y / scale) * frequency,
+        (z / scale) * frequency
+      ) * amplitude;
     total = total + v;
     frequency = frequency * lacunarity;
     amplitude = amplitude * gain;
@@ -122,38 +137,86 @@ function fbm(x, y, scale, octaves, lacunarity, gain) {
   return total;
 }
 
-function pattern(x, y, scale, octaves, lacunarity, gain) {
-  var q = [
-    fbm(x, y, scale, octaves, lacunarity, gain),
-    fbm(x + 5.2, y + 1.3, scale, octaves, lacunarity, gain),
-  ];
-
-  return fbm(
-    x + 80.0 * q[0],
-    y + 80.0 * q[1],
-    scale,
-    octaves,
-    lacunarity,
-    gain
+function pattern1(x, y, z, scale = 1) {
+  return perlin.simplex3(
+    x * scale + offset.x,
+    y * scale + offset.y,
+    z * scale + offset.z
   );
 }
+
+function generate(d = 10) {
+  const v = [];
+  for (let i = 0; i < 9; i++) {
+    v[i] = Maf.randomInRange(-d, d);
+  }
+  return function (x, y, z, scale = 1) {
+    const s = 0.002;
+    const octaves = 4;
+    const lacunarity = 0.8;
+    const gain = 0;
+
+    var q = [
+      fbm(
+        x * s + v[0],
+        y * s + v[1],
+        z * s + v[2],
+        scale,
+        octaves,
+        lacunarity,
+        gain
+      ),
+      fbm(
+        x * s + v[3],
+        y * s + v[4],
+        z * s + v[5],
+        scale,
+        octaves,
+        lacunarity,
+        gain
+      ),
+      fbm(
+        x * s + v[6],
+        y * s + v[7],
+        z * s + v[8],
+        scale,
+        octaves,
+        lacunarity,
+        gain
+      ),
+    ];
+
+    return fbm(
+      x + 100.0 * q[0],
+      y + 100.0 * q[1],
+      z + 100.0 * q[2],
+      scale,
+      octaves,
+      lacunarity,
+      gain
+    );
+  };
+}
+
+const pattern2 = generate(0.1);
 
 const meshes = [];
 const SEGMENTS = 100;
 const grid = new Grid(1);
 
-const minDistance = 0.2;
+const minDistance = 0.1;
 const minDistanceSquared = minDistance ** 2;
 
 function intersects(p, line) {
-  const neighbours = grid.getNeighbours(p, 4 * minDistance);
+  const neighbours = grid.getNeighbours(p, 1);
   if (neighbours.length) {
     for (let neighbour of neighbours) {
       if (neighbour.line !== line) {
         const pp = neighbour.point;
         const dx = pp.x - p.x;
         const dy = pp.y - p.y;
-        const d = dx * dx + dy * dy;
+        const dz = pp.z - p.z;
+        const d = dx * dx + dy * dy + dz * dz;
         if (d < minDistanceSquared) {
           return true;
         }
@@ -163,16 +226,17 @@ function intersects(p, line) {
   return false;
 }
 
-function generateFlowLines() {
+async function generateFlowLines() {
   const points = pointsOnSphere(3000, RADIUS);
   const lines = [];
 
+  points.sort((a, b) => Math.random() > 0.5);
   for (let i = 0; i < points.length; i++) {
     lines[i] = {
       active: true,
       points: [],
       offset: Maf.randomInRange(-Math.PI, Math.PI) / 100,
-      delay: Math.round(Maf.randomInRange(0, 100 * points.length)),
+      delay: Math.round(Maf.randomInRange(0, 100)), //points.length)),
       segment: 0,
     };
   }
@@ -187,9 +251,10 @@ function generateFlowLines() {
     Maf.randomInRange(-100, 100),
     Maf.randomInRange(-100, 100)
   );
-  const scale = 0.1;
+  const scale = 0.075;
 
   while (lines.some((l) => l.active === true)) {
+    waitForRender();
     for (let i = 0; i < points.length; i++) {
       const segment = lines[i].segment - lines[i].delay;
       lines[i].segment++;
@@ -209,11 +274,20 @@ function generateFlowLines() {
           lines[i].points[0] = pp;
           grid.add(pp, { point: pp, line: i });
           skip = false;
+
           continue;
         }
         // }
         if (skip) {
           lines[i].active = false;
+
+          // const mesh = new Mesh(
+          //   new BoxGeometry(1, 1, 1),
+          //   new MeshNormalMaterial()
+          // );
+          // mesh.position.copy(pp);
+          // mesh.scale.set(0.1, 0.1, 0.1);
+          // group.add(mesh);
         }
       }
 
@@ -224,12 +298,18 @@ function generateFlowLines() {
 
         if (lines[i].active) {
           o.copy(lines[i].points[lines[i].points.length - 1]);
-          const p = perlin.simplex3(
+          // const p = perlin.simplex3(
+          //   scale * o.x + offset.x,
+          //   scale * o.y + offset.y,
+          //   scale * o.z + offset.z
+          // );
+          const p = pattern1(
             scale * o.x + offset.x,
             scale * o.y + offset.y,
-            scale * o.z + offset.z
+            scale * o.z + offset.z,
+            1
           );
-          const a = lines[i].offset + p * 4;
+          const a = lines[i].offset + p * 3;
           n.copy(o).normalize();
           tan.crossVectors(up, n);
           tan.applyAxisAngle(n, a);
@@ -257,7 +337,7 @@ function generateFlowLines() {
       useMap: true,
       color: gradient.getAt(i / lines.length), //Maf.randomInRange(0, 1)),
       sizeAttenuation: true,
-      lineWidth: 0.0025,
+      lineWidth: 0.00125,
       opacity: 1,
       // repeat: new Vector2(l, 1),
       // dashArray: new Vector2(1, 2),
