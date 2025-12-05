@@ -567,6 +567,7 @@ ShaderChunk["meshline_frag"] = `
     uv = uv * resolution.xy / vec2(textureSize(blueNoiseMap, 0).xy);
     uv = rot2d(uv, time);
     uv += offset;
+    uv += vUV;
 
     // color = vec4(vec3(blueNoise(uv)), 1.);
     // return;
