@@ -13,7 +13,13 @@ import {
   DoubleSide,
   Raycaster,
 } from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+import {
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  waitForRender,
+} from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
@@ -255,7 +261,7 @@ const rotDir = new Vector3(
   Maf.randomInRange(-1, 1)
 ).normalize();
 
-function generateIsoLines() {
+async function generateIsoLines() {
   const values = [];
 
   for (let i = 0; i <= lonSteps; i++) {
@@ -271,39 +277,14 @@ function generateIsoLines() {
       // const noiseVal = pattern2(n.x, n.y, n.z, 1);
 
       values[i][j] = noiseVal;
-
-      // const point = new Mesh(
-      //   new BoxGeometry(0.1, 0.1, 0.1),
-      //   new MeshBasicMaterial({
-      //     color: new Color(
-      //       0.5 + 0.5 * noiseVal,
-      //       0.5 + 0.5 * noiseVal,
-      //       0.5 + 0.5 * noiseVal
-      //     ),
-      //   })
-      // );
-      // point.position.set(n.x, n.y, n.z).multiplyScalar(2.9);
-      // group.add(point);
-
-      // const point2 = new Mesh(
-      //   new BoxGeometry(0.1, 0.1, 0.1),
-      //   new MeshBasicMaterial({
-      //     color: new Color(
-      //       0.5 + 0.5 * noiseVal,
-      //       0.5 + 0.5 * noiseVal,
-      //       0.5 + 0.5 * noiseVal
-      //     ),
-      //   })
-      // );
-      // point2.position
-      //   .set(i - lonSteps / 2, j - latSteps / 2, 0)
-      //   .multiplyScalar(0.1);
-      // group.add(point2);
     }
   }
 
   const LINES = 100;
-  for (let i = 0; i < LINES; i++) {
+  for (let i = LINES; i > 0; i--) {
+    await waitForRender();
+    painted.invalidate();
+
     const paths = MarchingSquares.generateIsolines(
       values,
       -0.9 + (1.8 * i) / LINES,
@@ -312,7 +293,7 @@ function generateIsoLines() {
     );
 
     for (const path of paths) {
-      const z = 3 - (4.1 * i) / LINES;
+      const z = Maf.map(0, LINES - 1, 3, -1.1, i); //3 - (4.1 * i) / LINES;
       const points = path.map((p) => {
         const r = sphericalToCartesian(5, p.y * Math.PI, p.x * 2 * Math.PI);
         // const pp = new Vector3(
@@ -362,6 +343,20 @@ function generateIsoLines() {
 }
 
 generateIsoLines();
+
+function clearScene() {
+  for (const mesh of meshes) {
+    group.remove(mesh.mesh);
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR") {
+    clearScene();
+    generateIsoLines();
+    painted.invalidate();
+  }
+});
 
 group.scale.setScalar(0.06);
 scene.add(group);
