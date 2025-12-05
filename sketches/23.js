@@ -13,7 +13,13 @@ import {
   DoubleSide,
   Raycaster,
 } from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+import {
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  waitForRender,
+} from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
@@ -230,7 +236,7 @@ const lonSteps = HEIGHT;
 
 const noiseScale = Maf.randomInRange(1.5, 2.5);
 
-function generateIsoLines() {
+async function generateIsoLines() {
   const values = [];
 
   for (let i = 0; i <= lonSteps; i++) {
@@ -259,6 +265,8 @@ function generateIsoLines() {
     );
 
     for (const path of paths) {
+      await waitForRender();
+      painted.invalidate();
       const z = Maf.map(0, LINES - 1, 1.8, 2, i);
       let avg = 0;
       const points = path.map((p) => {
@@ -324,6 +332,20 @@ function generateIsoLines() {
 }
 
 generateIsoLines();
+
+function clearScene() {
+  for (const mesh of meshes) {
+    group.remove(mesh.mesh);
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR") {
+    clearScene();
+    generateIsoLines();
+    painted.invalidate();
+  }
+});
 
 group.scale.setScalar(0.06);
 scene.add(group);
