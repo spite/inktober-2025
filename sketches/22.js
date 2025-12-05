@@ -11,7 +11,13 @@ import {
   DoubleSide,
   Raycaster,
 } from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+import {
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  waitForRender,
+} from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
@@ -79,11 +85,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(
-  -0.38997204674241887,
-  -0.1646326072361011,
-  0.3548472598819808
-);
+camera.position.set(3, 2.5, 3).multiplyScalar(0.3);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -146,7 +148,7 @@ const meshes = [];
 
 const center = new Vector3(0.5 * WIDTH, 0, 0.5 * HEIGHT);
 const p = new Vector3();
-function generateIsoLines() {
+async function generateIsoLines() {
   const values = [];
   const s = 150;
   const offset = Maf.randomInRange(-WIDTH, WIDTH);
@@ -166,6 +168,9 @@ function generateIsoLines() {
 
   const LINES = 100;
   for (let i = 0; i < LINES; i++) {
+    await waitForRender();
+    painted.invalidate();
+
     const paths = MarchingSquares.generateIsolines(
       values,
       -0.9 + (1.8 * i) / LINES,
@@ -211,19 +216,23 @@ function generateIsoLines() {
       meshes.push({ mesh, offset: 0, speed: 0 });
     }
   }
-  //   mesh.material.uniforms.dashArray.value.set(
-  //     1,
-  //     Math.round(Maf.randomInRange(1, 2))
-  //   );
-  //   const repeat = Math.ceil(Maf.randomInRange(1, 10));
-  //   mesh.material.uniforms.repeat.value.x = repeat;
-  //   mesh.material.uniforms.dashArray.value.x = repeat - 1;
-  //   mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.5));
-  //   mesh.scale.setScalar(5);
-  //   const speed = 1 * Math.round(Maf.randomInRange(1, 3));
-  //   meshes.push({ mesh, offset, speed });
 }
+
 generateIsoLines();
+
+function clearScene() {
+  for (const mesh of meshes) {
+    group.remove(mesh.mesh);
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR") {
+    clearScene();
+    generateIsoLines();
+    painted.invalidate();
+  }
+});
 
 group.scale.setScalar(0.06);
 scene.add(group);
