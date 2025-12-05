@@ -70,4 +70,19 @@ document.getElementById("pauseButton").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
-export { renderer, getCamera, getOrthoCamera, isRunning, onResize };
+const waitForRender = () => {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      resolve();
+    });
+  });
+};
+
+export {
+  renderer,
+  getCamera,
+  getOrthoCamera,
+  isRunning,
+  onResize,
+  waitForRender,
+};
