@@ -196,7 +196,7 @@ function generateSuperShape() {
   scale = 1 / (SIZE * computeSDFBoundaries(fn));
 }
 
-function generateLines(scale) {
+async function generateLines(scale) {
   const axis = new Vector3(
     Maf.randomInRange(-1, 1),
     Maf.randomInRange(-1, 1),
@@ -211,6 +211,9 @@ function generateLines(scale) {
   console.log(scale);
 
   for (let k = 0; k < LAYERS; k++) {
+    await waitForRender();
+    painted.invalidate();
+
     const y = Maf.map(0, LAYERS - 1, -0.5 * SIZE, 0.5 * SIZE, k);
 
     const axis2 = new Vector3(
@@ -249,6 +252,8 @@ function generateLines(scale) {
     );
 
     for (const line of lines) {
+      await waitForRender();
+      painted.invalidate();
       const repeat = Math.round(
         Maf.randomInRange(1, Math.round(line.length / 10))
       );
