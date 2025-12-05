@@ -254,7 +254,6 @@ async function generateFlowLines() {
   const scale = 0.075;
 
   while (lines.some((l) => l.active === true)) {
-    waitForRender();
     for (let i = 0; i < points.length; i++) {
       const segment = lines[i].segment - lines[i].delay;
       lines[i].segment++;
@@ -332,6 +331,10 @@ async function generateFlowLines() {
   }
 
   for (let i = 0; i < lines.length; i++) {
+    if (i % 10 === 0) {
+      await waitForRender();
+      painted.invalidate();
+    }
     const material = new MeshLineMaterial({
       map: strokeTexture,
       useMap: true,
