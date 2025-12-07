@@ -7,6 +7,7 @@ function getWebGLRenderer() {
   return renderer;
 }
 const resizeFns = [];
+const randomizeFns = [];
 
 const renderer = getWebGLRenderer();
 resize();
@@ -37,6 +38,10 @@ function onResize(fn) {
   resize();
 }
 
+function onRandomize(fn) {
+  randomizeFns.push(fn);
+}
+
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -58,10 +63,19 @@ function resize() {
   }
 }
 
+function randomize() {
+  for (const fn of randomizeFns) {
+    fn();
+  }
+}
+
 let isRunning = true;
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     isRunning = !isRunning;
+  }
+  if (e.code === "KeyR") {
+    randomize();
   }
 });
 
@@ -84,5 +98,6 @@ export {
   getOrthoCamera,
   isRunning,
   onResize,
+  onRandomize,
   waitForRender,
 };
