@@ -2,28 +2,21 @@ import {
   Scene,
   Mesh,
   Group,
-  Line,
   Vector2,
   Vector3,
   TextureLoader,
   Color,
-  LineBasicMaterial,
-  BufferGeometry,
   Matrix4,
   IcosahedronGeometry,
   RepeatWrapping,
-  MeshNormalMaterial,
-  CatmullRomCurve3,
-  BoxGeometry,
   MeshBasicMaterial,
-  TorusGeometry,
-  Raycaster,
 } from "three";
 import {
   renderer,
   getCamera,
   isRunning,
   onResize,
+  onRandomize,
   waitForRender,
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
@@ -31,19 +24,9 @@ import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
-import { pointsOnSphere } from "../modules/points-sphere.js";
-import { curl, seedFunc } from "../modules/curl.js";
 import { MarchingSquares } from "../modules/marching-squares.js";
-import perlin from "../third_party/perlin.js";
 const painted = new Painted({ minLevel: -0.2 });
-// const curl = generateNoiseFunction();
-import { Poisson2D } from "../modules/poisson-2d.js";
-import { Grid } from "../modules/grid-3d.js";
-import { march } from "../modules/raymarch.js";
-import { init } from "../modules/dipoles-3d.js";
-import { sphericalToCartesian } from "../modules/conversions.js";
 
 onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
@@ -176,8 +159,8 @@ const meshes = [];
 
 const LAYERS = 300;
 const RADIUS = 1.5;
-const WIDTH = 100;
-const DEPTH = 100;
+const WIDTH = 200;
+const DEPTH = 200;
 
 async function generateLines() {
   const axis = new Vector3(
@@ -239,7 +222,7 @@ async function generateLines() {
       painted.invalidate();
 
       const repeat = Math.round(
-        Maf.randomInRange(1, Math.round(line.length / 10))
+        Maf.randomInRange(1, Math.round(line.length / 20))
       );
 
       const material = new MeshLineMaterial({
@@ -283,8 +266,12 @@ async function generateLines() {
   }
 }
 
-generateSpheres();
-generateLines();
+async function generate() {
+  clearScene();
+  generateSpheres();
+  await generateLines();
+  painted.invalidate();
+}
 
 group.scale.setScalar(0.1);
 scene.add(group);
@@ -296,13 +283,10 @@ function clearScene() {
   }
 }
 
-document.addEventListener("keydown", (e) => {
-  if (e.code === "KeyR") {
-    clearScene();
-    generateSpheres();
-    generateLines();
-    painted.invalidate();
-  }
+generate();
+
+onRandomize(() => {
+  generate();
 });
 
 let lastTime = performance.now();
