@@ -18,7 +18,14 @@ import {
   Line,
   Raycaster,
 } from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+import {
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  waitForRender,
+  onRandomize,
+} from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
@@ -114,14 +121,19 @@ renderer.setClearColor(0xf8fcfe, 1);
 
 const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
-const resolution = new Vector2(canvas.width, canvas.height);
 
 const meshes = [];
 
-function renderLines() {
-  const step = 1;
+async function generateLines() {
   const v = new Vector3();
-  for (const pt of points) {
+  for (let i = 0; i < points.length; i++) {
+    const pt = points[i];
+
+    if (i % 10 === 0) {
+      await waitForRender();
+      painted.invalidate();
+    }
+
     v.set(pt.x, pt.y, pt.z).normalize();
     const y = v.y;
     let m = 5;
@@ -168,8 +180,6 @@ function renderLines() {
       useMap: true,
       color: gradient.getAt(Maf.map(-1, 1, 0, 1, y)),
       // color: gradient.getAt(Maf.randomInRange(0, 1)),
-      resolution,
-      sizeAttenuation: true,
       lineWidth: 0.05 / 4,
       // repeat: new Vector2(repeat, 1),
       // dashArray: new Vector2(1, repeat - 1),
@@ -196,9 +206,25 @@ function renderLines() {
   }
 }
 group.scale.set(0.25, 0.25, 0.25);
-
-renderLines();
 scene.add(group);
+
+async function generate() {
+  clearScene();
+  await generateLines();
+  painted.invalidate();
+}
+
+function clearScene() {
+  for (const mesh of meshes) {
+    group.remove(mesh.mesh);
+  }
+}
+
+generate();
+
+onRandomize(() => {
+  generate();
+});
 
 let lastTime = performance.now();
 let time = 0;
