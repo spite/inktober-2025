@@ -41,10 +41,10 @@ async function init() {
   //   startTime = performance.now();
   // }
 
-  document.getElementById("start").addEventListener("click", (e) => {
-    capture();
-    e.preventDefault();
-  });
+  // document.getElementById("start").addEventListener("click", (e) => {
+  //   capture();
+  //   e.preventDefault();
+  // });
 
   function update() {
     requestAnimationFrame(update);
