@@ -16,6 +16,10 @@ function formatFloat(v, step) {
   return parseFloat(v).toFixed(precision(step));
 }
 
+function composeRangeValue(min, max, step) {
+  return `${formatFloat(min, step)}-${formatFloat(max, step)}`;
+}
+
 class GUI {
   constructor(title = "Settings") {
     this.container = document.createElement("div");
@@ -126,10 +130,6 @@ class GUI {
     return this;
   }
 
-  composeRangeValue(min, max) {
-    return `${parseFloat(min)},${parseFloat(max)}`;
-  }
-
   addRangeSlider(
     label,
     signalMin,
@@ -160,15 +160,15 @@ class GUI {
       const v = e.target.value;
       signalMin.set(parseFloat(v[0]));
       signalMax.set(parseFloat(v[1]));
-      const display = this.composeRangeValue(signalMin(), signalMax());
+      const display = composeRangeValue(signalMin(), signalMax(), step);
       valDisplay.textContent = display;
       onChange(v);
     };
 
     effect(() => {
-      const v = this.composeRangeValue(signalMin(), signalMax());
       input.value = [signalMin(), signalMax()];
-      valDisplay.textContent = formatFloat(v, step);
+      const display = composeRangeValue(signalMin(), signalMax(), step);
+      valDisplay.textContent = display;
     });
 
     wrapper.appendChild(input);
