@@ -8,6 +8,15 @@
   font-size: 12px;
 }
 
+header {
+  display: none;
+  flex-direction: column;
+
+  &.visible {
+    display: flex;
+  }
+}
+
 h1 {
   font-family: "Nixie One", sans-serif;
   font-size: 6em;
@@ -43,8 +52,14 @@ header {
 .panel {
   margin: 10px 0;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 8px;
+
+  .buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
 }
 
 .btn {
@@ -81,4 +96,22 @@ header {
 canvas {
   position: absolute;
   inset: 0;
+}
+
+@media (min-width: 950px) {
+  #gui-container {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    width: 380px;
+  }
+}
+
+@media (max-width: 950px) {
+  #gui-container {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+  }
 }
