@@ -40,8 +40,11 @@ header {
   z-index: 10;
 }
 
-.recordPanel {
+.panel {
   margin: 10px 0;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
 }
 
 .btn {
@@ -55,6 +58,14 @@ header {
   border: 1px solid #555;
   transition: background-color 100ms ease-in-out;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+
+  svg {
+    height: 16px;
+  }
 }
 
 .btn:hover {
