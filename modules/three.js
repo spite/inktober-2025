@@ -69,6 +69,8 @@ function randomize() {
   }
 }
 
+const header = document.body.querySelector("header");
+
 let isRunning = true;
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
@@ -76,6 +78,10 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.code === "KeyR") {
     randomize();
+  }
+  if (e.code === "Tab") {
+    header.classList.toggle("visible");
+    e.preventDefault();
   }
 });
 
