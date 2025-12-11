@@ -1,4 +1,4 @@
-import { effect } from "./reactive.js";
+import { signal, effect } from "./reactive.js";
 import "./range-slider.js";
 
 function precision(a) {
@@ -21,16 +21,34 @@ function composeRangeValue(min, max, step) {
 }
 
 class GUI {
-  constructor(title = "Settings") {
+  constructor(title = "Settings", el = document.body) {
     this.container = document.createElement("div");
     this.container.className = "gui";
 
     const titleEl = document.createElement("div");
     titleEl.className = "title";
     titleEl.textContent = title;
-    this.container.appendChild(titleEl);
+    this.container.append(titleEl);
 
-    document.body.appendChild(this.container);
+    const expandEl = document.createElement("span");
+    expandEl.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down-icon lucide-chevron-down"><path d="m6 9 6 6 6-6"/></svg>`;
+    titleEl.append(expandEl);
+
+    this.rows = document.createElement("div");
+    this.rows.className = "gui-rows";
+
+    this.container.append(this.rows);
+    this.rowsExpanded = signal(true);
+
+    titleEl.addEventListener("click", (e) => {
+      this.rowsExpanded.set(!this.rowsExpanded());
+    });
+
+    effect(() => {
+      this.rows.classList.toggle("visible", this.rowsExpanded());
+    });
+
+    el.append(this.container);
   }
 
   createRow(label) {
@@ -40,9 +58,9 @@ class GUI {
       const labelEl = document.createElement("span");
       labelEl.className = "gui-label";
       labelEl.textContent = label;
-      row.appendChild(labelEl);
+      row.append(labelEl);
     }
-    this.container.appendChild(row);
+    this.rows.append(row);
     return row;
   }
 
@@ -52,7 +70,7 @@ class GUI {
     btn.className = "gui-btn";
     btn.textContent = label;
     btn.onclick = callback;
-    row.appendChild(btn);
+    row.append(btn);
     return this;
   }
 
@@ -63,7 +81,7 @@ class GUI {
     input.className = "gui-input-text";
     input.value = initialValue;
     input.oninput = (e) => onChange(e.target.value);
-    row.appendChild(input);
+    row.append(input);
     return this;
   }
 
@@ -77,11 +95,11 @@ class GUI {
       el.value = opt;
       el.textContent = opt;
       if (opt === initialValue) el.selected = true;
-      select.appendChild(el);
+      select.append(el);
     });
 
     select.onchange = (e) => onChange(e.target.value);
-    row.appendChild(select);
+    row.append(select);
     return this;
   }
 
@@ -91,7 +109,7 @@ class GUI {
     input.type = "checkbox";
     input.checked = initialValue;
     input.onchange = (e) => onChange(e.target.checked);
-    row.appendChild(input);
+    row.append(input);
     return this;
   }
 
@@ -124,9 +142,9 @@ class GUI {
       valDisplay.textContent = formatFloat(signal(), step);
     });
 
-    wrapper.appendChild(input);
-    wrapper.appendChild(valDisplay);
-    row.appendChild(wrapper);
+    wrapper.append(input);
+    wrapper.append(valDisplay);
+    row.append(wrapper);
     return this;
   }
 
@@ -171,9 +189,9 @@ class GUI {
       valDisplay.textContent = display;
     });
 
-    wrapper.appendChild(input);
-    wrapper.appendChild(valDisplay);
-    row.appendChild(wrapper);
+    wrapper.append(input);
+    wrapper.append(valDisplay);
+    row.append(wrapper);
     return this;
   }
 
