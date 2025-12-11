@@ -21,88 +21,89 @@
   </head>
 
   <body>
-    <header>
+    <header class="visible">
       <h1>Inktober 2025</h1>
       <div class="panel">
-        <!-- <a href="#" class="btn orange" id="start">⚫ Record</a> -->
-        <!-- <a href="#" id="snapshotButton" class="btn orange">📸 Snapshot</a> -->
-        <a href="#" id="backButton" class="btn orange"
-          ><svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="lucide lucide-arrow-big-left-icon lucide-arrow-big-left"
+        <div class="buttons">
+          <a href="#" id="backButton" class="btn orange"
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-arrow-big-left-icon lucide-arrow-big-left"
+            >
+              <path
+                d="M13 9a1 1 0 0 1-1-1V5.061a1 1 0 0 0-1.811-.75l-6.835 6.836a1.207 1.207 0 0 0 0 1.707l6.835 6.835a1 1 0 0 0 1.811-.75V16a1 1 0 0 1 1-1h6a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1z"
+              />
+            </svg>
+            Previous</a
           >
-            <path
-              d="M13 9a1 1 0 0 1-1-1V5.061a1 1 0 0 0-1.811-.75l-6.835 6.836a1.207 1.207 0 0 0 0 1.707l6.835 6.835a1 1 0 0 0 1.811-.75V16a1 1 0 0 1 1-1h6a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1z"
-            />
-          </svg>
-          Previous</a
-        >
-        <a href="#" id="nextButton" class="btn orange"
-          >Next
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="lucide lucide-arrow-big-right-icon lucide-arrow-big-right"
-          >
-            <path
-              d="M11 9a1 1 0 0 0 1-1V5.061a1 1 0 0 1 1.811-.75l6.836 6.836a1.207 1.207 0 0 1 0 1.707l-6.836 6.835a1 1 0 0 1-1.811-.75V16a1 1 0 0 0-1-1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"
-            /></svg
-        ></a>
-        <a href="#" id="pauseButton" class="btn orange"
-          >Pause
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="lucide lucide-pause-icon lucide-pause"
-          >
-            <rect x="14" y="3" width="5" height="18" rx="1" />
-            <rect x="5" y="3" width="5" height="18" rx="1" /></svg
-        ></a>
-        <a href="#" id="randomizeButton" class="btn orange"
-          >Randomize
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="lucide lucide-shuffle-icon lucide-shuffle"
-          >
-            <path d="m18 14 4 4-4 4" />
-            <path d="m18 2 4 4-4 4" />
-            <path
-              d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"
-            />
-            <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" />
-            <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
-          </svg>
-        </a>
+          <a href="#" id="nextButton" class="btn orange"
+            >Next
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-arrow-big-right-icon lucide-arrow-big-right"
+            >
+              <path
+                d="M11 9a1 1 0 0 0 1-1V5.061a1 1 0 0 1 1.811-.75l6.836 6.836a1.207 1.207 0 0 1 0 1.707l-6.836 6.835a1 1 0 0 1-1.811-.75V16a1 1 0 0 0-1-1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"
+              /></svg
+          ></a>
+          <a href="#" id="pauseButton" class="btn orange"
+            >Pause
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-pause-icon lucide-pause"
+            >
+              <rect x="14" y="3" width="5" height="18" rx="1" />
+              <rect x="5" y="3" width="5" height="18" rx="1" /></svg
+          ></a>
+          <a href="#" id="randomizeButton" class="btn orange"
+            >Randomize
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-shuffle-icon lucide-shuffle"
+            >
+              <path d="m18 14 4 4-4 4" />
+              <path d="m18 2 4 4-4 4" />
+              <path
+                d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"
+              />
+              <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" />
+              <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
+            </svg>
+          </a>
+        </div>
+        <div id="gui-container"></div>
       </div>
     </header>
     <script>
