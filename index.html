@@ -13,6 +13,7 @@
       href="css/styles.css"
       media="screen"
     />
+    <link rel="stylesheet" type="text/css" href="css/gui.css" media="screen" />
     <link
       href="https://fonts.googleapis.com/css?family=Krona+One|Open+Sans"
       rel="stylesheet"
@@ -23,11 +24,14 @@
     <header>
       <h1>Inktober 2025</h1>
       <div class="recordPanel">
-        <a href="#" class="btn orange" id="start">⚫ Record</a>
-        <a href="#" id="snapshotButton" class="btn orange">📸 Snapshot</a>
-        <a href="#" id="backButton" class="btn green">◀&nbsp;&nbsp;Previous</a>
-        <a href="#" id="nextButton" class="btn green">Next&nbsp;&nbsp;▶</a>
-        <a href="#" id="pauseButton" class="btn green">Pause&nbsp;&nbsp;⏸︎</a>
+        <!-- <a href="#" class="btn orange" id="start">⚫ Record</a> -->
+        <!-- <a href="#" id="snapshotButton" class="btn orange">📸 Snapshot</a> -->
+        <a href="#" id="backButton" class="btn orange">◀&nbsp;&nbsp;Previous</a>
+        <a href="#" id="nextButton" class="btn orange">Next&nbsp;&nbsp;▶</a>
+        <a href="#" id="pauseButton" class="btn orange">Pause&nbsp;&nbsp;⏸︎</a>
+        <a href="#" id="randomizeButton" class="btn orange"
+          >Randomize&nbsp;&nbsp;⏸︎</a
+        >
       </div>
     </header>
     <script>
@@ -72,6 +76,7 @@
       }
     </script>
     <!-- <script src="js/CCapture.all.min.js"></script> -->
+    <script async src="third_party/seedrandom.js"></script>
     <script async type="module" src="modules/looper.js"></script>
   </body>
 </html>

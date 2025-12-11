@@ -84,6 +84,11 @@ document.getElementById("pauseButton").addEventListener("click", (e) => {
   e.preventDefault();
 });
 
+document.getElementById("randomizeButton").addEventListener("click", (e) => {
+  randomize();
+  e.preventDefault();
+});
+
 const waitForRender = () => {
   return new Promise((resolve) => {
     requestAnimationFrame(() => {
