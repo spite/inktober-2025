@@ -32,78 +32,12 @@ import {
   resetPointer,
 } from "./jitter.js";
 
-const antialiasFragmentShader = `
-precision highp float;
-
-uniform vec2 resolution;
-
-uniform sampler2D inputTexture;
-uniform float minLevel;
-uniform float maxLevel;
-
-in vec2 vUv;
-
-out vec4 fragColor;
-
-${fxaa}
-${levelRange}
-${median}
-
-void main() {
-  vec4 c = texture(inputTexture, vUv);
-  // fragColor = vec4(fxaa(inputTexture, vUv, 1. / resolution.xy).rgb, c.a);
-  fragColor = vec4(median(inputTexture, vUv).rgb, c.a);
-  // fragColor = c;
-}
-`;
-
-const grayscaleFragmentShader = `
-precision highp float;
-
-uniform vec2 resolution;
-
-uniform sampler2D inputTexture;
-uniform vec2 direction;
-
-in vec2 vUv;
-
-out vec4 fragColor;
-
-${grayscale}
-${blur5}
-
-void main() {
-  vec4 color = blur5(inputTexture, vUv, resolution, direction);
-  fragColor = vec4(vec3(grayscale(color)),1.);
-}
-`;
-
-const edgesFragmentShader = `
-precision highp float;
-
-uniform vec2 resolution;
-
-uniform sampler2D inputTexture;
-
-in vec2 vUv;
-
-out vec4 fragColor;
-
-${sobel}
-
-void main() {
-  fragColor = vec4(sobel(inputTexture, vUv, resolution.x/800.),1.);
-}
-`;
-
 const fragmentShader = `
 precision highp float;
 
 uniform vec2 resolution;
 
 uniform sampler2D inputTexture;
-uniform sampler2D edgesTexture;
-uniform sampler2D grayscaleTexture;
 uniform float vignetteBoost;
 uniform float vignetteReduction;
 uniform float lightenPass;
@@ -160,8 +94,6 @@ void main() {
   shadow.rgb = mix(shadow.rgb, vec3(1.), color.a);  
 
   color = vec4(mix(backgroundColor, color.rgb, color.a), 1.);
-
-  // color = overlay(color, .5 * (1.-grayEdges), .2);
 
   // vec4 hp = highPass(inputTexture, vUv);
   // color = softLight(color, hp);
@@ -243,91 +175,12 @@ class Painted {
       depthBuffer: true,
     });
 
-    const antialiasShader = new RawShaderMaterial({
-      uniforms: {
-        resolution: { value: new Vector2(w, h) },
-        inputTexture: { value: this.colorFBO.texture },
-        minLevel: { value: 0 },
-        maxLevel: { value: 1 },
-      },
-      vertexShader: orthoVertexShader,
-      fragmentShader: antialiasFragmentShader,
-      glslVersion: GLSL3,
-    });
-    this.antialiasPass = new ShaderPass(
-      antialiasShader,
-      w,
-      h,
-      RGBAFormat,
-      UnsignedByteType,
-      LinearFilter,
-      LinearFilter,
-      ClampToEdgeWrapping,
-      ClampToEdgeWrapping
-    );
-
-    const edgesShader = new RawShaderMaterial({
-      uniforms: {
-        resolution: { value: new Vector2(w, h) },
-        inputTexture: { value: this.colorFBO.texture },
-      },
-      vertexShader: orthoVertexShader,
-      fragmentShader: edgesFragmentShader,
-      glslVersion: GLSL3,
-    });
-    this.edgesPass = new ShaderPass(
-      edgesShader,
-      w,
-      h,
-      RGBAFormat,
-      UnsignedByteType,
-      LinearFilter,
-      LinearFilter,
-      ClampToEdgeWrapping,
-      ClampToEdgeWrapping
-    );
-
-    const blurShader = new RawShaderMaterial({
-      uniforms: {
-        resolution: { value: new Vector2(w, h) },
-        direction: { value: new Vector2(10, 0) },
-        inputTexture: { value: this.edgesPass.fbo.texture },
-      },
-      vertexShader: orthoVertexShader,
-      fragmentShader: grayscaleFragmentShader,
-      glslVersion: GLSL3,
-    });
-    this.blurHPass = new ShaderPass(
-      blurShader,
-      w,
-      h,
-      RGBAFormat,
-      UnsignedByteType,
-      LinearFilter,
-      LinearFilter,
-      ClampToEdgeWrapping,
-      ClampToEdgeWrapping
-    );
-    this.blurVPass = new ShaderPass(
-      blurShader,
-      w,
-      h,
-      RGBAFormat,
-      UnsignedByteType,
-      LinearFilter,
-      LinearFilter,
-      ClampToEdgeWrapping,
-      ClampToEdgeWrapping
-    );
-
     const shader = new RawShaderMaterial({
       uniforms: {
         resolution: { value: new Vector2(w, h) },
         vignetteBoost: { value: 0.5 },
         vignetteReduction: { value: 0.5 },
         inputTexture: { value: this.colorFBO.texture },
-        edgesTexture: { value: this.edgesPass.fbo.texture },
-        grayscaleTexture: { value: this.blurVPass.fbo.texture },
         backgroundColor: { value: new Color() },
         lightenPass: {
           value: params.lightenPass !== undefined ? params.lightenPass : 1,
@@ -389,13 +242,6 @@ class Painted {
 
   setSize(w, h) {
     this.colorFBO.setSize(w, h);
-    this.antialiasPass.setSize(w, h);
-    this.antialiasPass.shader.uniforms.resolution.value.set(w, h);
-    // this.edgesPass.setSize(w, h);
-    // this.edgesPass.shader.uniforms.resolution.value.set(w, h);
-    // this.blurHPass.setSize(w, h);
-    // this.blurHPPass.shader.uniforms.resolution.value.set(w, h);
-    // this.blurVPass.setSize(w, h);
     this.pass.setSize(w, h);
     this.pass.shader.uniforms.resolution.value.set(w, h);
     this.accumPass.setSize(w, h);
@@ -415,24 +261,6 @@ class Painted {
       renderer.setRenderTarget(this.colorFBO);
       renderer.render(scene, camera);
       renderer.setRenderTarget(null);
-      // antialiasPass.shader.uniforms.inputTexture.value = colorFBO.texture;
-      // antialiasPass.shader.uniforms.minLevel.value = params.minLevel || 0.2;
-      // antialiasPass.shader.uniforms.maxLevel.value = params.maxLevel || 1;
-      // antialiasPass.render();
-      // edgesPass.render();
-      // const d = (2 * w) / 800;
-      // blurHPass.shader.uniforms.inputTexture.value = edgesPass.fbo.texture;
-      // blurHPass.shader.uniforms.direction.value.set(d, 0);
-      // blurHPass.render();
-      // blurVPass.shader.uniforms.inputTexture.value = blurHPass.fbo.texture;
-      // blurVPass.shader.uniforms.direction.value.set(0, d);
-      // blurVPass.render();
-      // blurHPass.shader.uniforms.inputTexture.value = blurVPass.fbo.texture;
-      // blurHPass.shader.uniforms.direction.value.set(d, 0);
-      // blurHPass.render();
-      // blurVPass.shader.uniforms.inputTexture.value = blurHPass.fbo.texture;
-      // blurVPass.shader.uniforms.direction.value.set(0, d);
-      // blurVPass.render();
 
       this.pass.render(renderer);
 
@@ -443,11 +271,6 @@ class Painted {
       this.finalPass.shader.uniforms.inputTexture.value =
         this.accumPass.texture;
       this.finalPass.render(renderer, true);
-
-      // antialiasPass.shader.uniforms.minLevel.value = 0;
-      // antialiasPass.shader.uniforms.maxLevel.value = 1;
-      // antialiasPass.shader.uniforms.inputTexture.value = pass.fbo.texture;
-      // antialiasPass.render(true);
 
       this.accumPass.shader.uniforms.invalidate.value = false;
 
