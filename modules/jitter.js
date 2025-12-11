@@ -1,4 +1,4 @@
-import { PerspectiveCamera, MathUtils, Matrix4 } from "three";
+import { PerspectiveCamera, MathUtils } from "three";
 
 const jitterTable = [
   [0.5625, 0.4375],
@@ -93,7 +93,7 @@ function updateProjectionMatrixJitter(camera, size) {
     left += (near * skew) / camera?.getFilmWidth();
 
   if (camera instanceof PerspectiveCamera) {
-    const mat = makePerspectiveJitter(
+    makePerspectiveJitter(
       camera.projectionMatrix,
       left,
       left + width,
