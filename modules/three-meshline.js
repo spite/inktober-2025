@@ -13,7 +13,11 @@ import {
   TextureLoader,
   BufferAttribute,
 } from "three";
-import { noise2d } from "../shaders/noise2d.js";
+
+const loader = new TextureLoader();
+const blueNoise = loader.load("./assets/bluenoise64.png");
+blueNoise.wrapS = blueNoise.wrapT = RepeatWrapping;
+blueNoise.minFilter = blueNoise.magFilter = NearestFilter;
 
 class MeshLine extends BufferGeometry {
   constructor() {
@@ -535,10 +539,6 @@ ShaderChunk["meshline_frag"] = `
   
     ${ShaderChunk.logdepthbuf_fragment}
 
-    // color = vec4(1.,0.,1.,1.);
-    // color = vec4(vUV, 0., 1.);
-    // return;
-  
     vec4 c = vColor;
     
     vec2 tuv = mod((vUV + uvOffset) * repeat, vec2(1.));
@@ -566,11 +566,8 @@ ShaderChunk["meshline_frag"] = `
     vec2 uv = gl_FragCoord.xy / resolution.xy;
     uv = uv * resolution.xy / vec2(textureSize(blueNoiseMap, 0).xy);
     uv = rot2d(uv, time);
-    uv += offset;
-    uv += vUV;
-
-    // color = vec4(vec3(blueNoise(uv)), 1.);
-    // return;
+    uv += offset * 100.;
+    uv += vUV * 100.;
 
     if(blueNoise(uv) > alpha) {
       discard;
@@ -584,10 +581,6 @@ ShaderChunk["meshline_frag"] = `
 
 class MeshLineMaterial extends ShaderMaterial {
   constructor(parameters) {
-    const loader = new TextureLoader();
-    const blueNoise = loader.load("./assets/bluenoise64.png");
-    blueNoise.wrapS = blueNoise.wrapT = RepeatWrapping;
-    blueNoise.minFilter = blueNoise.magFilter = NearestFilter;
     super({
       uniforms: Object.assign({}, UniformsLib.fog, {
         blueNoiseMap: { value: blueNoise },
