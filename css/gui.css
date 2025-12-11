@@ -1,14 +1,10 @@
-/* Container */
 .gui {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  width: 280px;
+  position: relative;
   background-color: #2c2c2c;
   color: #e0e0e0;
   font-family: "Segoe UI", sans-serif;
   font-size: 13px;
-  padding: 10px;
+  padding: 20px;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 9999;
@@ -16,18 +12,46 @@
 }
 
 .title {
+  display: flex;
+  flex-direction: row;
   font-weight: bold;
-  margin-bottom: 12px;
-  border-bottom: 1px solid #444;
-  padding-bottom: 6px;
+  justify-content: space-between;
+  cursor: pointer;
+
+  svg {
+    height: 12px;
+  }
+}
+
+.gui-rows {
+  interpolate-size: allow-keywords;
+
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  flex-direction: column;
+  height: 0;
+  overflow: hidden;
+  transition: height 100ms ease-in-out;
+  border-top: 1px solid #888;
+
+  &.visible {
+    height: auto;
+    margin-top: 12px;
+    padding-top: 12px;
+    opacity: 1;
+  }
 }
 
 .gui-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
   height: 24px;
+}
+
+.gui-separator {
+  border-top: 1px solid #888;
 }
 
 .gui-label {
@@ -74,14 +98,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 140px;
+  width: calc(100% - 140px);
 }
 .gui-slider {
   flex-grow: 1;
   cursor: pointer;
 }
 .gui-slider-val {
-  width: 30px;
+  width: 100px;
   text-align: right;
   opacity: 0.7;
   font-size: 11px;
