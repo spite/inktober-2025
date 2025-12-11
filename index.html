@@ -147,7 +147,10 @@
       }
     </script>
     <!-- <script src="js/CCapture.all.min.js"></script> -->
-    <script async src="third_party/seedrandom.js"></script>
+    <script src="third_party/seedrandom.js"></script>
+    <script>
+      Math.seedrandom(performance.now());
+    </script>
     <script async type="module" src="modules/looper.js"></script>
   </body>
 </html>
