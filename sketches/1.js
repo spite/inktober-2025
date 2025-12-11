@@ -35,7 +35,7 @@ const params = {
   seed: signal(performance.now()),
 };
 
-const gui = new GUI("Annular sphere");
+const gui = new GUI("Annular sphere", document.querySelector("#gui-container"));
 gui.addLabel(
   "Lines generated at different heights on the surface of a sphere."
 );
