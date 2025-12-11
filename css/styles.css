@@ -108,6 +108,17 @@ canvas {
 }
 
 @media (max-width: 950px) {
+  header {
+    align-items: center;
+    right: 20px;
+    h1 {
+      font-size: 42px;
+    }
+
+    .btn span {
+      display: none;
+    }
+  }
   #gui-container {
     position: fixed;
     bottom: 10px;
