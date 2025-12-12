@@ -246,4 +246,15 @@ function draw(startTime) {
   lastTime = t;
 }
 
-export { draw, canvas };
+function start() {
+  controls.enabled = true;
+  gui.show();
+  painted.invalidate();
+}
+
+function stop() {
+  controls.enabled = false;
+  gui.hide();
+}
+
+export { start, stop, draw, canvas };
