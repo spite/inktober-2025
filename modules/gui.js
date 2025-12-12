@@ -156,15 +156,7 @@ class GUI {
     return this;
   }
 
-  addRangeSlider(
-    label,
-    signalMin,
-    signalMax,
-    min,
-    max,
-    step,
-    onChange = () => {}
-  ) {
+  addRangeSlider(label, signal, min, max, step, onChange = () => {}) {
     const row = this.createRow(label);
 
     const wrapper = document.createElement("div");
@@ -180,20 +172,20 @@ class GUI {
 
     const valDisplay = document.createElement("span");
     valDisplay.className = "gui-slider-val";
-    valDisplay.textContent = signalMin();
+    const display = composeRangeValue(signal()[0], signal()[1], step);
+    valDisplay.textContent = display;
 
     input.oninput = (e) => {
       const v = e.target.value;
-      signalMin.set(parseFloat(v[0]));
-      signalMax.set(parseFloat(v[1]));
-      const display = composeRangeValue(signalMin(), signalMax(), step);
+      signal.set([parseFloat(v[0]), parseFloat(v[1])]);
+      const display = composeRangeValue(signal()[0], signal()[1], step);
       valDisplay.textContent = display;
       onChange(v);
     };
 
     effect(() => {
-      input.value = [signalMin(), signalMax()];
-      const display = composeRangeValue(signalMin(), signalMax(), step);
+      input.value = [signal()[0], signal()[1]];
+      const display = composeRangeValue(signal()[0], signal()[1], step);
       valDisplay.textContent = display;
     });
 
