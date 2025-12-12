@@ -1,3 +1,29 @@
+function getIndex() {
+  return parseInt(window.location.hash.replace("#", ""));
+}
+
+function prev(e) {
+  let index = getIndex();
+
+  // beginning, dont do anything
+  if (index === 1) return;
+  window.location.hash = `${--index}`;
+  e.preventDefault();
+}
+
+function next(e) {
+  let index = getIndex();
+  window.location.hash = ++index;
+  e.preventDefault();
+}
+
+document.getElementById("backButton").addEventListener("click", (e) => prev(e));
+document.getElementById("nextButton").addEventListener("click", (e) => next(e));
+
+const cur = getIndex();
+if (isNaN(cur) || cur === "" || cur === undefined) {
+  window.location.hash = 1;
+}
 async function loadModule() {
   const num = window.location.hash.substr(1) || 1;
   const module = await import(`../sketches/${num}.js`);
