@@ -59,6 +59,7 @@ gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 
 gui.addSelect("Brush", brushOptions, params.brush);
 // gui.addSelect("Palette", ["Red", "Blue"]);
+
 gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 
