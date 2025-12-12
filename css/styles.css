@@ -8,6 +8,10 @@
   font-size: 12px;
 }
 
+body {
+  background: #f6f2e9;
+}
+
 header {
   display: none;
   flex-direction: column;
