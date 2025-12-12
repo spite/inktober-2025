@@ -238,7 +238,11 @@
     return min + Math.random() * (max - min);
   };
 
-  Maf.intRandomInRange = (min, max) => Math.round(Maf.randomInRange(min, max));
+  Maf.intRandomInRange = (min, max) => Math.floor(Maf.randomInRange(min, max));
+
+  Maf.randomElement = function (elements) {
+    return elements[Maf.intRandomInRange(0, elements.length)];
+  };
 
   Maf.norm = function (v, minVal, maxVal) {
     return (v - minVal) / (maxVal - minVal);
