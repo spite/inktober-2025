@@ -30,8 +30,8 @@ const defaults = {
   segments: 100,
   tilt: 0.1,
   spread: 0.1,
-  lineWidthMin: 0.3,
-  lineWidthMax: 0.5,
+  lineWidth: [0.3, 0.5],
+  seed: 13373,
 };
 
 const params = {
@@ -40,9 +40,8 @@ const params = {
   segments: signal(defaults.segments),
   tilt: signal(defaults.tilt),
   spread: signal(defaults.spread),
-  lineWidthMin: signal(defaults.lineWidthMin),
-  lineWidthMax: signal(defaults.lineWidthMax),
-  seed: signal(performance.now()),
+  lineWidth: signal(defaults.lineWidth),
+  seed: signal(defaults.seed),
 };
 
 const gui = new GUI("Annular sphere", document.querySelector("#gui-container"));
@@ -54,17 +53,16 @@ gui.addSlider("Rings", params.rings, 1, 200, 1);
 gui.addSlider("Ring length", params.ringLength, 0.1, 2, 0.01);
 gui.addSlider("Tilt", params.tilt, 0, 0.2, 0.01);
 gui.addSlider("Spread", params.spread, 0, 0.2, 0.01);
-gui.addRangeSlider(
-  "Line width range",
-  params.lineWidthMin,
-  params.lineWidthMax,
-  0.1,
-  0.9,
-  0.01
-);
+gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 // gui.addSelect("Palette", ["Red", "Blue"]);
 gui.addButton("Randomize params", randomize);
+gui.addButton("Reset params", reset);
 
+function reset() {
+  for (const key of Object.keys(defaults)) {
+    params[key].set(defaults[key]);
+  }
+}
 const painted = new Painted();
 
 onResize((w, h) => {
@@ -196,8 +194,8 @@ function generateLines() {
       useMap: true,
       color: gradient.getAt(Maf.randomInRange(0, 1)),
       lineWidth: Maf.randomInRange(
-        params.lineWidthMin(),
-        params.lineWidthMax()
+        params.lineWidth()[0],
+        params.lineWidth()[1]
       ),
       offset: Maf.randomInRange(-100, 100),
       opacity: Maf.randomInRange(0.7, 0.9),
@@ -264,8 +262,8 @@ function randomize() {
   params.tilt.set(Maf.randomInRange(0, 0.2));
   params.spread.set(Maf.randomInRange(0, 0.2));
   params.ringLength.set(Maf.randomInRange(0.1, 2));
-  params.lineWidthMin.set(Maf.randomInRange(0.1, 0.9));
-  params.lineWidthMax.set(Maf.randomInRange(params.lineWidthMin(), 0.9));
+  const v = Maf.randomInRange(0.1, 0.9);
+  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
 }
 
 let lastTime = performance.now();
