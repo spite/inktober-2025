@@ -264,7 +264,7 @@ function draw(startTime) {
     );
   });
 
-  group.rotation.y = (time * Maf.TAU) / 4;
+  group.rotation.y = (time * Maf.TAU) / 2;
 
   painted.render(renderer, scene, camera);
   lastTime = t;
