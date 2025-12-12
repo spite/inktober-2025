@@ -1,4 +1,18 @@
 import { WebGLRenderer, PerspectiveCamera, OrthographicCamera } from "three";
+import { TextureLoader } from "three";
+const loader = new TextureLoader();
+loader.setPath("../assets/");
+const brushes = {
+  brush1: loader.load("stroke.jpg"),
+  brush2: loader.load("brush2.jpg"),
+  brush3: loader.load("brush3.jpg"),
+  brush4: loader.load("brush4.jpg"),
+  brush5: loader.load("watercolor-brush-stroke.jpg"),
+  brush6: loader.load("PaintBrushStroke03.jpg"),
+  brush7: loader.load("paintbrush-stroke.jpg"),
+};
+const brushOptions = Object.keys(brushes).map((v, i) => [v, `Brush ${i + 1}`]);
+
 const cameras = [];
 
 function getWebGLRenderer() {
@@ -7,7 +21,6 @@ function getWebGLRenderer() {
   return renderer;
 }
 const resizeFns = [];
-const randomizeFns = [];
 
 const renderer = getWebGLRenderer();
 resize();
@@ -38,10 +51,6 @@ function onResize(fn) {
   resize();
 }
 
-function onRandomize(fn) {
-  randomizeFns.push(fn);
-}
-
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -63,21 +72,12 @@ function resize() {
   }
 }
 
-function randomize() {
-  for (const fn of randomizeFns) {
-    fn();
-  }
-}
-
 const header = document.body.querySelector("header");
 
 let isRunning = true;
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     isRunning = !isRunning;
-  }
-  if (e.code === "KeyR") {
-    randomize();
   }
   if (e.code === "Tab") {
     header.classList.toggle("visible");
@@ -87,11 +87,6 @@ window.addEventListener("keydown", (e) => {
 
 document.getElementById("pauseButton").addEventListener("click", (e) => {
   isRunning = !isRunning;
-  e.preventDefault();
-});
-
-document.getElementById("randomizeButton").addEventListener("click", (e) => {
-  randomize();
   e.preventDefault();
 });
 
@@ -105,10 +100,11 @@ const waitForRender = () => {
 
 export {
   renderer,
+  brushes,
+  brushOptions,
   getCamera,
   getOrthoCamera,
   isRunning,
   onResize,
-  onRandomize,
   waitForRender,
 };
