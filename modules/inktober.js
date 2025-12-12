@@ -1,3 +1,5 @@
+let module;
+
 function getIndex() {
   return parseInt(window.location.hash.replace("#", ""));
 }
@@ -20,13 +22,21 @@ function next(e) {
 document.getElementById("backButton").addEventListener("click", (e) => prev(e));
 document.getElementById("nextButton").addEventListener("click", (e) => next(e));
 
+window.addEventListener("keydown", (e) => {
+  if (e.code === "KeyR") {
+    if (module.randomize) {
+      module.randomize();
+    }
+  }
+});
+
 const cur = getIndex();
 if (isNaN(cur) || cur === "" || cur === undefined) {
   window.location.hash = 1;
 }
 async function loadModule() {
   const num = window.location.hash.substr(1) || 1;
-  const module = await import(`../sketches/${num}.js`);
+  module = await import(`../sketches/${num}.js`);
   document.body.appendChild(module.canvas);
   if (module.start) {
     module.start();
@@ -35,7 +45,7 @@ async function loadModule() {
 }
 
 async function init() {
-  let module = await loadModule();
+  module = await loadModule();
 
   async function reload() {
     if (module && module.canvas) {
