@@ -65,12 +65,18 @@ class RangeSlider extends HTMLElement {
           border-radius: 4px;
         }
 
+        .container.immediate .thumb,
+        .container.immediate .fill {
+          transition: none;
+        }
+
         .fill {
           position: absolute;
           height: var(--track-height);
           background-color: var(--fill-color);
           border-radius: 4px;
           pointer-events: none;
+          transition: width .1s ease-in, left .1s ease-in;
         }
 
         .thumb {
@@ -82,7 +88,7 @@ class RangeSlider extends HTMLElement {
           border-radius: 50%;
           transform: translateX(-50%);
           box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-          transition: transform 0.1s, width 0.1s, height 0.1s;
+          transition: left .1s ease-in, transform 0.1s ease-in, width 0.1s ease-in, height 0.1s ease-in;
           z-index: 2;
           box-sizing: border-box;
         }
@@ -163,6 +169,8 @@ class RangeSlider extends HTMLElement {
   handleDragStart(e) {
     if (this.hasAttribute("disabled")) return;
 
+    this.elements.container.classList.add("immediate");
+
     this.isDragging = true;
     this.elements.thumbMin.style.zIndex = 2;
     this.elements.thumbMax.style.zIndex = 2;
@@ -200,6 +208,7 @@ class RangeSlider extends HTMLElement {
       this.isDragging = false;
       this.dispatchEvent(new Event("change", { bubbles: true }));
       this.updateFormValue();
+      this.elements.container.classList.remove("immediate");
     }
   }
 
