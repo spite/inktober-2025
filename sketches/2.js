@@ -18,25 +18,22 @@ import GUI from "../modules/gui.js";
 
 const defaults = {
   lines: 72,
-  repeatMin: 4,
-  repeatMax: 10,
   segments: 200,
   radiusSpread: 0.5,
+  lineRepeat: [1, 10],
   lineSpread: 0.5,
-  lineWidthMin: 0.4,
-  lineWidthMax: 0.6,
+  lineWidth: [0.4, 0.6],
+  seed: 1337,
 };
 
 const params = {
   lines: signal(defaults.lines),
-  repeatMin: signal(defaults.repeatMin),
-  repeatMax: signal(defaults.repeatMax),
   segments: signal(defaults.segments),
   radiusSpread: signal(defaults.radiusSpread),
+  lineRepeat: signal(defaults.lineRepeat),
   lineSpread: signal(defaults.lineSpread),
-  lineWidthMin: signal(defaults.lineWidthMin),
-  lineWidthMax: signal(defaults.lineWidthMax),
-  seed: signal(performance.now()),
+  lineWidth: signal(defaults.lineWidth),
+  seed: signal(defaults.seed),
 };
 
 const gui = new GUI("Knot curve", document.querySelector("#gui-container"));
@@ -44,25 +41,18 @@ gui.addLabel("Lines generated tracing a Knot curve.");
 gui.addSlider("Segments per line", params.segments, 100, 500, 1);
 gui.addSlider("Radius spread", params.radiusSpread, 0, 1, 0.01);
 gui.addSlider("Lines", params.lines, 1, 200, 1);
-gui.addRangeSlider(
-  "Line repeat range",
-  params.repeatMin,
-  params.repeatMax,
-  1,
-  10,
-  1
-);
+gui.addRangeSlider("Line repeat range", params.lineRepeat, 1, 10, 1);
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
-gui.addRangeSlider(
-  "Line width range",
-  params.lineWidthMin,
-  params.lineWidthMax,
-  0.1,
-  0.9,
-  0.01
-);
+gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 // gui.addSelect("Palette", ["Red", "Blue"]);
 gui.addButton("Randomize params", randomize);
+gui.addButton("Reset params", reset);
+
+function reset() {
+  for (const key of Object.keys(defaults)) {
+    params[key].set(defaults[key]);
+  }
+}
 
 const painted = new Painted({ minLevel: -0.5 });
 
@@ -128,7 +118,7 @@ function generateShape() {
   const LINES = params.lines();
   const POINTS = params.segments();
   for (let i = 0; i < LINES; i++) {
-    const w = Maf.randomInRange(params.lineWidthMin(), params.lineWidthMax());
+    const w = Maf.randomInRange(params.lineWidth()[0], params.lineWidth()[1]);
     const radius =
       0.25 + params.radiusSpread() * Maf.map(0, 1, -0.05, 0.05, Math.random());
     const color = i / LINES;
@@ -152,7 +142,13 @@ function generateShape() {
     g.setPoints(geo);
 
     const repeat = Math.round(
-      Maf.map(0, 1, params.repeatMin(), params.repeatMax(), Math.random())
+      Maf.map(
+        0,
+        1,
+        params.lineRepeat()[0],
+        params.lineRepeat()[1],
+        Math.random()
+      )
     );
 
     const material = new MeshLineMaterial({
@@ -214,16 +210,16 @@ function randomize() {
   params.segments.set(Maf.intRandomInRange(100, 500));
   params.radiusSpread.set(Maf.randomInRange(0, 1));
   params.lineSpread.set(Maf.randomInRange(0, 1));
-  params.repeatMin.set(Maf.randomInRange(0, 10));
-  params.repeatMax.set(Maf.randomInRange(params.repeatMin(), 10));
-  params.lineWidthMin.set(Maf.randomInRange(0.1, 0.9));
-  params.lineWidthMax.set(Maf.randomInRange(params.lineWidthMin(), 0.9));
+  const r = Maf.randomInRange(1, 10);
+  params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
+  const v = Maf.randomInRange(0.1, 0.9);
+  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
 }
 
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw() {
   controls.update();
 
   const t = performance.now();
