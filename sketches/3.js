@@ -1,11 +1,5 @@
 import { Scene, Mesh, Group, Vector2, TextureLoader, Color } from "three";
-import {
-  renderer,
-  getCamera,
-  isRunning,
-  onResize,
-  onRandomize,
-} from "../modules/three.js";
+import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
@@ -226,11 +220,11 @@ function clearScene() {
   meshes.length = 0;
 }
 
-onRandomize(() => {
-  params.seed.set(performance.now());
-});
-
 function randomize() {
+  params.seed.set(performance.now());
+}
+
+function randomizeParams() {
   console.log("randomize");
   params.lines.set(Maf.intRandomInRange(1, 200));
   params.segments.set(Maf.intRandomInRange(200, 500));
@@ -281,4 +275,4 @@ function stop() {
   gui.hide();
 }
 
-export { start, stop, draw, canvas };
+export { start, stop, draw, randomize, canvas };
