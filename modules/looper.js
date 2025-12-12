@@ -2,6 +2,9 @@ async function loadModule() {
   const num = window.location.hash.substr(1) || 1;
   const module = await import(`../sketches/${num}.js`);
   document.body.appendChild(module.canvas);
+  if (module.start) {
+    module.start();
+  }
   return module;
 }
 
@@ -13,6 +16,9 @@ async function init() {
       try {
         document.body.removeChild(module.canvas);
       } catch (e) {}
+    }
+    if (module && module.stop) {
+      module.stop();
     }
     try {
       module = await loadModule();
