@@ -51,6 +51,14 @@ class GUI {
     el.append(this.container);
   }
 
+  show() {
+    this.container.classList.add("visible");
+  }
+
+  hide() {
+    this.container.classList.remove("visible");
+  }
+
   createRow(label) {
     const row = document.createElement("div");
     row.className = "gui-row";
