@@ -93,20 +93,39 @@ class GUI {
     return this;
   }
 
-  addSelect(label, options, initialValue, onChange) {
+  addSelect(label, options, signal, onChange = () => {}) {
     const row = this.createRow(label);
     const select = document.createElement("select");
     select.className = "gui-select";
 
+    const optionEls = [];
+
     options.forEach((opt) => {
       const el = document.createElement("option");
-      el.value = opt;
-      el.textContent = opt;
-      if (opt === initialValue) el.selected = true;
+      if (Array.isArray(opt)) {
+        el.value = opt[0];
+        el.textContent = opt[1];
+        if (opt[0] === signal()) el.selected = true;
+      } else {
+        el.value = opt;
+        el.textContent = opt;
+        if (opt === signal()) el.selected = true;
+      }
       select.append(el);
+      optionEls.push(el);
     });
 
-    select.onchange = (e) => onChange(e.target.value);
+    effect(() => {
+      for (const el of optionEls) {
+        el.selected = el.value === signal();
+      }
+    });
+
+    select.onchange = (e) => {
+      signal.set(e.target.value);
+      onChange(e.target.value);
+    };
+
     row.append(select);
     return this;
   }
