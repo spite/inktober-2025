@@ -208,10 +208,9 @@ function generateLines() {
     const pivot = new Group();
     const a = Maf.randomInRange(0, Maf.TAU);
     const x = 3 * Math.sin(a);
-    const y = Maf.map(0, params.rings(), -2, 2, i); //Maf.randomInRange(-2, 2);
+    const y = Maf.map(0, params.rings(), -2, 2, i);
     const z = 3 * Math.cos(a);
     pivot.position.set(0, y, 0);
-    // const tilt = 0.1;
     pivot.rotation.x = Maf.randomInRange(-params.tilt(), params.tilt());
     pivot.rotation.z = Maf.randomInRange(-params.tilt(), params.tilt());
     mesh.rotation.x = Math.PI / 2;
@@ -292,4 +291,15 @@ function draw() {
   lastTime = t;
 }
 
-export { draw, canvas };
+function start() {
+  controls.enabled = true;
+  gui.show();
+  painted.invalidate();
+}
+
+function stop() {
+  controls.enabled = false;
+  gui.hide();
+}
+
+export { start, stop, draw, canvas };
