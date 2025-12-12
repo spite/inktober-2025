@@ -267,6 +267,7 @@ function randomizeParams() {
   params.ringLength.set(Maf.randomInRange(0.1, 2));
   const v = Maf.randomInRange(0.1, 0.9);
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+  params.brush.set(Maf.randomElement(brushOptions)[0]);
 }
 
 let lastTime = performance.now();
