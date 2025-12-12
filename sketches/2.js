@@ -54,7 +54,7 @@ function reset() {
   }
 }
 
-const painted = new Painted({ minLevel: -0.5 });
+const painted = new Painted();
 
 onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
