@@ -24,14 +24,24 @@ import { Painted } from "../modules/painted.js";
 import GUI from "../modules/gui.js";
 import { signal, effectRAF } from "../modules/reactive.js";
 
+const defaults = {
+  rings: 72,
+  ringLength: 1,
+  segments: 100,
+  tilt: 0.1,
+  spread: 0.1,
+  lineWidthMin: 0.3,
+  lineWidthMax: 0.5,
+};
+
 const params = {
-  rings: signal(72),
-  ringLength: signal(1),
-  segments: signal(100),
-  tilt: signal(0.1),
-  spread: signal(0.1),
-  lineWidthMin: signal(0.3),
-  lineWidthMax: signal(0.5),
+  rings: signal(defaults.rings),
+  ringLength: signal(defaults.ringLength),
+  segments: signal(defaults.segments),
+  tilt: signal(defaults.tilt),
+  spread: signal(defaults.spread),
+  lineWidthMin: signal(defaults.lineWidthMin),
+  lineWidthMax: signal(defaults.lineWidthMax),
   seed: signal(performance.now()),
 };
 
@@ -39,13 +49,13 @@ const gui = new GUI("Annular sphere", document.querySelector("#gui-container"));
 gui.addLabel(
   "Lines generated at different heights on the surface of a sphere."
 );
+gui.addSlider("Segments", params.segments, 20, 100, 1);
 gui.addSlider("Rings", params.rings, 1, 200, 1);
 gui.addSlider("Ring length", params.ringLength, 0.1, 2, 0.01);
-gui.addSlider("Segments", params.segments, 20, 100, 1);
 gui.addSlider("Tilt", params.tilt, 0, 0.2, 0.01);
 gui.addSlider("Spread", params.spread, 0, 0.2, 0.01);
 gui.addRangeSlider(
-  "Width range",
+  "Line width range",
   params.lineWidthMin,
   params.lineWidthMax,
   0.1,
