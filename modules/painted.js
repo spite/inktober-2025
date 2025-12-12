@@ -13,18 +13,10 @@ import {
 
 import orthoVertexShader from "../shaders/ortho.js";
 import vignette from "../shaders/vignette.js";
-import { shader as fxaa } from "../shaders/fxaa.js";
 import grayscale from "../shaders/grayscale.js";
-import sobel from "../shaders/sobel.js";
 import overlay from "../shaders/overlay.js";
 import softLight from "../shaders/soft-light.js";
-import lighten from "../shaders/lighten.js";
-import { levelRange } from "../shaders/levels.js";
-import { blur5 } from "../shaders/fast-separable-gaussian-blur.js";
-import highPass from "../shaders/high-pass.js";
-import { noise2d } from "../shaders/noise2d.js";
 import { ShaderPass } from "../modules/shader-pass.js";
-import { shader as median } from "../shaders/median.js";
 import { ShaderPingPongPass } from "../modules/shader-ping-pong-pass.js";
 import {
   updateProjectionMatrixJitter,
@@ -49,12 +41,8 @@ in vec2 vUv;
 out vec4 fragColor;
 
 ${vignette}
-${fxaa}
-${sobel}
 ${overlay}
 ${softLight}
-${lighten}
-${highPass}
 ${grayscale}
 
 float gradientNoise(in vec2 uv) {
@@ -63,15 +51,15 @@ float gradientNoise(in vec2 uv) {
 
 vec4 calcNormal(in sampler2D map, in vec2 uv) {
   vec4 i = texture(map, uv);
-  float s11 = i.x;
+  float s11 = i.a;
 
-  const vec2 size = vec2(.2,0.0);
+  const vec2 size = vec2(1.,0.0);
   const ivec3 off = ivec3(-1,0,1);
 
-  float s01 = textureOffset(map, uv, off.xy).x;
-  float s21 = textureOffset(map, uv, off.zy).x;
-  float s10 = textureOffset(map, uv, off.yx).x;
-  float s12 = textureOffset(map, uv, off.yz).x;
+  float s01 = textureOffset(map, uv, off.xy).a;
+  float s21 = textureOffset(map, uv, off.zy).a;
+  float s10 = textureOffset(map, uv, off.yx).a;
+  float s12 = textureOffset(map, uv, off.yz).a;
   vec3 va = normalize(vec3(size.xy,s21-s01));
   vec3 vb = normalize(vec3(size.yx,s12-s10));
   vec4 bump = vec4( cross(va,vb), s11 );
@@ -83,10 +71,12 @@ void main() {
   vec4 color = texture(inputTexture, vUv);
   
   vec4 normal = calcNormal(inputTexture, vUv);
+
   float l = dot(normal.rgb, normalize(vec3(1., -1., 0.)));
   l = .5 + .5 * l;
   l = 1. - l;
-  l = smoothstep(.4, .6, l);
+  float e = .3;
+  l = smoothstep(.5-e, .5+e, l);
   
   vec2 offset = 10. / resolution.xy;
   vec4 shadow = texture(inputTexture, vUv + vec2(-1., 1.) * offset);
@@ -94,9 +84,6 @@ void main() {
   shadow.rgb = mix(shadow.rgb, vec3(1.), color.a);  
 
   color = vec4(mix(backgroundColor, color.rgb, color.a), 1.);
-
-  // vec4 hp = highPass(inputTexture, vUv);
-  // color = softLight(color, hp);
 
   vec2 paperUv = gl_FragCoord.xy / resolution.xy;
   paperUv = paperUv * resolution.xy / vec2(textureSize(paperTexture, 0).xy);
