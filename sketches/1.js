@@ -5,7 +5,6 @@ import {
   BufferGeometry,
   Vector3,
   BufferAttribute,
-  TextureLoader,
   Color,
 } from "three";
 import {
@@ -13,7 +12,8 @@ import {
   getCamera,
   isRunning,
   onResize,
-  onRandomize,
+  brushes,
+  brushOptions,
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
@@ -31,6 +31,7 @@ const defaults = {
   tilt: 0.1,
   spread: 0.1,
   lineWidth: [0.3, 0.5],
+  brush: "brush4",
   seed: 13373,
 };
 
@@ -41,6 +42,7 @@ const params = {
   tilt: signal(defaults.tilt),
   spread: signal(defaults.spread),
   lineWidth: signal(defaults.lineWidth),
+  brush: signal(defaults.brush),
   seed: signal(defaults.seed),
 };
 
@@ -54,8 +56,10 @@ gui.addSlider("Ring length", params.ringLength, 0.1, 2, 0.01);
 gui.addSlider("Tilt", params.tilt, 0, 0.2, 0.01);
 gui.addSlider("Spread", params.spread, 0, 0.2, 0.01);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+
+gui.addSelect("Brush", brushOptions, params.brush);
 // gui.addSelect("Palette", ["Red", "Blue"]);
-gui.addButton("Randomize params", randomize);
+gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 
 function reset() {
@@ -158,8 +162,6 @@ camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
-
 const circles = [];
 const geometry = new BufferGeometry();
 
@@ -190,7 +192,7 @@ function generateLines() {
   for (let i = 0; i < params.rings(); i++) {
     const line = new MeshLine();
     const material = new MeshLineMaterial({
-      map: strokeTexture,
+      map: brushes[params.brush()],
       useMap: true,
       color: gradient.getAt(Maf.randomInRange(0, 1)),
       lineWidth: Maf.randomInRange(
@@ -251,11 +253,11 @@ function clearScene() {
   circles.length = 0;
 }
 
-onRandomize(() => {
-  params.seed.set(performance.now());
-});
-
 function randomize() {
+  params.seed.set(performance.now());
+}
+
+function randomizeParams() {
   console.log("randomize");
   params.rings.set(Maf.intRandomInRange(1, 200));
   params.segments.set(Maf.intRandomInRange(20, 100));
@@ -300,4 +302,4 @@ function stop() {
   gui.hide();
 }
 
-export { start, stop, draw, canvas };
+export { start, stop, draw, randomize, canvas };
