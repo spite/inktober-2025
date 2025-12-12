@@ -234,23 +234,23 @@ class TrefoilKnot extends Curve {
 
     t *= Math.PI * 2;
 
-    const x = (2 + Math.cos(3 * t)) * Math.cos(2 * t);
-    const y = (2 + Math.cos(3 * t)) * Math.sin(2 * t);
-    const z = Math.sin(3 * t);
+    const x = Math.sin(t) + 2 * Math.sin(2 * t);
+    const y = Math.cos(t) - 2 * Math.cos(2 * t);
+    const z = -Math.sin(3 * t);
 
     return point.set(x, y, z).multiplyScalar(this.scale);
   }
 }
 
 /**
- * A torus knot.
+ * A Trefoil Knot.
  *
  * @augments Curve
- * @three_import import { TorusKnot } from 'three/addons/curves/CurveExtras.js';
+ * @three_import import { TrefoilKnot } from 'three/addons/curves/CurveExtras.js';
  */
-class TorusKnot extends Curve {
+class Trefoil23TorusKnot extends Curve {
   /**
-   * Constructs a new torus knot.
+   * Constructs a new Trefoil Knot.
    *
    * @param {number} [scale=10] - The curve's scale.
    */
@@ -276,16 +276,64 @@ class TorusKnot extends Curve {
   getPoint(t, optionalTarget = new Vector3()) {
     const point = optionalTarget;
 
-    const p = 3;
-    const q = 4;
-
     t *= Math.PI * 2;
 
-    const x = (2 + Math.cos(q * t)) * Math.cos(p * t);
-    const y = (2 + Math.cos(q * t)) * Math.sin(p * t);
-    const z = Math.sin(q * t);
+    const x = (2 + Math.cos(3 * t)) * Math.cos(2 * t);
+    const y = (2 + Math.cos(3 * t)) * Math.sin(2 * t);
+    const z = Math.sin(3 * t);
 
     return point.set(x, y, z).multiplyScalar(this.scale);
+  }
+}
+
+/**
+ * A torus knot.
+ *
+ * @augments Curve
+ * @three_import import { TorusKnot } from 'three/addons/curves/CurveExtras.js';
+ */
+class TorusKnot extends Curve {
+  /**
+   * Constructs a new torus knot.
+   *
+   * @param {number} [scale=10] - The curve's scale.
+   */
+  constructor(scale = 10, p = 2, q = 3) {
+    super();
+
+    /**
+     * The curve's scale.
+     *
+     * @type {number}
+     * @default 10
+     */
+    this.scale = scale;
+    this.p = p;
+    this.q = q;
+  }
+
+  /**
+   * This method returns a vector in 3D space for the given interpolation factor.
+   *
+   * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+   * @param {Vector3} [optionalTarget] - The optional target vector the result is written to.
+   * @return {Vector3} The position on the curve.
+   */
+  getPoint(t, optionalTarget = new Vector3()) {
+    const point = optionalTarget;
+
+    t *= this.p * Math.PI * 2;
+
+    const cu = Math.cos(t);
+    const su = Math.sin(t);
+    const quOverP = (this.q / this.p) * t;
+    const cs = Math.cos(quOverP);
+
+    const x = (2 + cs) * 0.5 * cu;
+    const y = (2 + cs) * su * 0.5;
+    const z = Math.sin(quOverP) * 0.5;
+
+    return point.set(x, y, z).multiplyScalar(2 * this.scale);
   }
 }
 
@@ -622,6 +670,7 @@ export {
   KnotCurve,
   HelixCurve,
   TrefoilKnot,
+  Trefoil23TorusKnot,
   TorusKnot,
   CinquefoilKnot,
   TrefoilPolynomialKnot,
