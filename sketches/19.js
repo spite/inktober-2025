@@ -24,7 +24,6 @@ import {
   isRunning,
   onResize,
   waitForRender,
-  onRandomize,
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
@@ -222,9 +221,9 @@ function clearScene() {
 
 generate();
 
-onRandomize(() => {
+function randomize() {
   generate();
-});
+}
 
 let lastTime = performance.now();
 let time = 0;
@@ -250,4 +249,4 @@ function draw(startTime) {
   lastTime = t;
 }
 
-export { draw, canvas, renderer, camera };
+export { draw, canvas, renderer, camera, randomize };
