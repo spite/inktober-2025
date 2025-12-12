@@ -24,7 +24,7 @@ document.getElementById("nextButton").addEventListener("click", (e) => next(e));
 
 window.addEventListener("keydown", (e) => {
   if (e.code === "KeyR") {
-    if (module.randomize) {
+    if (module?.randomize) {
       module.randomize();
     }
   }
