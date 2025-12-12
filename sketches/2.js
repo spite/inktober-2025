@@ -4,7 +4,8 @@ import {
   getCamera,
   isRunning,
   onResize,
-  onRandomize,
+  brushes,
+  brushOptions,
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
@@ -23,6 +24,7 @@ const defaults = {
   lineRepeat: [1, 10],
   lineSpread: 0.5,
   lineWidth: [0.4, 0.6],
+  brush: "brush4",
   seed: 1337,
 };
 
@@ -33,6 +35,7 @@ const params = {
   lineRepeat: signal(defaults.lineRepeat),
   lineSpread: signal(defaults.lineSpread),
   lineWidth: signal(defaults.lineWidth),
+  brush: signal(defaults.brush),
   seed: signal(defaults.seed),
 };
 
@@ -44,8 +47,11 @@ gui.addSlider("Lines", params.lines, 1, 200, 1);
 gui.addRangeSlider("Line repeat range", params.lineRepeat, 1, 10, 1);
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+
+gui.addSelect("Brush", brushOptions, params.brush);
 // gui.addSelect("Palette", ["Red", "Blue"]);
-gui.addButton("Randomize params", randomize);
+
+gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 
 function reset() {
@@ -106,7 +112,6 @@ camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
 const resolution = new Vector2(canvas.width, canvas.height);
 
 const meshes = [];
@@ -152,7 +157,7 @@ function generateShape() {
     );
 
     const material = new MeshLineMaterial({
-      map: strokeTexture,
+      map: brushes[params.brush()],
       useMap: true,
       color: gradient.getAt(color),
       resolution: resolution,
@@ -200,11 +205,11 @@ function clearScene() {
   meshes.length = 0;
 }
 
-onRandomize(() => {
-  params.seed.set(performance.now());
-});
-
 function randomize() {
+  params.seed.set(performance.now());
+}
+
+function randomizeParams() {
   console.log("randomize");
   params.lines.set(Maf.intRandomInRange(1, 200));
   params.segments.set(Maf.intRandomInRange(100, 500));
@@ -237,7 +242,6 @@ function draw() {
 
   group.rotation.y = (time * Maf.TAU) / 4;
 
-  // renderer.render(scene, camera);
   painted.render(renderer, scene, camera);
   lastTime = t;
 }
@@ -253,4 +257,4 @@ function stop() {
   gui.hide();
 }
 
-export { start, stop, draw, canvas };
+export { start, stop, draw, randomize, canvas };
