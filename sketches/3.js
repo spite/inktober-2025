@@ -1,5 +1,12 @@
 import { Scene, Mesh, Group, Vector2, TextureLoader, Color } from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+import {
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  brushes,
+  brushOptions,
+} from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
@@ -21,6 +28,7 @@ const defaults = {
   type: "trefoil",
   knotP: 2,
   knotQ: 3,
+  brush: "brush4",
 };
 
 const params = {
@@ -34,6 +42,7 @@ const params = {
   type: signal(defaults.type),
   knotP: signal(defaults.knotP),
   knotQ: signal(defaults.knotQ),
+  brush: signal(defaults.brush),
 };
 
 const gui = new GUI(
@@ -47,7 +56,6 @@ gui.addSlider("Lines", params.lines, 1, 200, 1);
 gui.addRangeSlider("Line repeat range", params.lineRepeat, 1, 20, 1);
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
-// gui.addSelect("Palette", ["Red", "Blue"]);
 gui.addSelect(
   "Curve type",
   [
@@ -58,7 +66,11 @@ gui.addSelect(
 );
 gui.addSlider("Coprime integer P", params.knotP, 1, 6, 1);
 gui.addSlider("Coprime integer Q", params.knotQ, 1, 6, 1);
-gui.addButton("Randomize params", randomize);
+
+gui.addSelect("Brush", brushOptions, params.brush);
+// gui.addSelect("Palette", ["Red", "Blue"]);
+
+gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 
 function reset() {
@@ -118,8 +130,6 @@ camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-const strokeTexture = new TextureLoader().load("./assets/brush4.jpg");
-
 const meshes = [];
 
 function generateShape() {
@@ -170,7 +180,7 @@ function generateShape() {
     );
 
     const material = new MeshLineMaterial({
-      map: strokeTexture,
+      map: brushes[params.brush()],
       useMap: true,
       color: gradient.getAt(color),
       lineWidth: w,
@@ -234,9 +244,10 @@ function randomizeParams() {
   params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
   const v = Maf.randomInRange(0.1, 0.9);
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.type.set(["trefoil", "torusknot"][Maf.intRandomInRange(0, 1)]);
+  params.type.set(Maf.randomElement(["trefoil", "torusknot"]));
   params.knotP.set(Maf.intRandomInRange(1, 6));
   params.knotQ.set(Maf.intRandomInRange(1, 6));
+  params.brush.set(Maf.randomElement(brushOptions)[0]);
 }
 
 let lastTime = performance.now();
