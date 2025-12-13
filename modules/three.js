@@ -1,7 +1,7 @@
 import { WebGLRenderer, PerspectiveCamera, OrthographicCamera } from "three";
 import { TextureLoader } from "three";
 const loader = new TextureLoader();
-loader.setPath("../assets/");
+loader.setPath("./assets/");
 const brushes = {
   brush1: loader.load("stroke.jpg"),
   brush2: loader.load("brush2.jpg"),
@@ -9,7 +9,8 @@ const brushes = {
   brush4: loader.load("brush4.jpg"),
   brush5: loader.load("watercolor-brush-stroke.jpg"),
   brush6: loader.load("PaintBrushStroke03.jpg"),
-  brush7: loader.load("paintbrush-stroke.jpg"),
+  brush7: loader.load("stroke3.jpg"),
+  brush8: loader.load("stroke4.jpg"),
 };
 const brushOptions = Object.keys(brushes).map((v, i) => [v, `Brush ${i + 1}`]);
 
