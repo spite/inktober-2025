@@ -243,6 +243,8 @@ effectRAF(() => {
 
 function clearScene() {
   for (const mesh of meshes) {
+    mesh.mesh.geometry.dispose();
+    mesh.mesh.material.dispose();
     group.remove(mesh.mesh);
   }
   meshes.length = 0;
