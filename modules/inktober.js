@@ -21,6 +21,13 @@ function next(e) {
 
 document.getElementById("backButton").addEventListener("click", (e) => prev(e));
 document.getElementById("nextButton").addEventListener("click", (e) => next(e));
+document.getElementById("randomizeButton").addEventListener("click", (e) => {
+  if (module?.randomize) {
+    module.randomize();
+  }
+  e.preventDefault();
+  e.stopPropagation();
+});
 
 window.addEventListener("keydown", (e) => {
   if (e.code === "KeyR") {
