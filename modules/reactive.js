@@ -85,7 +85,7 @@ export function effectRAF(fn) {
   effect.run();
 }
 
-export function compute(fn) {
+export function computed(fn) {
   let value;
   const subscribers = new Set();
 
