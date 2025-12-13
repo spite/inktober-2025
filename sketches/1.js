@@ -57,9 +57,11 @@ gui.addSlider("Tilt", params.tilt, 0, 0.2, 0.01);
 gui.addSlider("Spread", params.spread, 0, 0.2, 0.01);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 
+gui.addSeparator();
 gui.addSelect("Brush", brushOptions, params.brush);
 // gui.addSelect("Palette", ["Red", "Blue"]);
 
+gui.addSeparator();
 gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 
@@ -261,7 +263,7 @@ function randomize() {
 function randomizeParams() {
   console.log("randomize");
   params.rings.set(Maf.intRandomInRange(1, 200));
-  params.segments.set(Maf.intRandomInRange(20, 100));
+  // params.segments.set(Maf.intRandomInRange(20, 100));
   params.tilt.set(Maf.randomInRange(0, 0.2));
   params.spread.set(Maf.randomInRange(0, 0.2));
   params.ringLength.set(Maf.randomInRange(0.1, 2));
