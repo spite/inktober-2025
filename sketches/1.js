@@ -166,12 +166,12 @@ renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
 const circles = [];
-const geometry = new BufferGeometry();
+const geometry = [];
 
 function generateRing() {
+  geometry.length = 0;
   console.log("Generating ring");
   const circleRadius = 2;
-  const vertices = [];
   const l = params.ringLength() * Math.PI;
   for (let j = 0; j <= l; j += l / params.segments()) {
     const v = new Vector3(
@@ -179,13 +179,9 @@ function generateRing() {
       circleRadius * Math.cos(j),
       circleRadius * Math.sin(j)
     );
-    vertices.push(v.x, v.y, v.z);
+    geometry.push(v.x, v.y, v.z);
   }
-  vertices.reverse();
-  geometry.setAttribute(
-    "position",
-    new BufferAttribute(new Float32Array(vertices), 3)
-  );
+  geometry.reverse();
 }
 
 function generateLines() {
@@ -205,7 +201,7 @@ function generateLines() {
       offset: Maf.randomInRange(-100, 100),
       opacity: Maf.randomInRange(0.7, 0.9),
     });
-    line.setGeometry(geometry, (p) => p);
+    line.setPoints(geometry, (p) => p);
     const mesh = new Mesh(line.geometry, material);
     // Tilt the ring.
     const pivot = new Group();
@@ -250,8 +246,10 @@ effectRAF(() => {
 });
 
 function clearScene() {
-  for (const mesh of circles) {
-    group.remove(mesh.pivot);
+  for (const circle of circles) {
+    circle.mesh.geometry.dispose();
+    circle.mesh.material.dispose();
+    group.remove(circle.pivot);
   }
   circles.length = 0;
 }
