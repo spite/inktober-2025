@@ -54,6 +54,11 @@
   justify-content: space-between;
   align-items: center;
   height: 24px;
+
+  &.disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
 }
 
 .gui-separator {
@@ -119,4 +124,14 @@
   text-align: right;
   opacity: 0.7;
   font-size: 11px;
+}
+
+.gui-row:has(.gui-separator) {
+  height: 12px;
+}
+
+.gui-separator {
+  background: #888;
+  height: 1px;
+  width: 100%;
 }
