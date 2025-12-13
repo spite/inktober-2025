@@ -42,15 +42,17 @@ const params = {
 const gui = new GUI("Knot curve", document.querySelector("#gui-container"));
 gui.addLabel("Lines generated tracing a Knot curve.");
 gui.addSlider("Segments per line", params.segments, 100, 500, 1);
-gui.addSlider("Radius spread", params.radiusSpread, 0, 1, 0.01);
 gui.addSlider("Lines", params.lines, 1, 200, 1);
-gui.addRangeSlider("Line repeat range", params.lineRepeat, 1, 10, 1);
+gui.addSlider("Radius spread", params.radiusSpread, 0, 1, 0.01);
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
+gui.addRangeSlider("Line repeat range", params.lineRepeat, 1, 10, 1);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 
+gui.addSeparator();
 gui.addSelect("Brush", brushOptions, params.brush);
 // gui.addSelect("Palette", ["Red", "Blue"]);
 
+gui.addSeparator();
 gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 
@@ -212,7 +214,7 @@ function randomize() {
 function randomizeParams() {
   console.log("randomize");
   params.lines.set(Maf.intRandomInRange(1, 200));
-  params.segments.set(Maf.intRandomInRange(100, 500));
+  // params.segments.set(Maf.intRandomInRange(100, 500));
   params.radiusSpread.set(Maf.randomInRange(0, 1));
   params.lineSpread.set(Maf.randomInRange(0, 1));
   const r = Maf.randomInRange(1, 10);
