@@ -59,7 +59,7 @@ class GUI {
     this.container.classList.remove("visible");
   }
 
-  createRow(label) {
+  createRow(label, disabled) {
     const row = document.createElement("div");
     row.className = "gui-row";
     if (label) {
@@ -68,6 +68,13 @@ class GUI {
       labelEl.textContent = label;
       row.append(labelEl);
     }
+
+    if (disabled) {
+      effect(() => {
+        row.classList.toggle("disabled", disabled());
+      });
+    }
+
     this.rows.append(row);
     return row;
   }
@@ -140,8 +147,8 @@ class GUI {
     return this;
   }
 
-  addSlider(label, signal, min, max, step, onChange = () => {}) {
-    const row = this.createRow(label);
+  addSlider(label, signal, min, max, step, onChange = () => {}, disabled) {
+    const row = this.createRow(label, disabled);
 
     const wrapper = document.createElement("div");
     wrapper.className = "gui-slider-container";
@@ -216,6 +223,16 @@ class GUI {
 
   addLabel(label) {
     const row = this.createRow(label);
+    return this;
+  }
+
+  addSeparator() {
+    const row = this.createRow();
+
+    const line = document.createElement("div");
+    line.className = "gui-separator";
+    row.append(line);
+
     return this;
   }
 }
