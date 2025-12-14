@@ -226,6 +226,17 @@ class GUI {
     return this;
   }
 
+  addText(text) {
+    const row = this.createRow();
+
+    const content = document.createElement("div");
+    content.className = "gui-text";
+    content.innerHTML = text;
+    row.append(content);
+
+    return this;
+  }
+
   addSeparator() {
     const row = this.createRow();
 
