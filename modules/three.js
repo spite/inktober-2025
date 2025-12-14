@@ -17,7 +17,11 @@ const brushOptions = Object.keys(brushes).map((v, i) => [v, `Brush ${i + 1}`]);
 const cameras = [];
 
 function getWebGLRenderer() {
-  const renderer = new WebGLRenderer({ antialias: false, alpha: true });
+  const renderer = new WebGLRenderer({
+    antialias: false,
+    alpha: true,
+    preserveDrawingBuffer: true,
+  });
   renderer.setPixelRatio(window.devicePixelRatio);
   return renderer;
 }
