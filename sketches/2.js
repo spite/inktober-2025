@@ -6,6 +6,7 @@ import {
   onResize,
   brushes,
   brushOptions,
+  addInfo,
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
@@ -55,6 +56,8 @@ gui.addSelect("Brush", brushOptions, params.brush);
 gui.addSeparator();
 gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
+
+addInfo(gui);
 
 function reset() {
   for (const key of Object.keys(defaults)) {
