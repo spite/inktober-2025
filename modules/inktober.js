@@ -35,12 +35,41 @@ window.addEventListener("keydown", (e) => {
       module.randomize();
     }
   }
+  if (e.code === "KeyS") {
+    saveCanvas();
+  }
 });
+
+document.getElementById("downloadButton").addEventListener("click", (e) => {
+  saveCanvas();
+  e.preventDefault();
+  e.stopPropagation();
+});
+
+function saveCanvas() {
+  if (module.canvas) {
+    module.canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+
+      const downloadBtn = document.createElement("a");
+      downloadBtn.setAttribute(
+        "download",
+        `inktober-2025-${performance.now()}.png`
+      );
+      downloadBtn.setAttribute("href", url);
+      document.body.appendChild(downloadBtn); // Append to the document to make click() work
+      downloadBtn.click();
+      downloadBtn.remove(); // Clean up the temporary element
+      URL.revokeObjectURL(url); // Clean up the object URL
+    });
+  }
+}
 
 const cur = getIndex();
 if (isNaN(cur) || cur === "" || cur === undefined) {
   window.location.hash = 1;
 }
+
 async function loadModule() {
   const num = window.location.hash.substr(1) || 1;
   module = await import(`../sketches/${num}.js`);
