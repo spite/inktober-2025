@@ -130,6 +130,10 @@
   height: 12px;
 }
 
+.gui-row:has(.gui-text) {
+  height: auto;
+}
+
 .gui-separator {
   background: #888;
   height: 1px;
