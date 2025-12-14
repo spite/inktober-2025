@@ -103,6 +103,18 @@ const waitForRender = () => {
   });
 };
 
+function addInfo(gui) {
+  gui.addSeparator();
+  gui.addText(`<p>
+            Click and drag to rotate. Right click and drag to pan. Mousewheel to
+            zoom. Click <b>Pause</b> of press <b>Space</b> to toggle animation. Click <b>Randomize</b> or
+            press <b>R</b> to randomize.<br/><br/>
+            In the params panel, press <b>Randomize params</b> to find new shapes.<br/><br/>
+            Click <b>Save</b> or press <b>S</b> to download an image. Press
+            <b>Tab</b> to toggle the UI.
+          </p>`);
+}
+
 export {
   renderer,
   brushes,
@@ -112,4 +124,5 @@ export {
   isRunning,
   onResize,
   waitForRender,
+  addInfo,
 };
