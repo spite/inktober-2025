@@ -22,14 +22,14 @@ const defaults = {
   lines: 200,
   segments: 200,
   radiusSpread: 0.5,
-  lineRepeat: [10, 20],
+  lineRepeat: [1, 8],
   lineSpread: 1,
-  lineWidth: [0.4, 0.6],
+  lineWidth: [0.1, 0.9],
   seed: 1337,
   type: "trefoil",
   knotP: 2,
   knotQ: 3,
-  brush: "brush4",
+  brush: "brush1",
   palette: "basic",
 };
 
@@ -49,10 +49,10 @@ const params = {
 };
 
 const gui = new GUI(
-  "Trefoil knot curve",
+  "Trefoil and torus knot curves",
   document.querySelector("#gui-container")
 );
-gui.addLabel("Lines generated tracing a Trefoil Knot curve.");
+gui.addLabel("Lines generated tracing Trefoil and Torus Knot curves.");
 gui.addSlider("Segments per line", params.segments, 200, 500, 1);
 gui.addSelect(
   "Curve type",
