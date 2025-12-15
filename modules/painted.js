@@ -16,6 +16,7 @@ import vignette from "../shaders/vignette.js";
 import grayscale from "../shaders/grayscale.js";
 import overlay from "../shaders/overlay.js";
 import softLight from "../shaders/soft-light.js";
+import lighten from "../shaders/lighten.js";
 import { ShaderPass } from "../modules/shader-pass.js";
 import { ShaderPingPongPass } from "../modules/shader-ping-pong-pass.js";
 import {
@@ -35,6 +36,7 @@ uniform float vignetteReduction;
 uniform float lightenPass;
 uniform sampler2D paperTexture;
 uniform vec3 backgroundColor;
+uniform vec2 mouse;
 
 in vec2 vUv;
 
@@ -44,6 +46,7 @@ ${vignette}
 ${overlay}
 ${softLight}
 ${grayscale}
+${lighten}
 
 float gradientNoise(in vec2 uv) {
 	return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
@@ -66,16 +69,51 @@ vec4 calcNormal(in sampler2D map, in vec2 uv) {
 
   return bump;
 }
+
+float luma(vec3 color) {
+  return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+float luma(vec4 color) {
+  return luma(color.rgb);
+}
+  
+vec4 calcNormalRGB(in sampler2D map, in vec2 uv) {
+  vec4 i = texture(map, uv);
+  float s11 = luma(i);
+
+  const vec2 size = vec2(1.,0.0);
+  const ivec3 off = ivec3(-1,0,1);
+
+  float s01 = luma(textureOffset(map, uv, off.xy));
+  float s21 = luma(textureOffset(map, uv, off.zy));
+  float s10 = luma(textureOffset(map, uv, off.yx));
+  float s12 = luma(textureOffset(map, uv, off.yz));
+  vec3 va = normalize(vec3(size.xy,s21-s01));
+  vec3 vb = normalize(vec3(size.yx,s12-s10));
+  vec4 bump = vec4( cross(va,vb), s11 );
+
+  return bump;
+}
   
 void main() {
   vec4 color = texture(inputTexture, vUv);
-  
-  vec4 normal = calcNormal(inputTexture, vUv);
 
-  float l = dot(normal.rgb, normalize(vec3(1., -1., 0.)));
+  vec2 paperUv = gl_FragCoord.xy / resolution.xy;
+  paperUv = paperUv * resolution.xy / vec2(textureSize(paperTexture, 0).xy);
+  vec4 paper = texture(paperTexture, paperUv);
+
+  vec4 normal = calcNormal(inputTexture, vUv) + calcNormalRGB(paperTexture, paperUv);
+  
+  // vec2 mousePos = mouse/resolution.xy;
+  // mousePos.y = 1.- mousePos.y;
+  // vec3 dir = normalize(vec3(vUv - mousePos, 0.));
+
+  vec3 dir = normalize(vec3(1.,-1.,0));
+  float l = dot(normal.rgb, dir);
   l = .5 + .5 * l;
   l = 1. - l;
-  float e = .3;
+  float e = .1;
   l = smoothstep(.5-e, .5+e, l);
   
   vec2 offset = 10. / resolution.xy;
@@ -85,9 +123,6 @@ void main() {
 
   color = vec4(mix(backgroundColor, color.rgb, color.a), 1.);
 
-  vec2 paperUv = gl_FragCoord.xy / resolution.xy;
-  paperUv = paperUv * resolution.xy / vec2(textureSize(paperTexture, 0).xy);
-  vec4 paper = texture(paperTexture, paperUv);
   paper *= shadow;
   // color = mix(paper, color, .5);
   color = overlay(color, paper, .2);
@@ -96,7 +131,8 @@ void main() {
   color += (1. / 255.) * gradientNoise(gl_FragCoord.xy) - (.5 / 255.);
 
   color = overlay(color, vec4(l), 1.);
-  // color = vec4(l);
+  color = lighten(color, vec4( l-.5));
+  
   fragColor = color;
 }
 `;
@@ -169,6 +205,7 @@ class Painted {
         vignetteReduction: { value: 0.5 },
         inputTexture: { value: this.colorFBO.texture },
         backgroundColor: { value: new Color() },
+        mouse: { value: new Vector2() },
         lightenPass: {
           value: params.lightenPass !== undefined ? params.lightenPass : 1,
         },
@@ -235,6 +272,10 @@ class Painted {
     this.finalPass.setSize(w, h);
     this.size.set(w, h);
     this.invalidate();
+  }
+
+  setMouse(pos) {
+    this.pass.shader.uniforms.mouse.value.copy(pos);
   }
 
   render(renderer, scene, camera) {
