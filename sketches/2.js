@@ -25,7 +25,7 @@ const defaults = {
   lineRepeat: [1, 10],
   lineSpread: 0.5,
   lineWidth: [0.4, 0.6],
-  brush: "brush4",
+  brush: "brush1",
   palette: "basic",
   seed: 1337,
 };
