@@ -10,7 +10,7 @@ import {
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palette2 as palette } from "../modules/floriandelooij.js";
+import { palettes, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
@@ -25,6 +25,7 @@ const defaults = {
   spread: 0.1,
   lineWidth: [0.3, 0.5],
   brush: "brush4",
+  palette: "basic",
   seed: 13373,
 };
 
@@ -36,6 +37,7 @@ const params = {
   spread: signal(defaults.spread),
   lineWidth: signal(defaults.lineWidth),
   brush: signal(defaults.brush),
+  palette: signal(defaults.palette),
   seed: signal(defaults.seed),
 };
 
@@ -52,7 +54,7 @@ gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 
 gui.addSeparator();
 gui.addSelect("Brush", brushOptions, params.brush);
-// gui.addSelect("Palette", ["Red", "Blue"]);
+gui.addSelect("Palette", paletteOptions, params.palette);
 
 gui.addSeparator();
 gui.addButton("Randomize params", randomizeParams);
@@ -71,78 +73,6 @@ onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
-
-palette.range = [
-  "#1e242c",
-  "#4a5b6b",
-  "#8da0b4",
-  "#cdd9e6",
-  "#f5f8fb",
-  // "#3a8beb",
-  "#6b9dd8",
-  // "#3ab485",
-  "#ebb43a",
-  "#e74c3c",
-];
-
-// palette.range = [
-//   "#DDAA44",
-//   "#B9384C",
-//   "#7E9793",
-//   "#F8F6F2",
-//   "#3D5443",
-//   "#2F2D30",
-//   "#AEC2DA",
-//   "#8C7F70",
-// ];
-// palette.range = [
-//   "#ceccc2",
-//   "#32567b",
-//   "#914251",
-//   "#fa8f59",
-//   "#7b7c76",
-//   "#3eb9d6",
-//   "#9ca198",
-//   "#c77d80",
-//   "#aba185",
-//   "#d89e9d",
-// ];
-// palette.range = [
-//   "#1f4164",
-//   "#4a789c",
-//   "#7ab1cc",
-//   "#6e8a84",
-//   "#e9e4d9",
-//   "#aeb9c4",
-//   "#4c5b6c",
-//   "#e09a56",
-//   "#b47b86",
-//   "#d6b77b",
-// ];
-palette.range = [
-  "#FD7555",
-  "#FE4F2E",
-  "#040720",
-  "#EB9786",
-  "#E02211",
-  "#3A0724",
-  "#F9C163",
-];
-
-palette.range = [
-  "#1e242c",
-  "#4a5b6b",
-  "#8da0b4",
-  "#cdd9e6",
-  "#f5f8fb",
-  // "#3a8beb",
-  // "#6b9dd8",
-  // "#3ab485",
-  "#ebb43a",
-  "#e74c3c",
-];
-
-const gradient = new gradientLinear(palette.range);
 
 const canvas = renderer.domElement;
 const camera = getCamera();
@@ -182,6 +112,8 @@ function generateRing() {
 function generateLines() {
   console.log("Generating lines");
   Math.seedrandom(params.seed());
+
+  const gradient = new gradientLinear(palettes[params.palette()]);
 
   for (let i = 0; i < params.rings(); i++) {
     const line = new MeshLine();
@@ -263,6 +195,7 @@ function randomizeParams() {
   const v = Maf.randomInRange(0.1, 0.9);
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
   params.brush.set(Maf.randomElement(brushOptions)[0]);
+  params.palette.set(Maf.randomElement(paletteOptions));
 }
 
 let lastTime = performance.now();
@@ -299,4 +232,5 @@ function stop() {
   gui.hide();
 }
 
-export { start, stop, draw, randomize, canvas };
+const index = 1;
+export { index, start, stop, draw, randomize, canvas };
