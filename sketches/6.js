@@ -1,14 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector2,
-  Vector3,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-  Matrix4,
-} from "three";
+import { Scene, Mesh, Group, Vector2, Vector3, Color, Matrix4 } from "three";
 import {
   renderer,
   getCamera,
@@ -21,10 +11,8 @@ import {
 import { palettes, paletteOptions } from "../modules/palettes.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
 import { signal, effectRAF, computed } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
@@ -59,8 +47,8 @@ const params = {
   palette: signal(defaults.palette),
 };
 
-const gui = new GUI("Möbius strip", document.querySelector("#gui-container"));
-gui.addLabel("Lines generated tracing a twisted Möbius strip.");
+const gui = new GUI("Torus at heart", document.querySelector("#gui-container"));
+gui.addLabel("Tracing lines following a general toroidal shape.");
 gui.addSlider("Segments per line", params.segments, 100, 300, 1);
 gui.addSlider("Loops", params.loops, 1, 10, 1);
 gui.addSlider("Lines", params.lines, 1, 400, 1);
