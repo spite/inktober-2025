@@ -1,21 +1,29 @@
 let module;
+let index;
+let params = "";
 
-function getIndex() {
-  return parseInt(window.location.hash.replace("#", ""));
+function readHash() {
+  const hash = window.location.hash.replace("#", "");
+  const regex = /sketch=(\d*)(\+params=(.*))?/gm;
+  const m = regex.exec(hash);
+  if (m) {
+    index = parseInt(m[1] ?? 1);
+    params = m[3] ?? "";
+  }
 }
 
 function prev(e) {
-  let index = getIndex();
+  readHash();
 
   // beginning, dont do anything
   if (index === 1) return;
-  window.location.hash = `${--index}`;
+  window.location.hash = `sketch=${--index}`;
   e.preventDefault();
 }
 
 function next(e) {
-  let index = getIndex();
-  window.location.hash = ++index;
+  readHash();
+  window.location.hash = `sketch=${++index}`;
   e.preventDefault();
 }
 
@@ -39,6 +47,10 @@ window.addEventListener("keydown", (e) => {
     saveCanvas();
   }
 });
+
+window.setHash = (data) => {
+  window.location.hash = `sketch=${index}+params=${data}`;
+};
 
 document.getElementById("downloadButton").addEventListener("click", (e) => {
   saveCanvas();
@@ -65,14 +77,14 @@ function saveCanvas() {
   }
 }
 
-const cur = getIndex();
-if (isNaN(cur) || cur === "" || cur === undefined) {
-  window.location.hash = 1;
+readHash();
+if (isNaN(index) || index === "" || index === undefined) {
+  window.location.hash = `sketch=1`;
+  index = 1;
 }
 
 async function loadModule() {
-  const num = window.location.hash.substr(1) || 1;
-  module = await import(`../sketches/${num}.js`);
+  module = await import(`../sketches/${index}.js`);
   document.body.appendChild(module.canvas);
   if (module.start) {
     module.start();
@@ -84,6 +96,9 @@ async function init() {
   module = await loadModule();
 
   async function reload() {
+    if (index === module.index) {
+      return;
+    }
     if (module && module.canvas) {
       try {
         document.body.removeChild(module.canvas);
@@ -133,7 +148,11 @@ async function init() {
   update();
 
   window.addEventListener("hashchange", async (e) => {
+    readHash();
     reload();
+    if (module.deserialize) {
+      module.deserialize(params);
+    }
   });
 }
 
