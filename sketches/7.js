@@ -23,7 +23,6 @@ const defaults = {
   loops: 6,
   radius: 5,
   radiusSpread: 0.5,
-  lineRepeat: [10, 50],
   lineSpread: 0.2,
   lineWidth: [0.1, 0.9],
   seed: 1337,
