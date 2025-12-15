@@ -5,7 +5,7 @@ import Maf from "maf";
 import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { TrefoilKnot as Curve } from "../third_party/CurveExtras.js";
+import { DecoratedTorusKnot4a as Curve } from "../third_party/CurveExtras.js";
 import { Painted } from "../modules/painted.js";
 
 const painted = new Painted({ minLevel: -0.5 });
@@ -91,11 +91,8 @@ function prepareMesh(w, c, r) {
     resolution: resolution,
     lineWidth: w,
     offset: Maf.randomInRange(-100, 100),
-    repeat: new Vector2(repeat, 1),
-    dashArray: new Vector2(
-      1,
-      Math.round(Maf.randomInRange(0.5 * repeat, repeat - 1))
-    ),
+    repeat: new Vector2(2 * repeat, 1),
+    dashArray: new Vector2(1, repeat - 1),
     useDash: true,
     opacity: 0.8,
   });
