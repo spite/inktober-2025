@@ -4,6 +4,7 @@ import {
   LinearFilter,
   RGBAFormat,
   RawShaderMaterial,
+  RepeatWrapping,
   Vector2,
   TextureLoader,
   GLSL3,
@@ -176,6 +177,7 @@ void main() {
 
 const loader = new TextureLoader();
 const paper = loader.load("./assets/Sketchbook.jpg");
+paper.wrapS = paper.wrapT = RepeatWrapping;
 // const paper = loader.load("./assets/Parchment.jpg");
 
 class Painted {
