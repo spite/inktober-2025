@@ -38,7 +38,7 @@ class GUI {
     this.rows.className = "gui-rows";
 
     this.container.append(this.rows);
-    this.rowsExpanded = signal(true);
+    this.rowsExpanded = signal(window.innerWidth > 950);
 
     titleEl.addEventListener("click", (e) => {
       this.rowsExpanded.set(!this.rowsExpanded());
