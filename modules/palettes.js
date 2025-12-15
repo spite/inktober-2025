@@ -4,7 +4,7 @@ const basic = [
   "#8da0b4",
   "#cdd9e6",
   "#f5f8fb",
-  "#6b9dd8",
+  //   "#6b9dd8",
   "#ebb43a",
   "#e74c3c",
 ];
