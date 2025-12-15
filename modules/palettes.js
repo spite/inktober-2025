@@ -37,13 +37,13 @@ const acid_trip = ["#ff7b00", "#ff00ff", "#ffffff"];
 
 const test = ["#ffffff", "#4477aa", "#3eb9d6", "#ffcb5c"];
 
-const grayscale = ["#000000", "#ffffff"];
+const grayscale = ["#000000", "#eeeeee"];
 
 const palettes = {
   basic,
   fire,
   florian,
-  florian2,
+  //   florian2,
   acid_cool,
   acid_trip,
   test,
