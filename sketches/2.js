@@ -10,7 +10,7 @@ import {
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palette2 as palette } from "../modules/floriandelooij.js";
+import { palettes, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { KnotCurve } from "../third_party/CurveExtras.js";
@@ -26,6 +26,7 @@ const defaults = {
   lineSpread: 0.5,
   lineWidth: [0.4, 0.6],
   brush: "brush4",
+  palette: "basic",
   seed: 1337,
 };
 
@@ -37,6 +38,7 @@ const params = {
   lineSpread: signal(defaults.lineSpread),
   lineWidth: signal(defaults.lineWidth),
   brush: signal(defaults.brush),
+  palette: signal(defaults.palette),
   seed: signal(defaults.seed),
 };
 
@@ -51,7 +53,7 @@ gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 
 gui.addSeparator();
 gui.addSelect("Brush", brushOptions, params.brush);
-// gui.addSelect("Palette", ["Red", "Blue"]);
+gui.addSelect("Palette", paletteOptions, params.palette);
 
 gui.addSeparator();
 gui.addButton("Randomize params", randomizeParams);
@@ -72,32 +74,6 @@ onResize((w, h) => {
   painted.setSize(w * dPR, h * dPR);
 });
 
-palette.range = [
-  "#1e242c",
-  "#4a5b6b",
-  "#8da0b4",
-  "#cdd9e6",
-  "#f5f8fb",
-  // "#3a8beb",
-  // "#6b9dd8",
-  // "#3ab485",
-  "#ebb43a",
-  "#e74c3c",
-];
-
-// palette.range = [
-//   "#DDAA44",
-//   "#B9384C",
-//   "#7E9793",
-//   "#F8F6F2",
-//   "#3D5443",
-//   "#2F2D30",
-//   "#AEC2DA",
-//   "#8C7F70",
-// ];
-//palette.range = ["#000000", "#555555"];
-
-const gradient = new gradientLinear(palette.range);
 const curve = new KnotCurve();
 
 const canvas = renderer.domElement;
@@ -123,6 +99,8 @@ const meshes = [];
 
 function generateShape() {
   Math.seedrandom(params.seed());
+
+  const gradient = new gradientLinear(palettes[params.palette()]);
 
   const lineSpread = 2 * params.lineSpread();
   const LINES = params.lines();
@@ -227,6 +205,7 @@ function randomizeParams() {
   const v = Maf.randomInRange(0.1, 0.9);
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
   params.brush.set(Maf.randomElement(brushOptions)[0]);
+  params.palette.set(Maf.randomElement(paletteOptions));
 }
 
 let lastTime = performance.now();
@@ -265,4 +244,5 @@ function stop() {
   gui.hide();
 }
 
-export { start, stop, draw, randomize, canvas };
+const index = 2;
+export { index, start, stop, draw, randomize, canvas };
