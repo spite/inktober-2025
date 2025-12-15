@@ -111,6 +111,14 @@ canvas {
   }
 }
 
+@media (max-width: 1050px) {
+  header {
+    .btn span {
+      display: none;
+    }
+  }
+}
+
 @media (max-width: 950px) {
   header {
     align-items: center;
