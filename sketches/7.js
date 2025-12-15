@@ -254,12 +254,12 @@ function draw(startTime) {
   controls.update();
 
   if (isRunning) {
-    time += (t - lastTime) / 10000;
+    time += (t - lastTime) / 20000;
     painted.invalidate();
   }
 
   meshes.forEach((m) => {
-    m.mesh.material.uniforms.uvOffset.value.x = m.offset + time * m.speed;
+    m.mesh.material.uniforms.uvOffset.value.x = m.offset + (time * m.speed) / 2;
   });
 
   group.rotation.y = time * Maf.TAU;
