@@ -27,6 +27,7 @@ const defaults = {
   lineWidth: [0.1, 0.9],
   seed: 1337,
   twists: 1,
+  opacity: [0.1, 1],
   brush: "brush8",
   palette: "florian",
 };
@@ -42,6 +43,7 @@ const params = {
   twists: signal(defaults.twists),
   seed: signal(defaults.seed),
   brush: signal(defaults.brush),
+  opacity: signal(defaults.opacity),
   palette: signal(defaults.palette),
 };
 
@@ -59,6 +61,7 @@ gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 gui.addSeparator();
 gui.addSelect("Brush", brushOptions, params.brush);
 gui.addSelect("Palette", paletteOptions, params.palette);
+gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
 
 gui.addSeparator();
 gui.addButton("Randomize params", randomizeParams);
@@ -189,7 +192,7 @@ function generateShape() {
         Math.round(Maf.randomInRange(0.5 * repeat, repeat - 1))
       ),
       useDash: true,
-      opacity: 0.5,
+      opacity: Maf.randomInRange(params.opacity()[0], params.opacity()[1]),
     });
 
     var mesh = new Mesh(g.geometry, material);
@@ -236,18 +239,20 @@ function randomize() {
 
 function randomizeParams() {
   console.log("randomize");
-  params.lines.set(Maf.intRandomInRange(1, 400));
+  params.lines.set(Maf.intRandomInRange(100, 400));
   // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.radius.set(Maf.randomInRange(1, 10));
+  params.radius.set(Maf.randomInRange(4, 6));
   params.radiusSpread.set(Maf.randomInRange(0, 1));
   params.lineSpread.set(Maf.randomInRange(0, 1));
-  const r = Maf.randomInRange(1, 10);
+  const r = 1;
   params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
-  const v = Maf.randomInRange(0.1, 0.9);
+  const v = 0.1;
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
   params.twists.set(Maf.intRandomInRange(0, 10));
   params.brush.set(Maf.randomElement(brushOptions)[0]);
   params.palette.set(Maf.randomElement(paletteOptions));
+  const o = Maf.randomInRange(0.1, 1);
+  params.opacity.set([o, Maf.randomInRange(o, 1)]);
 }
 
 let lastTime = performance.now();
