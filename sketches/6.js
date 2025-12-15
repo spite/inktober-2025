@@ -145,11 +145,11 @@ function generateShape() {
     const r1 =
       (Maf.randomInRange(1, 1 + 0.5 * params.radiusSpread()) *
         params.radius()) /
-      5; //Maf.map(0, 1, 2, 2.5, params.radiusSpread());
+      5;
     const r2 =
       (Maf.randomInRange(0.35, 0.35 + 0.8 * params.radiusSpread()) *
         params.radius()) /
-      5; //Maf.map(0, 1, 0.5, 1, params.radiusSpread());
+      5;
     const offAngle = Maf.randomInRange(0, 0.1 * Maf.TAU);
     for (let i = 0; i < POINTS; i++) {
       const segment = i / RSEGS;
