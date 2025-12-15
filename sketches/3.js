@@ -6,10 +6,11 @@ import {
   onResize,
   brushes,
   brushOptions,
+  addInfo,
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palette2 as palette } from "../modules/floriandelooij.js";
+import { palettes, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { TorusKnot, TrefoilKnot } from "../third_party/CurveExtras.js";
@@ -29,6 +30,7 @@ const defaults = {
   knotP: 2,
   knotQ: 3,
   brush: "brush4",
+  palette: "basic",
 };
 
 const params = {
@@ -43,6 +45,7 @@ const params = {
   knotP: signal(defaults.knotP),
   knotQ: signal(defaults.knotQ),
   brush: signal(defaults.brush),
+  palette: signal(defaults.palette),
 };
 
 const gui = new GUI(
@@ -85,11 +88,44 @@ gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 
 gui.addSeparator();
 gui.addSelect("Brush", brushOptions, params.brush);
-// gui.addSelect("Palette", ["Red", "Blue"]);
+gui.addSelect("Palette", paletteOptions, params.palette);
 
 gui.addSeparator();
 gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
+
+addInfo(gui);
+
+effectRAF(() => {
+  serialize();
+});
+
+function serialize() {
+  const fields = [];
+  for (const key of Object.keys(params)) {
+    fields.push([key, params[key]()]);
+  }
+  const data = fields.map((v) => `${v[0]}=${v[1]}`).join("|");
+  setHash(data);
+}
+
+function deserialize(data) {
+  const fields = data.split("|");
+  for (const field of fields) {
+    const [key, value] = field.split("=");
+    switch (typeof defaults[key]) {
+      case "number":
+        params[key].set(parseFloat(value));
+        break;
+      case "object":
+        params[key].set(value.split(",").map((v) => parseFloat(v)));
+        break;
+      case "string":
+        params[key].set(value);
+        break;
+    }
+  }
+}
 
 function reset() {
   for (const key of Object.keys(defaults)) {
@@ -103,33 +139,6 @@ onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
-
-palette.range = [
-  "#1e242c",
-  "#4a5b6b",
-  "#8da0b4",
-  "#cdd9e6",
-  "#f5f8fb",
-  // "#3a8beb",
-  // "#6b9dd8",
-  // "#3ab485",
-  "#ebb43a",
-  "#e74c3c",
-];
-
-// palette.range = [
-//   "#DDAA44",
-//   "#B9384C",
-//   "#7E9793",
-//   "#F8F6F2",
-//   "#3D5443",
-//   "#2F2D30",
-//   "#AEC2DA",
-//   "#8C7F70",
-// ];
-//palette.range = ["#000000", "#555555"];
-
-const gradient = new gradientLinear(palette.range);
 
 const canvas = renderer.domElement;
 const camera = getCamera();
@@ -152,6 +161,8 @@ const meshes = [];
 
 function generateShape() {
   Math.seedrandom(params.seed());
+
+  const gradient = new gradientLinear(palettes[params.palette()]);
 
   let curve;
   if (params.type() === "trefoil") {
@@ -269,8 +280,8 @@ function randomizeParams() {
     params.knotP.set(Maf.intRandomInRange(1, 6));
     params.knotQ.set(Maf.intRandomInRange(1, 6));
   }
-
   params.brush.set(Maf.randomElement(brushOptions)[0]);
+  params.palette.set(Maf.randomElement(paletteOptions));
 }
 
 let lastTime = performance.now();
@@ -299,6 +310,7 @@ function draw(startTime) {
 }
 
 function start() {
+  serialize();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
@@ -309,4 +321,5 @@ function stop() {
   gui.hide();
 }
 
-export { start, stop, draw, randomize, canvas };
+const index = 3;
+export { index, start, stop, draw, randomize, deserialize, canvas };
