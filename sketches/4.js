@@ -10,7 +10,7 @@ import {
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palettes, paletteOptions } from "../modules/palettes.js";
+import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
@@ -136,7 +136,7 @@ const meshes = [];
 function generateShape() {
   Math.seedrandom(params.seed());
 
-  const gradient = new gradientLinear(palettes[params.palette()]);
+  const gradient = new gradientLinear(getPalette(params.palette()));
 
   const spread = params.lineSpread();
   const LINES = params.lines();
@@ -251,7 +251,7 @@ function randomizeParams() {
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
   params.twist.set(Maf.randomInRange(0, 1));
   params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions));
+  params.palette.set(Maf.randomElement(paletteOptions)[0]);
   const o = Maf.randomInRange(0.1, 1);
   params.opacity.set([o, Maf.randomInRange(o, 1)]);
 }
