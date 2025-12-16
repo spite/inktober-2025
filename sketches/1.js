@@ -10,7 +10,7 @@ import {
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palettes, paletteOptions } from "../modules/palettes.js";
+import { paletteOptions, getPalette } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
@@ -113,7 +113,7 @@ function generateLines() {
   console.log("Generating lines");
   Math.seedrandom(params.seed());
 
-  const gradient = new gradientLinear(palettes[params.palette()]);
+  const gradient = new gradientLinear(getPalette(params.palette()));
 
   for (let i = 0; i < params.rings(); i++) {
     const line = new MeshLine();
@@ -195,7 +195,7 @@ function randomizeParams() {
   const v = Maf.randomInRange(0.1, 0.9);
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
   params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions));
+  params.palette.set(Maf.randomElement(paletteOptions)[0]);
 }
 
 let lastTime = performance.now();
