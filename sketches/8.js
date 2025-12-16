@@ -14,7 +14,7 @@ import Maf from "maf";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF, computed } from "../modules/reactive.js";
+import { signal, effectRAF } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
