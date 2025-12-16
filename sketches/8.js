@@ -1,22 +1,113 @@
+import { Scene, Mesh, Group, Vector2, Vector3, Color, Matrix4 } from "three";
 import {
-  Scene,
-  Mesh,
-  Group,
-  Vector2,
-  Vector3,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-  Matrix4,
-} from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  brushes,
+  brushOptions,
+  addInfo,
+} from "../modules/three.js";
+import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
+import { signal, effectRAF, computed } from "../modules/reactive.js";
+import GUI from "../modules/gui.js";
+
+const defaults = {
+  lines: 190,
+  segments: 480,
+  loops: 6,
+  radius: 1.6,
+  radiusSpread: 0.0,
+  lineSpread: 0,
+  lineWidth: [0.1, 0.9],
+  seed: 1337,
+  opacity: [0.6, 0.9],
+  offset: 0.2,
+  brush: "brush8",
+  palette: "mysticBliss",
+};
+
+const params = {
+  lines: signal(defaults.lines),
+  segments: signal(defaults.segments),
+  loops: signal(defaults.loops),
+  radius: signal(defaults.radius),
+  radiusSpread: signal(defaults.radiusSpread),
+  lineSpread: signal(defaults.lineSpread),
+  lineWidth: signal(defaults.lineWidth),
+  seed: signal(defaults.seed),
+  brush: signal(defaults.brush),
+  opacity: signal(defaults.opacity),
+  palette: signal(defaults.palette),
+  offset: signal(defaults.offset),
+};
+
+const gui = new GUI(
+  "Out of phase torus",
+  document.querySelector("#gui-container")
+);
+gui.addLabel("Tracing lines following a torus out of phase.");
+gui.addSlider("Segments per line", params.segments, 100, 500, 1);
+gui.addSlider("Loops", params.loops, 1, 10, 1);
+gui.addSlider("Offset", params.offset, -0.2, 0.2, 0.01);
+gui.addSlider("Lines", params.lines, 1, 400, 1);
+gui.addSlider("Radius", params.radius, 1, 2, 0.1);
+gui.addSlider("Radius spread", params.radiusSpread, 0, 1, 0.01);
+gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
+gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+
+gui.addSeparator();
+gui.addSelect("Brush", brushOptions, params.brush);
+gui.addSelect("Palette", paletteOptions, params.palette);
+gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+
+gui.addSeparator();
+gui.addButton("Randomize params", randomizeParams);
+gui.addButton("Reset params", reset);
+
+addInfo(gui);
+
+effectRAF(() => {
+  serialize();
+});
+
+function serialize() {
+  const fields = [];
+  for (const key of Object.keys(params)) {
+    fields.push([key, params[key]()]);
+  }
+  const data = fields.map((v) => `${v[0]}=${v[1]}`).join("|");
+  setHash(data);
+}
+
+function deserialize(data) {
+  const fields = data.split("|");
+  for (const field of fields) {
+    const [key, value] = field.split("=");
+    switch (typeof defaults[key]) {
+      case "number":
+        params[key].set(parseFloat(value));
+        break;
+      case "object":
+        params[key].set(value.split(",").map((v) => parseFloat(v)));
+        break;
+      case "string":
+        params[key].set(value);
+        break;
+    }
+  }
+}
+
+function reset() {
+  for (const key of Object.keys(defaults)) {
+    params[key].set(defaults[key]);
+  }
+}
 
 const painted = new Painted({ minLevel: -0.2 });
 
@@ -25,162 +116,176 @@ onResize((w, h) => {
   painted.setSize(w * dPR, h * dPR);
 });
 
-palette.range = [
-  "#151718",
-  "#586363",
-  "#4D372F",
-  "#719094",
-  "#C8D1D0",
-  "#98A7A0",
-  "#AC5C39",
-  "#AB9656",
-];
-palette.range = [
-  "#1e242c",
-  "#4a5b6b",
-  "#8da0b4",
-  "#cdd9e6",
-  "#f5f8fb",
-  // "#3a8beb",
-  // "#6b9dd8",
-  // "#3ab485",
-  "#ebb43a",
-  "#e74c3c",
-];
-palette.range = [
-  "#FD7555",
-  "#FE4F2E",
-  "#040720",
-  "#EB9786",
-  "#E02211",
-  "#3A0724",
-  "#F9C163",
-];
-
-const gradient = new gradientLinear(palette.range);
-
 const canvas = renderer.domElement;
 const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
-controls.screenSpacePanning = true;
+controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(35, 15, -35).multiplyScalar(0.075);
+camera.position.set(35, 15, -35).multiplyScalar(0.09);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
-const strokeTexture = new TextureLoader().load("./assets/brush2.jpg");
-strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
-const resolution = new Vector2(canvas.width, canvas.height);
-
-const s = 2;
-const N = 4 * 240 * s;
-
-const geo = new Float32Array(N * 3);
-
-function prepareMesh(w, c) {
-  var g = new MeshLine();
-  g.setPoints(geo, function (p) {
-    return p;
-  });
-
-  const material = new MeshLineMaterial({
-    map: strokeTexture,
-    useMap: true,
-    color: gradient.getAt(c),
-    resolution: resolution,
-    sizeAttenuation: true,
-    lineWidth: w,
-    opacity: 1,
-    uvOffset: new Vector2(Maf.randomInRange(0, 1), 1),
-    useDash: true,
-  });
-
-  var mesh = new Mesh(g.geometry, material);
-  mesh.geo = geo;
-  mesh.g = g;
-
-  return mesh;
-}
-
-const LINES = 80;
 const meshes = [];
-for (let j = 0; j < LINES; j++) {
-  const mesh = prepareMesh(
-    0.125 * Maf.randomInRange(0.01, 1),
-    Maf.randomInRange(0, 1)
-  );
-  group.add(mesh);
-  const offset = Maf.randomInRange(0, 1);
-  const vertices = new Float32Array(N * 3);
-  const mat = new Matrix4();
-  const RSEGS = 2 * 80 * s;
-  const r1 = 1 + (0.25 * j) / LINES;
-  const r2 = (1 * j) / LINES;
-  const offAngle = (-j * 0.2 * Maf.TAU) / LINES;
-  for (let i = 0; i < N - 1; i++) {
-    const segment = i / RSEGS;
-    const ringAngle = (i * Maf.TAU) / RSEGS;
-    const segAngle = (segment * 1 * Maf.TAU) / ((N - 1) / RSEGS);
-    const o = 1;
-    const p = new Vector3(r1 * Math.cos(segAngle), 0, r1 * Math.sin(segAngle));
-    const d = new Vector3(
-      o * r2 * Math.cos(ringAngle),
-      o * r2 * Math.sin(ringAngle),
-      0
-    );
-    mat.makeRotationY(-segAngle);
-    d.applyMatrix4(mat);
-    vertices[i * 3] = p.x + d.x;
-    vertices[i * 3 + 1] = p.y + d.y;
-    vertices[i * 3 + 2] = p.z + d.z;
-  }
-  vertices[(N - 1) * 3] = vertices[0];
-  vertices[(N - 1) * 3 + 1] = vertices[1];
-  vertices[(N - 1) * 3 + 2] = vertices[2];
-  mesh.g.setPoints(vertices);
-  mesh.rotation.y = offAngle;
-  mesh.scale.setScalar(5);
 
-  const repeat = Math.round(1 + (j * 10) / LINES);
-  mesh.material.uniforms.repeat.value.set(5 * repeat, 1);
-  mesh.material.uniforms.dashArray.value.set(
-    1,
-    Math.round(Maf.randomInRange(2, repeat - 1))
-  );
-  let speed = Math.floor(Maf.randomInRange(1, 2));
-  if (Math.random() > 0.5) speed *= -1;
-  meshes.push({ mesh, offset, speed });
+function generateShape() {
+  Math.seedrandom(params.seed());
+
+  const gradient = new gradientLinear(getPalette(params.palette()));
+
+  const POINTS = params.segments();
+  const LINES = params.lines();
+
+  for (let j = 0; j < LINES; j++) {
+    const offset = Maf.randomInRange(0, 1);
+    const vertices = [];
+    const mat = new Matrix4();
+    const RSEGS = POINTS / params.loops();
+    const r1 =
+      params.radius() +
+      (0.25 *
+        j *
+        Maf.randomInRange(-params.radiusSpread(), params.radiusSpread())) /
+        LINES;
+    const r2 = (1 * j) / LINES;
+    const offAngle = (-j * params.offset() * Maf.TAU) / LINES;
+    for (let i = 0; i < POINTS - 1; i++) {
+      const segment = i / RSEGS;
+      const ringAngle = (i * Maf.TAU) / RSEGS;
+      const segAngle = (segment * 1 * Maf.TAU) / ((POINTS - 1) / RSEGS);
+      const o = 1;
+      const p = new Vector3(
+        r1 * Math.cos(segAngle),
+        0,
+        r1 * Math.sin(segAngle)
+      );
+      const d = new Vector3(
+        o * r2 * Math.cos(ringAngle),
+        o * r2 * Math.sin(ringAngle),
+        0
+      );
+      mat.makeRotationY(-segAngle);
+      d.applyMatrix4(mat);
+      p.add(d);
+      vertices.push(p);
+    }
+    vertices.push(vertices[0].clone());
+
+    var g = new MeshLine();
+    g.setPoints(vertices);
+
+    const repeat = Math.round(1 + (j * 10) / LINES);
+
+    const material = new MeshLineMaterial({
+      map: brushes[params.brush()],
+      useMap: true,
+      color: gradient.getAt(Maf.randomInRange(0, 1)),
+      lineWidth:
+        Maf.randomInRange(params.lineWidth()[0], params.lineWidth()[1]) / 10,
+      opacity: Maf.randomInRange(params.opacity()[0], params.opacity()[1]),
+      repeat: new Vector2(5 * repeat, 1),
+      dashArray: new Vector2(1, Math.round(Maf.randomInRange(2, repeat - 1))),
+      useDash: true,
+      uvOffset: new Vector2(Maf.randomInRange(0, 1), 1),
+    });
+
+    var mesh = new Mesh(g.geometry, material);
+    mesh.rotation.y = offAngle;
+
+    const spread = params.lineSpread();
+    mesh.position.set(
+      Maf.randomInRange(-spread, spread),
+      Maf.randomInRange(-spread, spread),
+      Maf.randomInRange(-spread, spread)
+    );
+
+    group.add(mesh);
+
+    mesh.scale.setScalar(5);
+    let speed = Math.floor(Maf.randomInRange(1, 2));
+    if (Math.random() > 0.5) speed *= -1;
+    meshes.push({ mesh, offset, speed });
+  }
+  painted.invalidate();
 }
-group.scale.setScalar(0.09);
+
+group.scale.setScalar(0.1);
 scene.add(group);
+
+effectRAF(() => {
+  console.log("effectRAF2");
+  clearScene();
+  generateShape();
+});
+
+function clearScene() {
+  for (const mesh of meshes) {
+    mesh.mesh.geometry.dispose();
+    mesh.mesh.material.dispose();
+    group.remove(mesh.mesh);
+  }
+  meshes.length = 0;
+}
+
+function randomize() {
+  params.seed.set(performance.now());
+}
+
+function randomizeParams() {
+  console.log("randomize");
+  params.lines.set(Maf.intRandomInRange(100, 400));
+  params.loops.set(Maf.intRandomInRange(1, 10));
+  // params.segments.set(Maf.intRandomInRange(200, 500));
+  params.radius.set(Maf.randomInRange(1, 2));
+  params.radiusSpread.set(Maf.randomInRange(0, 1));
+  params.lineSpread.set(Maf.randomInRange(0, 1));
+  const v = 0.1;
+  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+  params.brush.set(Maf.randomElement(brushOptions)[0]);
+  params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  const o = Maf.randomInRange(0.1, 1);
+  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+}
 
 let lastTime = performance.now();
 let time = 0;
 
 function draw(startTime) {
   const t = performance.now();
+  controls.update();
 
   if (isRunning) {
-    time += (t - lastTime) / 10000;
+    time += (t - lastTime) / 20000;
     painted.invalidate();
   }
 
   meshes.forEach((m) => {
-    const tt = Maf.mod(m.speed * time, 1);
-    m.mesh.material.uniforms.uvOffset.value.x = -1 * tt - m.offset;
+    m.mesh.material.uniforms.uvOffset.value.x = m.offset + (time * m.speed) / 2;
   });
 
   group.rotation.y = time * Maf.TAU;
-  group.rotation.z = (Easings.InQuad(Maf.parabola(time, 1)) * Maf.TAU) / 16;
+  group.rotation.z = (time * Maf.TAU) / 16;
 
   painted.render(renderer, scene, camera);
   lastTime = t;
 }
 
-export { draw, canvas, renderer, camera };
+function start() {
+  serialize();
+  controls.enabled = true;
+  gui.show();
+  painted.invalidate();
+}
+
+function stop() {
+  controls.enabled = false;
+  gui.hide();
+}
+
+const index = 8;
+export { index, start, stop, draw, randomize, deserialize, canvas };
