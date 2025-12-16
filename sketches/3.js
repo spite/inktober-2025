@@ -10,7 +10,7 @@ import {
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palettes, paletteOptions } from "../modules/palettes.js";
+import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { TorusKnot, TrefoilKnot } from "../third_party/CurveExtras.js";
@@ -162,7 +162,7 @@ const meshes = [];
 function generateShape() {
   Math.seedrandom(params.seed());
 
-  const gradient = new gradientLinear(palettes[params.palette()]);
+  const gradient = new gradientLinear(getPalette(params.palette()));
 
   let curve;
   if (params.type() === "trefoil") {
@@ -281,7 +281,7 @@ function randomizeParams() {
     params.knotQ.set(Maf.intRandomInRange(1, 6));
   }
   params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions));
+  params.palette.set(Maf.randomElement(paletteOptions)[0]);
 }
 
 let lastTime = performance.now();
