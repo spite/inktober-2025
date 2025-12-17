@@ -11,6 +11,7 @@ const brushes = {
   brush6: loader.load("PaintBrushStroke03.jpg"),
   brush7: loader.load("stroke3.jpg"),
   brush8: loader.load("stroke4.jpg"),
+  brush9: loader.load("PaintBrushStroke05.jpg"),
 };
 const brushOptions = Object.keys(brushes).map((v, i) => [v, `Brush ${i + 1}`]);
 
@@ -78,7 +79,6 @@ function resize() {
         const newVFovRad =
           2 * Math.atan(Math.tan(horizontalFOV / 2) / camera.aspect);
         const newVFovDeg = newVFovRad * (180 / Math.PI);
-
         camera.fov = newVFovDeg;
       } else {
         camera.fov = initialFov;
