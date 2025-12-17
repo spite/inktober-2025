@@ -23,9 +23,11 @@ import GUI from "../modules/gui.js";
 
 const attractors = [
   LorenzAttractor,
+  HadleyAttractor,
   AizawaAttractor,
   AnishchenkoAstakhovAttractor,
   BurkeShawAttractor,
+  ThomasAttractor,
 ].map((a) => new a());
 const attractorOptions = attractors.map((a) => [a.id, a.id]);
 
@@ -134,6 +136,7 @@ controls.addEventListener("change", () => {
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position.set(35, 15, -35).multiplyScalar(0.125);
+camera.position.set(35, 15, -35).multiplyScalar(0.2);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -159,6 +162,7 @@ function generateShape() {
     );
     for (let i = 0; i < POINTS; i++) {
       const t = p.clone().multiplyScalar(attractor.h);
+      const t = p.clone();
       vertices.push(t);
       bounds.expandByPoint(t);
       attractor.step(p);
@@ -240,6 +244,7 @@ function randomizeParams() {
   params.lines.set(Maf.intRandomInRange(100, 400));
   // params.segments.set(Maf.intRandomInRange(200, 500));
   params.radiusSpread.set(Maf.randomInRange(0, 2));
+  params.radiusSpread.set(Maf.randomInRange(0.1, 2));
   params.lineSpread.set(Maf.randomInRange(0, 1));
   const v = 0.1;
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
