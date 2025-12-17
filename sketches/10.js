@@ -1,14 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector2,
-  Vector3,
-  Box3,
-  Color,
-  Sphere,
-  Matrix4,
-} from "three";
+import { Scene, Mesh, Group, Vector2, Vector3, Box3, Color } from "three";
 import {
   renderer,
   getCamera,
@@ -207,7 +197,7 @@ function generateShape() {
       Maf.randomInRange(4, 8)
     );
     mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.4));
-    // mesh.rotation.y = Maf.randomInRange(-0.1, 0.1);
+    mesh.rotation.y = Maf.randomInRange(-0.1, 0.1);
     const start = 1;
     const end = Math.round(Maf.randomInRange(start, repeat - 1));
     mesh.material.uniforms.dashArray.value.set(start, end);
@@ -215,15 +205,15 @@ function generateShape() {
     meshes.push({ mesh, offset, speed });
   }
 
-  // group.position.set(0, 0, -2);
-  // const center = new Vector3();
-  // bounds.getCenter(center);
-  // group.position.copy(center.multiplyScalar(-1));
+  const center = new Vector3();
+  bounds.getCenter(center);
+  group.position.copy(center.multiplyScalar(-1));
+  console.log(center);
 
   painted.invalidate();
 }
 
-group.scale.setScalar(0.09);
+scene.scale.setScalar(0.09);
 scene.add(group);
 
 effectRAF(() => {
@@ -275,7 +265,7 @@ function draw(startTime) {
     m.mesh.material.uniforms.uvOffset.value.x = -1 * time * m.speed - m.offset;
   });
 
-  group.rotation.y = time * Maf.TAU;
+  // group.rotation.y = time * Maf.TAU;
 
   painted.render(renderer, scene, camera);
   lastTime = t;
