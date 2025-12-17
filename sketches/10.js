@@ -18,6 +18,7 @@ import { LorenzAttractor } from "../modules/lorenz-attractor.js";
 import { AizawaAttractor } from "../modules/aizawa-attractor.js";
 import { AnishchenkoAstakhovAttractor } from "../modules/anishchenko-astakhov-attractor.js";
 import { BurkeShawAttractor } from "../modules/burke-shaw-attractor.js";
+import { HadleyAttractor } from "../modules/hadley-attractor.js";
 import { signal, effectRAF } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
@@ -27,7 +28,6 @@ const attractors = [
   AizawaAttractor,
   AnishchenkoAstakhovAttractor,
   BurkeShawAttractor,
-  ThomasAttractor,
 ].map((a) => new a());
 const attractorOptions = attractors.map((a) => [a.id, a.id]);
 
@@ -135,7 +135,6 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(35, 15, -35).multiplyScalar(0.125);
 camera.position.set(35, 15, -35).multiplyScalar(0.2);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
@@ -161,7 +160,6 @@ function generateShape() {
       Maf.randomInRange(-r, r) + attractor.z
     );
     for (let i = 0; i < POINTS; i++) {
-      const t = p.clone().multiplyScalar(attractor.h);
       const t = p.clone();
       vertices.push(t);
       bounds.expandByPoint(t);
@@ -176,10 +174,10 @@ function generateShape() {
       useMap: true,
       color: gradient.getAt(Maf.randomInRange(0, 1)),
       lineWidth:
-        Maf.randomInRange(params.lineWidth()[0], params.lineWidth()[1]) / 10,
+        Maf.randomInRange(params.lineWidth()[0], params.lineWidth()[1]) / 5,
       repeat: new Vector2(repeat, 1),
-      // dashArray: new Vector2(1, 4),
-      // dashOffset: 0,
+      dashArray: new Vector2(1, 4),
+      dashOffset: 0,
       useDash: true,
       opacity: Maf.randomInRange(params.opacity()[0], params.opacity()[1]),
     });
@@ -212,7 +210,6 @@ function generateShape() {
   const center = new Vector3();
   bounds.getCenter(center);
   group.position.copy(center.multiplyScalar(-1));
-  console.log(center);
 
   painted.invalidate();
 }
@@ -241,9 +238,9 @@ function randomize() {
 
 function randomizeParams() {
   console.log("randomize");
+  params.attractor.set(Maf.randomElement(attractorOptions)[0]);
   params.lines.set(Maf.intRandomInRange(100, 400));
   // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.radiusSpread.set(Maf.randomInRange(0, 2));
   params.radiusSpread.set(Maf.randomInRange(0.1, 2));
   params.lineSpread.set(Maf.randomInRange(0, 1));
   const v = 0.1;
