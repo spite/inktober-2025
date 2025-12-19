@@ -118,6 +118,14 @@ const waitForRender = () => {
   });
 };
 
+function wait() {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, 1);
+  });
+}
+
 function addInfo(gui) {
   gui.addSeparator();
   gui.addText(`<p>
@@ -135,6 +143,7 @@ export {
   brushes,
   brushOptions,
   getCamera,
+  wait,
   getOrthoCamera,
   isRunning,
   onResize,
