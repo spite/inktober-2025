@@ -23,6 +23,7 @@ import GUI from "../modules/gui.js";
 const defaults = {
   lines: 400,
   segments: 100,
+  noiseScale: 1,
   radius: 0.8,
   lineSpread: 0,
   lineWidth: [0.1, 0.9],
@@ -35,6 +36,7 @@ const defaults = {
 const params = {
   lines: signal(defaults.lines),
   segments: signal(defaults.segments),
+  noiseScale: signal(defaults.noiseScale),
   radius: signal(defaults.radius),
   lineSpread: signal(defaults.lineSpread),
   lineWidth: signal(defaults.lineWidth),
@@ -51,6 +53,7 @@ const gui = new GUI(
 gui.addLabel("Tracing lines folling a curl noise field.");
 gui.addSlider("Segments per line", params.segments, 50, 250, 1);
 gui.addSlider("Lines", params.lines, 1, 400, 1);
+gui.addSlider("Noise scale", params.noiseScale, 0.5, 1.5, 0.01);
 gui.addSlider("Radius", params.radius, 0.1, 1, 0.01);
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
@@ -153,6 +156,7 @@ async function generateShape(abort) {
   const opacity = params.opacity();
   const map = brushes[params.brush()];
   const spread = params.lineSpread();
+  const noiseScale = params.noiseScale();
 
   for (let j = 0; j < LINES; j++) {
     if (abort.aborted) {
@@ -178,7 +182,7 @@ async function generateShape(abort) {
     const y = p.length();
     for (let i = 0; i < POINTS; i++) {
       tmp.copy(p);
-      const res = curl(tmp.multiplyScalar(1), noiseFunc);
+      const res = curl(tmp.multiplyScalar(noiseScale), noiseFunc);
       res.multiplyScalar(0.02);
       p.add(res);
       vertices.push(p.clone());
@@ -246,7 +250,8 @@ function randomize() {
 function randomizeParams() {
   params.lines.set(Maf.intRandomInRange(50, 250));
   // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.radius.set(Maf.randomInRange(0, 1));
+  params.noiseScale.set(Maf.randomInRange(0.5, 1.5));
+  params.radius.set(Maf.randomInRange(0.1, 1));
   params.lineSpread.set(Maf.randomInRange(0, 1));
   const v = 0.1;
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
