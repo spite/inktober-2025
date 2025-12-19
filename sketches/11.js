@@ -4,6 +4,7 @@ import {
   getCamera,
   isRunning,
   onResize,
+  wait,
   brushes,
   brushOptions,
   addInfo,
@@ -131,14 +132,6 @@ camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
 const meshes = [];
-
-function wait() {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve();
-    }, 1);
-  });
-}
 
 async function generateShape(abort) {
   Math.seedrandom(params.seed());
