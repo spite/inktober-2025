@@ -1,14 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector3,
-  Matrix4,
-  Color,
-  Vector2,
-  BoxGeometry,
-  MeshNormalMaterial,
-} from "three";
+import { Scene, Mesh, Group, Vector3, Matrix4, Color, Vector2 } from "three";
 import {
   renderer,
   getCamera,
@@ -25,10 +15,9 @@ import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import { pointsOnSphere } from "../modules/points-sphere.js";
 import { signal, effectRAF } from "../modules/reactive.js";
 import { sphericalToCartesian } from "../modules/conversions.js";
-import { march, sdRoundBox } from "../modules/raymarch.js";
+import { march } from "../modules/raymarch.js";
 
 import GUI from "../modules/gui.js";
 
@@ -270,7 +259,6 @@ async function generateShape(abort) {
     Maf.randomInRange(0, 2 * Math.PI)
   );
 
-  const points = pointsOnSphere(LINES);
   for (let j = 0; j < LINES; j++) {
     if (abort.aborted) {
       return;
@@ -287,12 +275,11 @@ async function generateShape(abort) {
     const offset = Maf.randomInRange(-1, 0);
     const ro = new Vector3();
     const rd = new Vector3();
-    const tmp = new Vector3();
 
     const spread = new Vector3(
       Maf.randomInRange(-lineSpread, lineSpread),
       Maf.randomInRange(-lineSpread, lineSpread),
-      0 //Maf.randomInRange(-lineSpread, lineSpread)
+      0
     ).applyMatrix4(rot);
 
     for (let i = 0; i < POINTS; i++) {
