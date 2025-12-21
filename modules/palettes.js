@@ -20,6 +20,16 @@ const fire = [
   "#F9C163",
 ];
 
+const earth = [
+  "#FE695A",
+  "#0F2246",
+  "#CE451C",
+  "#FEF2CD",
+  "#EEC1A6",
+  "#57424A",
+  "#E2902D",
+];
+
 const florian = ["#20a0aa", "#ec4039", "#ffae12"];
 
 const acidCool = ["#ffffff", "#4477aa", "#3eb9d6", "#ffcb5c"];
@@ -164,6 +174,7 @@ const grayscale = ["#000000", "#eeeeee"];
 const palettes = [
   { id: "basic", palette: basic, name: "Basic" },
   { id: "fire", palette: fire, name: "Fire" },
+  { id: "earth", palette: earth, name: "Earth" },
   { id: "florian", palette: florian, name: "Florian de Looij" },
 
   { id: "acidCool", palette: acidCool, name: "Acid cool" },
