@@ -139,7 +139,6 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
