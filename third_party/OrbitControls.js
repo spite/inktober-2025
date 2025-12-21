@@ -74,7 +74,7 @@ class OrbitControls extends Controls {
 
     // -- Damping Settings --
 
-    this.enableDamping = false;
+    this.enableDamping = true;
     this.dampingFactor = 0.05;
 
     /**
@@ -82,7 +82,7 @@ class OrbitControls extends Controls {
      * Requires `enableDamping` to be true for the physics loop to run,
      * but this toggle controls if zoom specifically is smoothed.
      */
-    this.enableZoomDamping = false;
+    this.enableZoomDamping = true;
 
     // -- Control Settings --
 
@@ -346,6 +346,7 @@ class OrbitControls extends Controls {
       _offset.setLength(newDist);
     } else {
       // Standard perspective zoom
+      // dist / speed: If speed > 1 (Zoom In), dist gets smaller.
       const dist = _offset.length();
       const newDist = this._clampDistance(dist / actualZoomSpeed);
       _offset.setLength(newDist);
@@ -536,7 +537,7 @@ class OrbitControls extends Controls {
 
   _dollyOut(dollyScale) {
     if (this.object.isPerspectiveCamera || this.object.isOrthographicCamera) {
-      this._zoomScale /= dollyScale;
+      this._zoomScale *= dollyScale; // Multiply to decrease value (since input < 1) -> Zoom Out
     } else {
       console.warn(
         "WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled."
@@ -547,7 +548,7 @@ class OrbitControls extends Controls {
 
   _dollyIn(dollyScale) {
     if (this.object.isPerspectiveCamera || this.object.isOrthographicCamera) {
-      this._zoomScale *= dollyScale;
+      this._zoomScale /= dollyScale; // Divide to increase value (since input < 1) -> Zoom In
     } else {
       console.warn(
         "WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled."
