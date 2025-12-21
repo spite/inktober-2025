@@ -244,6 +244,7 @@ class SphubeSDF {
 }
 
 const sphube = new SphubeSDF();
+const up = new Vector3(0, 1, 0);
 
 async function generateShape(abort) {
   Math.seedrandom(params.seed());
@@ -298,11 +299,7 @@ async function generateShape(abort) {
       const theta = Maf.map(0, POINTS - 1, 0, Maf.TAU, i);
       const { x, y, z } = sphericalToCartesian(1, phi, theta);
 
-      // const rot2 = new Matrix4().makeRotationX(
-      //   0.1 * Math.sin(5 * Maf.map(0, POINTS - 1, 0, Maf.TAU, i))
-      // );
-
-      ro.set(x, y, z).multiplyScalar(100).applyMatrix4(rot); //.applyMatrix4(rot2);
+      ro.set(x, y, z).multiplyScalar(100).applyMatrix4(rot);
       rd.set(0, 0, 0).sub(ro).normalize();
       const d = march(ro, rd, (p) => sphube.evaluate(p, 1, sphubeFactor));
       rd.multiplyScalar(d).add(ro).add(spread);
@@ -377,7 +374,7 @@ function randomize() {
 function randomizeParams() {
   params.lines.set(Maf.intRandomInRange(50, 500));
   // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.sphubeFactor.set(Maf.randomInRange(0, 1));
+  params.sphubeFactor.set(Maf.randomInRange(0.01, 0.99));
   params.lineSpread.set(Maf.randomInRange(0, 1));
   const v = 0.1;
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
