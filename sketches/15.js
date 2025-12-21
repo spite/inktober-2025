@@ -139,7 +139,7 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
-controls.screenSpacePanning = true;
+controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
@@ -308,6 +308,7 @@ let lastTime = performance.now();
 let time = 0;
 
 function draw(startTime) {
+  controls.update();
   const t = performance.now();
 
   if (isRunning) {
