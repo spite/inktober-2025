@@ -28,6 +28,10 @@ function sdRoundBox(p, b, r) {
   return l;
 }
 
+function sdSphere(p, r) {
+  return p.length() - r;
+}
+
 function sdRoundedCylinder(p, ra, rb, h) {
   const l = tmp2.set(p.x, p.z).length();
   tmp2.set(l - ra + rb, Math.abs(p.y) - h + rb);
@@ -861,6 +865,7 @@ function scene(p) {
 
 export {
   march,
+  sdSphere,
   sdRoundBox,
   sdTorus,
   sdRoundedCylinder,
