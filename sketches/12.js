@@ -54,7 +54,7 @@ const gui = new GUI(
   document.querySelector("#gui-container")
 );
 gui.addLabel(
-  "Tracing lines folling a curl noise field on different spherical shells."
+  "Tracing lines following a curl noise field on different spherical shells."
 );
 gui.addSlider("Segments per line", params.segments, 50, 500, 1);
 gui.addSlider("Lines", params.lines, 1, 400, 1);
