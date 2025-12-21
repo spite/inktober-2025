@@ -21,7 +21,7 @@ Vector3.prototype.max = function (v) {
 const zero = new Vector3(0, 0, 0);
 
 function sdRoundBox(p, b, r) {
-  const q = tmp.clone().abs().sub(b);
+  const q = p.clone().abs().sub(b);
   const l =
     q.max(zero).length() + Math.min(Math.max(q.x, Math.max(q.y, q.z)), 0.0) - r;
 
