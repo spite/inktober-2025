@@ -26,7 +26,7 @@ import { signal, effectRAF } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
-  lines: 1000,
+  lines: 500,
   segments: 100,
   sdf: "rounded_box",
   noiseScale: 0.98,
@@ -34,8 +34,8 @@ const defaults = {
   lineWidth: [0.1, 0.39],
   seed: 117697.89999999106,
   opacity: [0.5, 1],
-  brush: "brush5",
-  palette: "mysticBliss",
+  brush: "brush4",
+  palette: "earth",
 };
 
 const params = {
