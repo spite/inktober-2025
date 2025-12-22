@@ -34,11 +34,11 @@ const defaults = {
   segments: 100,
   sdf: "icosahedron",
   noiseScale: 1.1,
-  dashFactor: 1,
+  dashFactor: 1.44,
   lineSpread: 0,
   lineWidth: [0.1, 0.9],
   seed: 14539.200000017881,
-  opacity: [0.8, 1],
+  opacity: [0.9, 1],
   brush: "brush4",
   palette: "basic",
 };
@@ -174,7 +174,7 @@ async function generateShape(abort) {
   const POINTS = params.segments();
   const center = new Vector3(0, 0, 0);
   const LINES = params.lines();
-  const points = pointsOnSphere(LINES);
+  const points = pointsOnSphere(LINES).sort((a, b) => Math.random() - 0.5);
   const noiseScale = params.noiseScale();
   const sdf = params.sdf();
   const lineSpread = params.lineSpread() / 10;
