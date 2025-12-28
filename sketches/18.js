@@ -1,12 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector2,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-} from "three";
+import { Scene, Mesh, Group, Vector2, Color } from "three";
 import {
   renderer,
   getCamera,
@@ -25,7 +17,6 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import { Poisson2D } from "../modules/poisson-2d.js";
 import { init } from "../modules/dipoles-2d.js";
-
 import GUI from "../modules/gui.js";
 import { signal, effectRAF } from "../modules/reactive.js";
 
@@ -79,7 +70,6 @@ function reset() {
 }
 
 const painted = new Painted({ minLevel: -0.2 });
-// const curl = generateNoiseFunction();
 
 onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
