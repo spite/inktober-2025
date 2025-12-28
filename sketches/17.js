@@ -4,6 +4,7 @@ import {
   Group,
   Vector2,
   Vector3,
+  BoxGeometry,
   Color,
   MeshNormalMaterial,
 } from "three";
@@ -25,22 +26,21 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import { pointsOnSphere } from "../modules/points-sphere.js";
 import { curl, generateNoiseFunction } from "../modules/curl.js";
-import {
-  getClosestPoint,
-  opRound,
-  sdTorus,
-  TrefoilSDF,
-} from "../modules/raymarch.js";
+import { getClosestPoint, opRound, sdTorus } from "../modules/raymarch.js";
 import { signal, effectRAF } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 import { SphubeSDF } from "../modules/sphube.js";
 import { MarchingCubesGeometry } from "../third_party/MarchingCubesGeometry.js";
 import { MeshSurfaceSampler } from "../third_party/MeshSurfaceSampler.js";
+import { MobiusStrip } from "../modules/MobiusStripSDF.js";
+import { sdGyroid } from "../modules/GyroidSDF.js";
+import { TrefoilSDF } from "../modules/TrefoilSDF.js";
+import { GoursatSurface } from "../modules/GoursatTangleSDF.js";
 
 const defaults = {
   lines: 1000,
   segments: 100,
-  sdf: "torus",
+  sdf: "goursat",
   noiseScale: 1.1,
   dashFactor: 1.44,
   lineSpread: 0,
@@ -65,6 +65,29 @@ const params = {
   palette: signal(defaults.palette),
 };
 
+const trefoil = new TrefoilSDF();
+const sphube = new SphubeSDF();
+const mobiusStrip = new MobiusStrip({ radius: 2, width: 1, twists: 1 });
+const goursat = new GoursatSurface();
+
+function sdDie(p) {
+  const qx = Math.abs(p.x) - 1.0;
+  const qy = Math.abs(p.y) - 1.0;
+  const qz = Math.abs(p.z) - 1.0;
+
+  const mQx = Math.max(qx, 0);
+  const mQy = Math.max(qy, 0);
+  const mQz = Math.max(qz, 0);
+
+  const distBox = Math.sqrt(mQx * mQx + mQy * mQy + mQz * mQz);
+
+  const lenP = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+
+  const distSphere = lenP - 1.35;
+
+  return Math.max(distBox, distSphere);
+}
+
 const sdfs = {
   torus: {
     name: "Torus",
@@ -78,19 +101,37 @@ const sdfs = {
     name: "Trefoil knot",
     map: (p) => trefoil.getDistance(p.clone().multiplyScalar(7.5)) / 7.5,
   },
-  sphube: {
-    name: "Sphube",
-    map: (p) => sphube.evaluate(p, 0.45, 0.9),
-  },
+  // sphube: {
+  //   name: "Sphube",
+  //   map: (p) => sphube.evaluate(p, 0.45, 0.9),
+  // },
   gyroid: {
     name: "Gyroid",
-    map: (p) => gyroid(p.clone().multiplyScalar(8), 10, 1, 1) / 8,
+    map: (p) => sdGyroid(p.clone().multiplyScalar(8), 10, 1, 1) / 8,
   },
-  die: {
-    name: "Die",
-    map: (p) => opRound(sdDie(p.clone().multiplyScalar(3)), 0.1) / 3,
+  // die: {
+  //   name: "Die",
+  //   map: (p) => opRound(sdDie(p.clone().multiplyScalar(3)), 0.1) / 3,
+  // },
+  mobius: {
+    name: "Mobius strip",
+    map: (p) =>
+      mobiusStrip.getSignedDistance(p.clone().multiplyScalar(5.5)) / 5.5,
+    closestPoint: (p) =>
+      mobiusStrip
+        .getClosestPoint(p.clone().multiplyScalar(5.5))
+        .multiplyScalar(1 / 5.5),
+  },
+  goursat: {
+    name: "Goursat Tangle",
+    map: (p) => goursat.getSignedDistance(p.clone().multiplyScalar(3.5)) / 3.5,
+    closestPoint: (p, offset) =>
+      goursat
+        .getClosestPoint(p.clone().multiplyScalar(3.5), offset)
+        .multiplyScalar(1 / 3.5),
   },
 };
+
 const sdfOptions = Object.keys(sdfs).map((k) => [k, sdfs[k].name]);
 
 const gui = new GUI(
@@ -98,7 +139,7 @@ const gui = new GUI(
   document.querySelector("#gui-container")
 );
 gui.addLabel(
-  "Tracing lines folling a curl noise field on the surface of signed distance fields."
+  'Tracing lines folling a curl noise field on the surface of signed distance fields with genus >0 (with "holes").'
 );
 gui.addSlider("Segments per line", params.segments, 50, 250, 1);
 gui.addSlider("Lines", params.lines, 1, 1000, 1);
@@ -178,46 +219,6 @@ camera.position
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
-function gyroid(p, size, thickness, scale) {
-  const surfaceSide =
-    scale *
-    scale *
-    (Math.sin(p.x) * Math.cos(p.y) +
-      Math.sin(p.y) * Math.cos(p.z) +
-      Math.sin(p.z) * Math.cos(p.x));
-
-  const d = Math.abs(surfaceSide) - thickness;
-
-  const absX = Math.abs(p.x);
-  const absY = Math.abs(p.y);
-  const absZ = Math.abs(p.z);
-
-  const boxDist = Math.max(absX, Math.max(absY, absZ)) - size;
-
-  return Math.max(d, boxDist);
-}
-
-function sdDie(p) {
-  const qx = Math.abs(p.x) - 1.0;
-  const qy = Math.abs(p.y) - 1.0;
-  const qz = Math.abs(p.z) - 1.0;
-
-  const mQx = Math.max(qx, 0);
-  const mQy = Math.max(qy, 0);
-  const mQz = Math.max(qz, 0);
-
-  const distBox = Math.sqrt(mQx * mQx + mQy * mQy + mQz * mQz);
-
-  const lenP = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-
-  const distSphere = lenP - 1.35;
-
-  return Math.max(distBox, distSphere);
-}
-
-const trefoil = new TrefoilSDF();
-const sphube = new SphubeSDF();
-
 function map(p) {
   // const d =
   //   superShape3D(p.clone().multiplyScalar(2.5), presets[0].a, presets[0].b, 0) /
@@ -247,6 +248,7 @@ function generateSampler(map) {
   const samplerMesh = new Mesh(mc, new MeshNormalMaterial());
   samplerMesh.geometry.scale(0.5, 0.5, 0.5);
   samplerMesh.geometry.computeBoundingBox();
+  // group.add(samplerMesh);
 
   return new MeshSurfaceSampler(samplerMesh).build();
 }
@@ -299,12 +301,10 @@ async function generateShape(abort) {
     const tmp = p.clone();
 
     for (let i = 0; i < POINTS; i++) {
-      const c = getClosestPoint(
-        tmp,
-        map,
-        Maf.map(0, POINTS - 1, 0, 0.05, i),
-        1
-      );
+      const offset = Maf.map(0, POINTS - 1, 0, 0.05, i);
+      const c = sdfs[sdf].closestPoint
+        ? sdfs[sdf].closestPoint(tmp, offset)
+        : getClosestPoint(tmp, map, offset, 1);
       tmp.copy(c);
 
       vertices[i * 3] = tmp.x;
@@ -354,7 +354,7 @@ async function generateShape(abort) {
 
     mesh.g = g;
 
-    g.setPoints(vertices, (p) => Maf.parabola(p, 0.2));
+    g.setPoints(vertices); //, (p) => Maf.parabola(p, 0.2));
     const speed = 1 * Math.round(Maf.randomInRange(1, 3));
     meshes.push({ mesh, offset, speed });
   }
