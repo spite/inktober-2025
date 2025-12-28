@@ -64,7 +64,10 @@ const sdfs = {
 };
 const sdfOptions = Object.keys(sdfs).map((k) => [k, sdfs[k].name]);
 
-const gui = new GUI("Curl over SDFs", document.querySelector("#gui-container"));
+const gui = new GUI(
+  "Curl over SDFs I",
+  document.querySelector("#gui-container")
+);
 gui.addLabel(
   "Tracing lines folling a curl noise field on the surface of basic signed distance fields."
 );
