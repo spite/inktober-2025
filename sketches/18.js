@@ -43,7 +43,7 @@ const params = {
 };
 
 const gui = new GUI(
-  "Electric fields",
+  "Electric fields I",
   document.querySelector("#gui-container")
 );
 gui.addLabel("Lines generated following an electric field.");
