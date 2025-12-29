@@ -1,12 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector3,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-} from "three";
+import { Scene, Mesh, Group, Vector3, Color } from "three";
 import {
   renderer,
   getCamera,
