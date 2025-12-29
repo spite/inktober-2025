@@ -61,7 +61,27 @@ async function loadLeePerrySmith() {
 async function loadStanfordBunny() {
   const model = await loadModel("./assets/bunny.obj");
   const geo = mergeMesh(model);
+  geo.center();
   return geo;
 }
 
-export { loadSuzanne, loadLeePerrySmith, loadStanfordBunny, mergeMesh };
+async function loadIcosahedron() {
+  const model = await loadModel("./assets/icosahedron.obj");
+  const geo = mergeMesh(model);
+  return geo;
+}
+
+async function loadDodecahedron() {
+  const model = await loadModel("./assets/dodecahedron.obj");
+  const geo = mergeMesh(model);
+  return geo;
+}
+
+export {
+  loadIcosahedron,
+  loadDodecahedron,
+  loadSuzanne,
+  loadLeePerrySmith,
+  loadStanfordBunny,
+  mergeMesh,
+};
