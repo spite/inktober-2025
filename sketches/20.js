@@ -2,32 +2,27 @@ import {
   Scene,
   Mesh,
   Group,
-  Vector2,
   Vector3,
-  TextureLoader,
   Color,
-  RepeatWrapping,
   MeshBasicMaterial,
-  DoubleSide,
-  Matrix4,
-  BufferAttribute,
-  Raycaster,
-  IcosahedronGeometry,
-  MeshNormalMaterial,
   BufferGeometry,
 } from "three";
-import { renderer, getCamera, isRunning, onResize } from "../modules/three.js";
+import {
+  renderer,
+  getCamera,
+  isRunning,
+  onResize,
+  wait,
+  brushes,
+  brushOptions,
+  addInfo,
+} from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palette2 as palette } from "../modules/floriandelooij.js";
+import { paletteOptions, getPalette } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
-import { Easings } from "../modules/easings.js";
 import { Painted } from "../modules/painted.js";
-import { pointsOnSphere } from "../modules/points-sphere.js";
-import { curl, seedFunc, generateNoiseFunction } from "../modules/curl.js";
-import { march, sdRoundBox } from "../modules/raymarch.js";
-import { RoundedBoxGeometry } from "../third_party/three-rounded-box.js";
 import {
   computeBoundsTree,
   disposeBoundsTree,
@@ -35,39 +30,128 @@ import {
 } from "../third_party/bvh.js";
 import { MeshSurfaceSampler } from "../third_party/MeshSurfaceSampler.js";
 import { init } from "../modules/dipoles-3d.js";
-import { loadSuzanne } from "../modules/models.js";
+import {
+  loadSuzanne,
+  loadStanfordBunny,
+  loadDodecahedron,
+  loadIcosahedron,
+} from "../modules/models.js";
+import GUI from "../modules/gui.js";
+import { signal, effectRAF } from "../modules/reactive.js";
 
 // Add the extension functions
 BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 Mesh.prototype.raycast = acceleratedRaycast;
 
+const geometries = [
+  { id: "suzanne", name: "Suzanne", loader: loadSuzanne, scale: 1 },
+  { id: "bunny", name: "Stanford Bunny", loader: loadStanfordBunny, scale: 14 },
+  {
+    id: "icosahedron",
+    name: "Icosahedron",
+    loader: loadIcosahedron,
+    scale: 0.8,
+  },
+  {
+    id: "dodecahedron",
+    name: "Dodecahedron",
+    loader: loadDodecahedron,
+    scale: 1,
+  },
+];
+await Promise.all(
+  geometries.map(async (g) => {
+    return new Promise(async (resolve, reject) => {
+      const geometry = await g.loader();
+      geometry.scale(g.scale, g.scale, g.scale);
+      geometry.computeBoundsTree();
+      const mesh = new Mesh(
+        geometry,
+        new MeshBasicMaterial({ color: 0xf6f2e9 })
+      );
+      const sampler = new MeshSurfaceSampler(mesh).build();
+      g.geometry = geometry;
+      g.sampler = sampler;
+      resolve();
+    });
+  })
+);
+
+const geometryOptions = geometries.map((g) => [g.id, g.name]);
+
+const defaults = {
+  lines: 2000,
+  charges: 20,
+  segments: 20,
+  geometry: "suzanne",
+  chargeRange: 0.01,
+  depthRange: 0.1,
+  lineWidth: [0.1, 0.9],
+  opacity: [0.8, 1],
+  brush: "brush4",
+  palette: "basic",
+  seed: 13373,
+};
+
+const params = {
+  lines: signal(defaults.lines),
+  segments: signal(defaults.segments),
+  geometry: signal(defaults.geometry),
+  charges: signal(defaults.charges),
+  chargeRange: signal(defaults.chargeRange),
+  depthRange: signal(defaults.depthRange),
+  lineWidth: signal(defaults.lineWidth),
+  opacity: signal(defaults.opacity),
+  brush: signal(defaults.brush),
+  palette: signal(defaults.palette),
+  seed: signal(defaults.seed),
+};
+
+const gui = new GUI(
+  "Electric fields III",
+  document.querySelector("#gui-container")
+);
+gui.addLabel(
+  "Lines generated following an electric field over the surface of SDFs generated from models."
+);
+gui.addSlider("Lines", params.lines, 1, 2000, 1);
+gui.addSlider("Segments", params.segments, 10, 200, 1);
+gui.addSelect("Geometry", geometryOptions, params.geometry);
+gui.addSlider("Charges", params.charges, 2, 50, 1);
+gui.addSlider("Depth range", params.depthRange, 0, 0.2, 0.01);
+// gui.addSlider("Charge range", params.chargeRange, 0.01, 10, 0.01);
+gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+
+gui.addSeparator();
+gui.addSelect("Brush", brushOptions, params.brush);
+gui.addSelect("Palette", paletteOptions, params.palette);
+gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+
+gui.addSeparator();
+gui.addButton("Randomize params", randomizeParams);
+gui.addButton("Reset params", reset);
+
+addInfo(gui);
+
+function reset() {
+  for (const key of Object.keys(defaults)) {
+    params[key].set(defaults[key]);
+  }
+}
+
 const painted = new Painted({ minLevel: -0.2 });
-// const curl = generateNoiseFunction();
 
 onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
 
-palette.range = [
-  "#FE695A",
-  "#0F2246",
-  "#CE451C",
-  "#FEF2CD",
-  "#EEC1A6",
-  "#57424A",
-  "#E2902D",
-];
-
-const gradient = new gradientLinear(palette.range);
-
 const canvas = renderer.domElement;
 const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
-controls.screenSpacePanning = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
@@ -81,117 +165,149 @@ camera.position.set(
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
-const strokeTexture = new TextureLoader().load("./assets/brush2.jpg");
-strokeTexture.wrapS = strokeTexture.wrapT = RepeatWrapping;
-const resolution = new Vector2(canvas.width, canvas.height);
+const meshes = [];
 
-const N = 20;
+async function generateShape(abort) {
+  Math.seedrandom(params.seed());
 
-const geo = new Float32Array(N * 3);
-const radius = 2;
-const lineWidth = 1;
+  const N = params.segments();
+  const LINES = params.lines();
 
-function prepareMesh(w, c) {
-  var g = new MeshLine();
-  g.setPoints(geo);
+  const position = new Vector3();
+  const geometry = geometries.find((g) => g.id === params.geometry());
+  const sampler = geometry.sampler;
 
-  const material = new MeshLineMaterial({
-    map: strokeTexture,
-    useMap: true,
-    color: gradient.getAt(c),
-    resolution: resolution,
-    sizeAttenuation: true,
-    lineWidth: w / 4,
+  const charges = init(params.charges(), 1, 1, 1, 1);
+  charges.charges.forEach((p, i) => {
+    sampler.sample(position);
+    p.x = position.x;
+    p.y = position.y;
+    p.z = position.z;
+    p.charge = Maf.randomInRange(-100, 100);
   });
 
-  var mesh = new Mesh(g.geometry, material);
-  mesh.geo = geo;
-  mesh.g = g;
-
-  return mesh;
-}
-
-const suzanneGeo = await loadSuzanne();
-suzanneGeo.computeBoundsTree();
-
-const raycaster = new Raycaster(new Vector3(), new Vector3());
-raycaster.firstHitOnly = true;
-
-const LINES = 3000;
-
-const cube = new Mesh(suzanneGeo, new MeshBasicMaterial({ color: 0xf6f2e9 }));
-// cube.material.polygonOffset = true;
-// cube.material.polygonOffsetFactor = 150;
-// group.add(cube);
-
-const sampler = new MeshSurfaceSampler(cube).build();
-const position = new Vector3();
-
-const charges = init(50, 1, 1, 1, 1);
-charges.charges.forEach((p, i) => {
-  sampler.sample(position);
-  p.x = position.x;
-  p.y = position.y;
-  p.z = position.z;
-  p.charge = Maf.randomInRange(-100, 100);
-});
-
-const points = [];
-for (let i = 0; i < LINES; i++) {
-  sampler.sample(position);
-  points.push(position.clone());
-}
-
-const up = new Vector3(0, 1, 0);
-const center = new Vector3(0, 0, 0);
-const meshes = [];
-for (let j = 0; j < LINES; j++) {
-  const mesh = prepareMesh(
-    0.02 * Maf.randomInRange(0.01, 1),
-    Maf.randomInRange(0, 1)
-  );
-  group.add(mesh);
-  const offset = Maf.randomInRange(-1, 0);
-  const vertices = new Float32Array(N * 3);
-  const r = 0.1;
-
-  let p = points[j].clone();
-  const s = 0.02;
-  const t = new Vector3();
-  const tmp = p.clone();
-  for (let i = 0; i < N; i++) {
-    const dir = charges.calcDirection(tmp.x, tmp.y, tmp.z);
-    t.set(dir.x, dir.y, dir.z).normalize().multiplyScalar(s);
-
-    p.add(t);
-
-    suzanneGeo.boundsTree.closestPointToPoint(p, tmp);
-
-    p.copy(tmp.point);
-    tmp.copy(p);
-    vertices[i * 3] = p.x;
-    vertices[i * 3 + 1] = p.y;
-    vertices[i * 3 + 2] = p.z;
+  const points = [];
+  for (let i = 0; i < LINES; i++) {
+    sampler.sample(position);
+    points.push(position.clone());
   }
-  mesh.material.uniforms.dashArray.value.set(
-    1,
-    Math.round(Maf.randomInRange(1, 2))
-  );
-  //   const repeat = Math.ceil(Maf.randomInRange(1, 10));
-  //   mesh.material.uniforms.repeat.value.x = repeat;
-  //   mesh.material.uniforms.dashArray.value.x = repeat - 1;
-  mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.5));
-  //   mesh.scale.setScalar(5);
-  const speed = 1 * Math.round(Maf.randomInRange(1, 3));
-  meshes.push({ mesh, offset, speed });
+
+  const lineWidth = params.lineWidth();
+  const opacity = params.opacity();
+
+  const geo = new Float32Array(N * 3);
+
+  const map = brushes[params.brush()];
+  const gradient = new gradientLinear(getPalette(params.palette()));
+
+  for (let j = 0; j < LINES; j++) {
+    if (abort.aborted) {
+      return;
+    }
+    if (j % 10 === 0) {
+      await wait();
+    }
+    painted.invalidate();
+
+    var g = new MeshLine();
+    g.setPoints(geo);
+
+    const material = new MeshLineMaterial({
+      map,
+      useMap: true,
+      color: gradient.getAt(Maf.randomInRange(0, 1)),
+      lineWidth: (0.02 * Maf.randomInRange(lineWidth[0], lineWidth[1])) / 4,
+      opacity: Maf.randomInRange(opacity[0], opacity[1]),
+    });
+
+    var mesh = new Mesh(g.geometry, material);
+    mesh.geo = geo;
+    mesh.g = g;
+
+    if (abort.aborted) {
+      return;
+    }
+    group.add(mesh);
+
+    const offset = Maf.randomInRange(-1, 0);
+    const vertices = new Float32Array(N * 3);
+    const r = 0.1;
+
+    let p = points[j].clone();
+    const s = 0.02;
+    const t = new Vector3();
+    const tmp = p.clone();
+    for (let i = 0; i < N; i++) {
+      const dir = charges.calcDirection(tmp.x, tmp.y, tmp.z);
+      t.set(dir.x, dir.y, dir.z).normalize().multiplyScalar(s);
+
+      p.add(t);
+
+      geometry.geometry.boundsTree.closestPointToPoint(p, tmp);
+
+      p.copy(tmp.point);
+      tmp.copy(p);
+      vertices[i * 3] = p.x;
+      vertices[i * 3 + 1] = p.y;
+      vertices[i * 3 + 2] = p.z;
+    }
+    mesh.material.uniforms.dashArray.value.set(
+      1,
+      Math.round(Maf.randomInRange(1, 2))
+    );
+    mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.5));
+    const speed = 1 * Math.round(Maf.randomInRange(1, 3));
+    meshes.push({ mesh, offset, speed });
+  }
 }
+
 group.scale.set(0.1, 0.1, 0.1);
 scene.add(group);
+
+let abortController = new AbortController();
+
+effectRAF(() => {
+  console.log("effectRAF2");
+  abortController.abort();
+  clearScene();
+  abortController = new AbortController();
+  generateShape(abortController.signal);
+});
+
+function clearScene() {
+  for (const mesh of meshes) {
+    mesh.mesh.geometry.dispose();
+    mesh.mesh.material.dispose();
+    group.remove(mesh.mesh);
+  }
+  meshes.length = 0;
+}
+
+function randomize() {
+  params.seed.set(performance.now());
+}
+
+function randomizeParams() {
+  console.log("randomize");
+  params.charges.set(Maf.intRandomInRange(2, 50));
+  params.chargeRange.set(Maf.randomInRange(0.01, 10));
+  const l = Maf.randomInRange(0.1, 0.9);
+  params.lineWidth.set(Maf.randomInRange(l, 1));
+  const v = Maf.randomInRange(0.5, 0.9);
+  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  params.brush.set(Maf.randomElement(brushOptions)[0]);
+  params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  const o = Maf.randomInRange(0.5, 0.9);
+  params.opacity.set([o, Maf.randomInRange(0.9, 1)]);
+  params.depthRange.set(Maf.randomInRange(0.1, 0.2));
+  params.geometry.set(Maf.randomElement(geometryOptions)[0]);
+}
 
 let lastTime = performance.now();
 let time = 0;
 
 function draw(startTime) {
+  controls.update();
   const t = performance.now();
 
   if (isRunning) {
@@ -212,4 +328,16 @@ function draw(startTime) {
   lastTime = t;
 }
 
-export { draw, canvas, renderer, camera };
+function start() {
+  controls.enabled = true;
+  gui.show();
+  painted.invalidate();
+}
+
+function stop() {
+  controls.enabled = false;
+  gui.hide();
+}
+
+const index = 20;
+export { index, start, stop, draw, randomize, canvas };
