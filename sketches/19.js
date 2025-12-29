@@ -77,7 +77,7 @@ function reset() {
   }
 }
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
 onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
@@ -99,7 +99,7 @@ camera.position
   .multiplyScalar(2);
 // camera.position.set(3, 3, 3);
 camera.lookAt(group.position);
-renderer.setClearColor(0xf8fcfe, 1);
+renderer.setClearColor(0, 0);
 
 const meshes = [];
 
