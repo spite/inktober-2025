@@ -43,6 +43,8 @@ const autumnIntoWinter = [
   "#ffffff",
 ];
 
+const clayForest = ["#FEF2CD", "#E2902D", "#B9384C", "#7E9793", "#3D5443"];
+
 const acidCool = ["#ffffff", "#4477aa", "#3eb9d6", "#ffcb5c"];
 
 const acidTrip = fix([
@@ -192,6 +194,7 @@ const palettes = [
     palette: autumnIntoWinter,
     name: "Autumn into winter",
   },
+  { id: "clayForest", palette: clayForest, name: "Clay Forest" },
 
   { id: "acidCool", palette: acidCool, name: "Acid cool" },
   { id: "acidTrip", palette: acidTrip, name: "Acid trip" },
