@@ -292,7 +292,7 @@ async function generateLines(abort) {
 
   const rot = new Matrix4().makeRotationAxis(
     axis,
-    0 * Maf.randomInRange(0, 2 * Math.PI)
+    Maf.randomInRange(0, 2 * Math.PI)
   );
 
   console.log(scale);
@@ -301,23 +301,10 @@ async function generateLines(abort) {
     if (abort.aborted) {
       return;
     }
-    if (k % 1 === 0) {
-      await wait();
-    }
+    await wait();
     painted.invalidate();
 
     const y = Maf.map(0, LAYERS - 1, -0.5 * SIZE, 0.5 * SIZE, k);
-
-    const axis2 = new Vector3(
-      Maf.randomInRange(-1, 1),
-      Maf.randomInRange(-1, 1),
-      Maf.randomInRange(-1, 1)
-    ).normalize();
-
-    const rot2 = new Matrix4().makeRotationAxis(
-      axis2,
-      Maf.randomInRange(-0 * Math.PI, 0 * Math.PI)
-    );
 
     const p = new Vector3();
     const values = [];
@@ -329,9 +316,7 @@ async function generateLines(abort) {
           y,
           Maf.map(0, DEPTH, -0.5 * SIZE, 0.5 * SIZE, z)
         );
-        p.multiplyScalar(2 * scale)
-          .applyMatrix4(rot)
-          .applyMatrix4(rot2);
+        p.multiplyScalar(2 * scale).applyMatrix4(rot);
         values[z][x] = fn(p);
       }
     }
@@ -344,7 +329,7 @@ async function generateLines(abort) {
     );
 
     for (const line of lines) {
-      await waitForRender();
+      await wait();
       painted.invalidate();
       const repeat = Math.round(
         Maf.randomInRange(1, Math.round(line.length / repeatFactor))
@@ -365,9 +350,7 @@ async function generateLines(abort) {
       });
 
       const points = line.map((p) =>
-        new Vector3(SIZE * (p.x - 0.5), y, SIZE * (p.y - 0.5))
-          .applyMatrix4(rot)
-          .applyMatrix4(rot2)
+        new Vector3(SIZE * (p.x - 0.5), y, SIZE * (p.y - 0.5)).applyMatrix4(rot)
       );
       var g = new MeshLine();
       g.setPoints(points);
@@ -437,7 +420,7 @@ function randomizeParams() {
   params.bn2.set(b.n2);
   params.bn3.set(b.n3);
 
-  params.lines.set(Maf.intRandomInRange(10, 200));
+  params.lines.set(Maf.intRandomInRange(100, 200));
   params.brush.set(Maf.randomElement(brushOptions)[0]);
   params.palette.set(Maf.randomElement(paletteOptions)[0]);
   const o = 0.5;
