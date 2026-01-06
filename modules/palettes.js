@@ -32,6 +32,17 @@ const earth = [
 
 const florian = ["#20a0aa", "#ec4039", "#ffae12"];
 
+const autumnIntoWinter = [
+  "#DDAA44",
+  "#B9384C",
+  "#7E9793",
+  "#F8F6F2",
+  "#3D5443",
+  "#2F2D30",
+  "#ebb43a",
+  "#ffffff",
+];
+
 const acidCool = ["#ffffff", "#4477aa", "#3eb9d6", "#ffcb5c"];
 
 const acidTrip = fix([
@@ -176,6 +187,11 @@ const palettes = [
   { id: "fire", palette: fire, name: "Fire" },
   { id: "earth", palette: earth, name: "Earth" },
   { id: "florian", palette: florian, name: "Florian de Looij" },
+  {
+    id: "autumnIntoWinter",
+    palette: autumnIntoWinter,
+    name: "Autumn into winter",
+  },
 
   { id: "acidCool", palette: acidCool, name: "Acid cool" },
   { id: "acidTrip", palette: acidTrip, name: "Acid trip" },
