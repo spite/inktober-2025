@@ -17,7 +17,6 @@ import { Painted } from "../modules/painted.js";
 import { MarchingSquares } from "../modules/marching-squares.js";
 import perlin from "../third_party/perlin.js";
 import { sphericalToCartesian } from "../modules/conversions.js";
-
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { signal, effectRAF } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
@@ -95,7 +94,7 @@ function reset() {
   }
 }
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
 onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
