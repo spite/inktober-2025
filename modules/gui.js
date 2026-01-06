@@ -137,12 +137,19 @@ class GUI {
     return this;
   }
 
-  addCheckbox(label, initialValue, onChange) {
+  addCheckbox(label, signal, onChange = () => {}) {
     const row = this.createRow(label);
     const input = document.createElement("input");
     input.type = "checkbox";
-    input.checked = initialValue;
-    input.onchange = (e) => onChange(e.target.checked);
+
+    effect(() => {
+      input.checked = signal();
+    });
+
+    input.onchange = (e) => {
+      signal.set(input.checked);
+      onChange(e.target.checked);
+    };
     row.append(input);
     return this;
   }
