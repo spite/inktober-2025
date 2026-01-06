@@ -268,8 +268,7 @@ let scale = 1;
 let fn;
 
 function generateSuperShape() {
-  const spread = 0;
-  fn = map(Maf.randomInRange(-spread, spread));
+  fn = map(0);
   scale = 1 / (SIZE * computeSDFBoundaries(fn));
 }
 
@@ -294,8 +293,6 @@ async function generateLines(abort) {
     axis,
     Maf.randomInRange(0, 2 * Math.PI)
   );
-
-  console.log(scale);
 
   for (let k = 0; k < LAYERS; k++) {
     if (abort.aborted) {
@@ -372,6 +369,7 @@ async function generateLines(abort) {
   }
 }
 
+generateSuperShape();
 group.scale.setScalar(0.1);
 scene.add(group);
 
@@ -382,7 +380,6 @@ effectRAF(() => {
   abortController.abort();
   clearScene();
   abortController = new AbortController();
-  generateSuperShape();
   generateLines(abortController.signal);
 });
 
@@ -404,21 +401,25 @@ function randomize() {
 }
 
 function randomizeParams() {
-  const a = randomParams();
-  params.aa.set(a.a);
-  params.ab.set(a.b);
-  params.am.set(a.m);
-  params.an1.set(a.n1);
-  params.an2.set(a.n2);
-  params.an3.set(a.n3);
+  do {
+    const a = randomParams();
+    params.aa.set(a.a);
+    params.ab.set(a.b);
+    params.am.set(a.m);
+    params.an1.set(a.n1);
+    params.an2.set(a.n2);
+    params.an3.set(a.n3);
 
-  const b = randomParams();
-  params.ba.set(b.a);
-  params.bb.set(b.b);
-  params.bm.set(b.m);
-  params.bn1.set(b.n1);
-  params.bn2.set(b.n2);
-  params.bn3.set(b.n3);
+    const b = randomParams();
+    params.ba.set(b.a);
+    params.bb.set(b.b);
+    params.bm.set(b.m);
+    params.bn1.set(b.n1);
+    params.bn2.set(b.n2);
+    params.bn3.set(b.n3);
+
+    generateSuperShape();
+  } while (scale < 0.2);
 
   params.lines.set(Maf.intRandomInRange(100, 200));
   params.brush.set(Maf.randomElement(brushOptions)[0]);
