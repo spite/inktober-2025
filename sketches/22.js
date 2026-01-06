@@ -1,13 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector2,
-  Vector3,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-} from "three";
+import { Scene, Mesh, Group, Vector2, Vector3, Color } from "three";
 import {
   renderer,
   getCamera,
@@ -27,7 +18,6 @@ import { MarchingSquares } from "../modules/marching-squares.js";
 import perlin from "../third_party/perlin.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { signal, effectRAF } from "../modules/reactive.js";
-
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -58,7 +48,7 @@ const params = {
   seed: signal(defaults.seed),
 };
 
-const gui = new GUI("Isolines", document.querySelector("#gui-container"));
+const gui = new GUI("Isolines I", document.querySelector("#gui-container"));
 gui.addLabel("Lines generated following isolines on a FBM heightmap.");
 gui.addSlider("Lines", params.lines, 1, 200, 1);
 gui.addSlider("Scale", params.scale, 100, 500, 0.01);
