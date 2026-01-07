@@ -45,6 +45,12 @@ class Grid {
     }
   }
 
+  reset() {
+    this.points.clear();
+    this.allPoints.lenght = 0;
+    this.boundingBox.makeEmpty();
+  }
+
   get(p) {
     const hash = this.hash(p);
     return this.points.get(hash);
