@@ -1,14 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector3,
-  Vector2,
-  BufferGeometry,
-  Color,
-  LineBasicMaterial,
-  Line,
-} from "three";
+import { Scene, Mesh, Group, Vector3, Vector2, Color } from "three";
 import {
   renderer,
   getCamera,
@@ -35,6 +25,7 @@ const defaults = {
   curveScale: [1, 1],
   curved: true,
   offset: 0,
+  repeatFactor: 1,
   lineWidth: [0.5, 0.7],
   opacity: [0.8, 1],
   brush: "brush5",
@@ -49,6 +40,7 @@ const params = {
   curved: signal(defaults.curved),
   offset: signal(defaults.offset),
   lineWidth: signal(defaults.lineWidth),
+  repeatFactor: signal(defaults.repeatFactor),
   opacity: signal(defaults.opacity),
   brush: signal(defaults.brush),
   palette: signal(defaults.palette),
@@ -61,6 +53,7 @@ gui.addRangeSlider("Curve scale", params.curveScale, 0, 1, 0.01);
 gui.addCheckbox("Curved connections", params.curved);
 gui.addSlider("Noise scale", params.noiseScale, 0.01, 0.5, 0.01);
 gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01);
+gui.addSlider("Repeat factor", params.repeatFactor, 1, 10, 1);
 gui.addSeparator();
 gui.addSelect("Brush", brushOptions, params.brush);
 gui.addSelect("Palette", paletteOptions, params.palette);
@@ -377,7 +370,8 @@ async function generateLines() {
   const lineWidth = params.lineWidth();
   const offset = params.offset();
   const opacity = params.opacity();
-  console.log(offset);
+  const repeatFactor = params.repeatFactor();
+
   const WIDTH = 20;
   const HEIGHT = 20;
   const SIZE = 50;
@@ -430,7 +424,7 @@ async function generateLines() {
       color: gradient.getAt(c),
       lineWidth: Maf.randomInRange(lineWidth[0], lineWidth[1]) * 0.025,
       opacity: Maf.randomInRange(opacity[0], opacity[1]),
-      repeat: new Vector2(length / 100, 1),
+      repeat: new Vector2(Math.ceil((length * repeatFactor) / 200), 1),
     });
     var g = new MeshLine();
     g.setPoints(segment, (p) => Maf.parabola(p, 1));
@@ -490,6 +484,7 @@ function randomizeParams() {
   params.opacity.set([o, 1]);
   const v = 0.7;
   params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  params.repeatFactor.set(Maf.intRandomInRange(1, 5));
 }
 
 let lastTime = performance.now();
