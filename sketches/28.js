@@ -20,7 +20,8 @@ import { signal, effectRAF } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
-  segments: 100,
+  width: 40,
+  height: 20,
   noiseScale: 0.25,
   curveScale: [1, 1],
   curved: true,
@@ -34,7 +35,8 @@ const defaults = {
 };
 
 const params = {
-  segments: signal(defaults.segments),
+  width: signal(defaults.width),
+  height: signal(defaults.height),
   noiseScale: signal(defaults.noiseScale),
   curveScale: signal(defaults.curveScale),
   curved: signal(defaults.curved),
@@ -49,6 +51,8 @@ const params = {
 
 const gui = new GUI("Truchet tiles", document.querySelector("#gui-container"));
 gui.addLabel("Lines following a pattern built with Truchet Tiles.");
+gui.addSlider("Width", params.width, 1, 80, 1);
+gui.addSlider("Height", params.height, 1, 80, 1);
 gui.addRangeSlider("Curve scale", params.curveScale, 0, 1, 0.01);
 gui.addCheckbox("Curved connections", params.curved);
 gui.addSlider("Noise scale", params.noiseScale, 0.01, 0.5, 0.01);
@@ -119,7 +123,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(0, 0, 1.8);
+camera.position.set(0, 0, 1.9);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -372,8 +376,8 @@ async function generateLines() {
   const opacity = params.opacity();
   const repeatFactor = params.repeatFactor();
 
-  const WIDTH = 20;
-  const HEIGHT = 20;
+  const WIDTH = params.width();
+  const HEIGHT = params.height();
   const SIZE = 50;
 
   const grid = [];
