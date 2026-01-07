@@ -86,6 +86,10 @@
   outline: none;
 }
 
+.gui input[type="checkbox"] {
+  accent-color: white;
+}
+
 .gui select {
   width: calc(100% - 140px);
 }
