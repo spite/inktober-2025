@@ -132,9 +132,10 @@ function addInfo(gui) {
             Click and drag to rotate. Right click and drag to pan. Mousewheel to
             zoom. Click <b>Pause</b> of press <b>Space</b> to toggle animation. Click <b>Randomize</b> or
             press <b>R</b> to randomize.<br/><br/>
-            In the params panel, press <b>Randomize params</b> to find new shapes.<br/><br/>
+            In the params panel, click <b>Randomize params</b> or press <b>R</b> to find new shapes.<br/><br/>
             Click <b>Save</b> or press <b>S</b> to download an image. Press
-            <b>Tab</b> to toggle the UI.
+            <b>Tab</b> to toggle the UI.<br/><br/>
+            Click <b>Previous</b> or press <b>J</b> to navigate to the previous sketch, and click <b>Next</b> or press <b>K</b> to navigate to the next one. Click <b>Gallery</b> to see a list of all sketches.
           </p>`);
 }
 
