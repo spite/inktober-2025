@@ -140,7 +140,7 @@ canvas {
   }
 }
 
-@media (max-width: 1150px) {
+@media (max-width: 1120px) {
   header {
     .btn span {
       display: none;
@@ -162,6 +162,7 @@ canvas {
       display: none;
     }
   }
+
   .gallery-container {
     width: 100%;
   }
@@ -170,5 +171,9 @@ canvas {
     bottom: 10px;
     left: 10px;
     right: 10px;
+
+    .gui-scroller {
+      max-height: 50vh;
+    }
   }
 }
