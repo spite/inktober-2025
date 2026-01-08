@@ -102,6 +102,35 @@ canvas {
   inset: 0;
 }
 
+#gallery {
+  display: none;
+  position: relative;
+
+  &.visible {
+    display: flex;
+  }
+
+  .gallery-container {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+
+    border-radius: 6px;
+    padding: 10px 20px;
+    color: white;
+    background: #3e3e3e88;
+
+    a {
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: white;
+      font-weight: bold;
+    }
+  }
+}
+
 @media (min-width: 950px) {
   #gui-container {
     position: fixed;
@@ -111,7 +140,7 @@ canvas {
   }
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1150px) {
   header {
     .btn span {
       display: none;
@@ -126,10 +155,15 @@ canvas {
     h1 {
       font-size: 42px;
     }
-
+    .btn {
+      padding: 10px;
+    }
     .btn span {
       display: none;
     }
+  }
+  .gallery-container {
+    width: 100%;
   }
   #gui-container {
     position: fixed;
