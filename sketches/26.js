@@ -1,12 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector2,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-} from "three";
+import { Scene, Mesh, Group, Vector2, Color } from "three";
 import {
   renderer,
   getCamera,
@@ -16,11 +8,9 @@ import {
   brushOptions,
   addInfo,
   wait,
-  waitForRender,
 } from "../modules/three.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
-import { palette2 as palette } from "../modules/floriandelooij.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
