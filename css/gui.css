@@ -29,6 +29,12 @@
   }
 }
 
+.gui-scroller {
+  max-height: 50vh;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
 .gui-rows {
   interpolate-size: allow-keywords;
 
@@ -46,10 +52,6 @@
     margin-top: 12px;
     padding-top: 12px;
     opacity: 1;
-
-    max-height: 50vh;
-    overflow: auto;
-    scrollbar-width: none;
   }
 }
 
