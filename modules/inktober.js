@@ -2,6 +2,53 @@ let module;
 let index;
 let params = "";
 
+const sketches = [
+  { id: 1, name: "Annular sphere" },
+  { id: 2, name: "Knot curve" },
+  { id: 3, name: "Trefoil and torus knot curves" },
+  { id: 4, name: "Winders" },
+  { id: 5, name: "Möbius strip" },
+  { id: 6, name: "Torus at heart I" },
+  { id: 7, name: "Torus at heart II" },
+  { id: 8, name: "Out of phase torus" },
+  { id: 9, name: "Attractor-like torus" },
+  { id: 10, name: "Strange attractors" },
+  { id: 11, name: "Curl noise field" },
+  { id: 12, name: "Curl noise shells" },
+  { id: 13, name: "Sphube (3D squircle)" },
+  { id: 14, name: "Curl over SDFs I" },
+  { id: 15, name: "Curl over SDFs II" },
+  { id: 16, name: "Curl over SDFs III" },
+  { id: 17, name: "Curl over SDFs IV" },
+  { id: 18, name: "Electric fields I" },
+  { id: 19, name: "Electric fields II" },
+  { id: 20, name: "Electric fields III" },
+  { id: 21, name: "Minimal and Non-Orientable surfaces" },
+  { id: 22, name: "Isolines I" },
+  { id: 23, name: "Isolines II" },
+  { id: 24, name: "Isolines III" },
+  { id: 25, name: "Isolines IV" },
+  { id: 26, name: "Flow field lines I" },
+  { id: 27, name: "Flow field lines II" },
+  { id: 28, name: "Truchet tiles I" },
+  { id: 29, name: "Truchet tiles II" },
+  { id: 30, name: "Metaballs" },
+];
+
+const galleryDiv = document.querySelector("#gallery");
+const galleryContainerDiv = document.querySelector(
+  "#gallery .gallery-container"
+);
+for (const sketch of sketches) {
+  const el = document.createElement("a");
+  el.textContent = `${sketch.id}. ${sketch.name}`;
+  el.href = `#sketch=${sketch.id}`;
+  el.addEventListener("click", (e) => {
+    galleryDiv.classList.remove("visible");
+  });
+  galleryContainerDiv.append(el);
+}
+
 function readHash() {
   const hash = window.location.hash.replace("#", "");
   const regex = /sketch=(\d*)(\+params=(.*))?/gm;
@@ -27,6 +74,14 @@ function next(e) {
   e.preventDefault();
 }
 
+function home(e) {
+  galleryDiv.classList.toggle("visible");
+
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+document.getElementById("homeButton").addEventListener("click", (e) => home(e));
 document.getElementById("backButton").addEventListener("click", (e) => prev(e));
 document.getElementById("nextButton").addEventListener("click", (e) => next(e));
 document.getElementById("randomizeButton").addEventListener("click", (e) => {
@@ -45,6 +100,12 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.code === "KeyS") {
     saveCanvas();
+  }
+  if (e.code === "KeyJ") {
+    prev(e);
+  }
+  if (e.code === "KeyK") {
+    next(e);
   }
 });
 
@@ -69,10 +130,10 @@ function saveCanvas() {
         `inktober-2025-${performance.now()}.png`
       );
       downloadBtn.setAttribute("href", url);
-      document.body.appendChild(downloadBtn); // Append to the document to make click() work
+      document.body.appendChild(downloadBtn);
       downloadBtn.click();
-      downloadBtn.remove(); // Clean up the temporary element
-      URL.revokeObjectURL(url); // Clean up the object URL
+      downloadBtn.remove();
+      URL.revokeObjectURL(url);
     });
   }
 }
