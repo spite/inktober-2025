@@ -47,7 +47,10 @@ const params = {
   palette: signal(defaults.palette),
 };
 
-const gui = new GUI("Torus at heart", document.querySelector("#gui-container"));
+const gui = new GUI(
+  "Torus at heart I",
+  document.querySelector("#gui-container")
+);
 gui.addLabel("Tracing lines following a general toroidal shape.");
 gui.addSlider("Segments per line", params.segments, 100, 300, 1);
 gui.addSlider("Loops", params.loops, 1, 10, 1);
