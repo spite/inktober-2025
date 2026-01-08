@@ -22,6 +22,8 @@ import GUI from "../modules/gui.js";
 const defaults = {
   width: 40,
   height: 20,
+  curveFrequency: 1,
+  lineFrequency: 0.2,
   noiseScale: 0.25,
   curveScale: [1, 1],
   curved: true,
@@ -37,6 +39,8 @@ const defaults = {
 const params = {
   width: signal(defaults.width),
   height: signal(defaults.height),
+  curveFrequency: signal(defaults.curveFrequency),
+  lineFrequency: signal(defaults.lineFrequency),
   noiseScale: signal(defaults.noiseScale),
   curveScale: signal(defaults.curveScale),
   curved: signal(defaults.curved),
@@ -53,6 +57,8 @@ const gui = new GUI("Truchet tiles", document.querySelector("#gui-container"));
 gui.addLabel("Lines following a pattern built with Truchet Tiles.");
 gui.addSlider("Width", params.width, 1, 80, 1);
 gui.addSlider("Height", params.height, 1, 80, 1);
+gui.addSlider("Curve frequency", params.curveFrequency, 0, 1, 0.01);
+gui.addSlider("Line frequency", params.lineFrequency, 0, 1, 0.01);
 gui.addRangeSlider("Curve scale", params.curveScale, 0, 1, 0.01);
 gui.addCheckbox("Curved connections", params.curved);
 gui.addSlider("Noise scale", params.noiseScale, 0.01, 0.5, 0.01);
@@ -129,6 +135,11 @@ renderer.setClearColor(0, 0);
 
 const meshes = [];
 
+const SegmentType = {
+  CURVE: 0,
+  LINE: 1,
+};
+
 // TOP - RIGHT - BOTTOM - LEFT
 class Segment {
   constructor(x, y, a, b) {
@@ -173,6 +184,29 @@ class Segment {
     }
   }
 
+  getType(a, b) {
+    const id = a * 4 + b;
+    switch (id) {
+      case 1:
+      case 3:
+      case 6:
+      case 14:
+        return SegmentType.CURVE;
+      case 2:
+      case 13:
+        return SegmentType.LINE;
+      default:
+        debugger;
+    }
+  }
+
+  renderLine(a, b) {
+    const res = [];
+    res.push(this.getCoords(a));
+    res.push(this.getCoords(b));
+    return res;
+  }
+
   renderCurve(c) {
     let a1 = (c.a * Math.PI) / 180;
     let a2 = (c.b * Math.PI) / 180;
@@ -201,8 +235,16 @@ class Segment {
   }
 
   render() {
-    const c = this.getCenter(this.a, this.b);
-    const res = this.renderCurve(c);
+    let res = [];
+    switch (this.getType(this.a, this.b)) {
+      case SegmentType.LINE:
+        res = this.renderLine(this.a, this.b);
+        break;
+      case SegmentType.CURVE:
+        const c = this.getCenter(this.a, this.b);
+        res = this.renderCurve(c);
+        break;
+    }
     res.forEach((p) => {
       p.x += this.x;
       p.y += this.y;
@@ -223,48 +265,36 @@ class Tile {
     switch (this.type) {
       case 1:
         return this.renderType1();
+      case 2:
+        return this.renderType2();
     }
     return [];
   }
 
   renderType1() {
-    const d = 1 / 2;
-    const borders = [
-      [
-        { x: -d, y: -d },
-        { x: d, y: -d },
-      ],
-      [
-        { x: d, y: -d },
-        { x: d, y: d },
-      ],
-      [
-        { x: d, y: d },
-        { x: -d, y: d },
-      ],
-      [
-        { x: -d, y: d },
-        { x: -d, y: -d },
-      ],
-    ];
-    borders.forEach((pts) => {
-      pts.forEach((p) => {
-        p.x += this.x;
-        p.y += this.y;
-      });
-    });
-
     if (this.rotation === 0 || this.rotation === 180) {
       return [
-        // ...borders,
         new Segment(this.x, this.y, 0, 1).render(),
         new Segment(this.x, this.y, 3, 2).render(),
       ];
     } else {
       return [
-        // ...borders,
         new Segment(this.x, this.y, 0, 3).render(),
         new Segment(this.x, this.y, 1, 2).render(),
+      ];
+    }
+  }
+
+  renderType2() {
+    if (this.rotation === 0 || this.rotation === 180) {
+      return [
+        new Segment(this.x, this.y, 0, 2).render(),
+        new Segment(this.x, this.y, 3, 1).render(),
+      ];
+    } else {
+      return [
+        new Segment(this.x, this.y, 3, 1).render(),
+        new Segment(this.x, this.y, 0, 2).render(),
       ];
     }
   }
@@ -381,6 +411,7 @@ async function generateLines() {
   const SIZE = 50;
 
   const grid = [];
+  const frequencyRange = params.curveFrequency() + params.lineFrequency();
   for (let y = 0; y < HEIGHT; y++) {
     for (let x = 0; x < WIDTH; x++) {
       const v = perlin.simplex2(
@@ -388,7 +419,9 @@ async function generateLines() {
         y * noiseScale + offset
       );
       const a = Math.round(Maf.map(-1, 1, 0, 4, v)) * 90;
-      const tile = new Tile(x, y, 1, a);
+      const r = Maf.randomInRange(0, frequencyRange);
+      const t = r < params.curveFrequency() ? 1 : 2;
+      const tile = new Tile(x, y, t, a);
       grid.push(tile);
     }
   }
@@ -489,6 +522,8 @@ function randomizeParams() {
   const v = 0.7;
   params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
   params.repeatFactor.set(Maf.intRandomInRange(1, 5));
+  params.curveFrequency.set(Maf.randomInRange(0.6, 1));
+  params.curveFrequency.set(Maf.randomInRange(0, 0.6));
 }
 
 let lastTime = performance.now();
