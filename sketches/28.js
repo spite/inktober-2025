@@ -20,7 +20,7 @@ import { signal, effectRAF } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
-  width: 40,
+  width: 20,
   height: 20,
   curveFrequency: 1,
   lineFrequency: 0.2,
@@ -53,8 +53,11 @@ const params = {
   seed: signal(defaults.seed),
 };
 
-const gui = new GUI("Truchet tiles", document.querySelector("#gui-container"));
-gui.addLabel("Lines following a pattern built with Truchet Tiles.");
+const gui = new GUI(
+  "Truchet tiles I",
+  document.querySelector("#gui-container")
+);
+gui.addLabel("Lines following a pattern built with square Truchet Tiles.");
 gui.addSlider("Width", params.width, 1, 80, 1);
 gui.addSlider("Height", params.height, 1, 80, 1);
 gui.addSlider("Curve frequency", params.curveFrequency, 0, 1, 0.01);
