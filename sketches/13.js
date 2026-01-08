@@ -47,7 +47,7 @@ const params = {
 };
 
 const gui = new GUI(
-  "Sphube (3d squircle)",
+  "Sphube (3D squircle)",
   document.querySelector("#gui-container")
 );
 gui.addLabel("Tracing lines over a sphube.");
