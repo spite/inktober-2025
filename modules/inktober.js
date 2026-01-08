@@ -60,18 +60,25 @@ function readHash() {
 }
 
 function prev(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
   readHash();
 
   // beginning, dont do anything
   if (index === 1) return;
   window.location.hash = `sketch=${--index}`;
-  e.preventDefault();
 }
 
 function next(e) {
-  readHash();
-  window.location.hash = `sketch=${++index}`;
   e.preventDefault();
+  e.stopPropagation();
+
+  readHash();
+
+  // end, dont do anything
+  if (index === 31) return;
+  window.location.hash = `sketch=${++index}`;
 }
 
 function home(e) {
