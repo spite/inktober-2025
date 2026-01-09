@@ -259,14 +259,4 @@ function stop() {
 }
 
 const index = 6;
-export {
-  index,
-  start,
-  stop,
-  draw,
-  randomize,
-  deserialize,
-  params,
-  defaults,
-  canvas,
-};
+export { index, start, stop, draw, randomize, params, defaults, canvas };
