@@ -209,7 +209,7 @@ async function init() {
 
   function update() {
     requestAnimationFrame(update);
-    if (!skip) module.draw(startTime);
+    module.draw(startTime);
     // capturer.capture(module.canvas);
   }
 
@@ -223,7 +223,5 @@ async function init() {
     }
   });
 }
-
-window.skip = false;
 
 window.addEventListener("load", init);
