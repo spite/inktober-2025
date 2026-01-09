@@ -159,9 +159,7 @@ class RangeSlider extends HTMLElement {
 
   addEventListeners() {
     const container = this.elements.container;
-
     container.addEventListener("pointerdown", (e) => this.handleDragStart(e));
-
     window.addEventListener("pointermove", (e) => this.handleDragMove(e));
     window.addEventListener("pointerup", () => this.handleDragEnd());
   }
@@ -172,6 +170,7 @@ class RangeSlider extends HTMLElement {
     this.elements.container.classList.add("immediate");
 
     this.isDragging = true;
+
     this.elements.thumbMin.style.zIndex = 2;
     this.elements.thumbMax.style.zIndex = 2;
 
@@ -194,7 +193,6 @@ class RangeSlider extends HTMLElement {
         }
       } else if (distMin < distMax) {
         this.currentHandle = "min";
-        this.elements.thumbMin.style.zIndex = 3;
       } else {
         this.currentHandle = "max";
       }
