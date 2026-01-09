@@ -1,5 +1,6 @@
 import { signal, effect } from "./reactive.js";
 import "./range-slider.js";
+import Maf from "maf";
 
 function precision(a) {
   if (!isFinite(a)) return 0;
@@ -63,7 +64,7 @@ class GUI {
     this.container.classList.remove("visible");
   }
 
-  createRow(label, disabled) {
+  createRow(label, disabled, randomize) {
     const row = document.createElement("div");
     row.className = "gui-row";
     if (label) {
@@ -71,6 +72,13 @@ class GUI {
       labelEl.className = "gui-label";
       labelEl.textContent = label;
       row.append(labelEl);
+
+      if (randomize) {
+        labelEl.addEventListener("click", (e) => {
+          Math.seedrandom(performance.now());
+          randomize();
+        });
+      }
     }
 
     if (disabled) {
@@ -83,8 +91,8 @@ class GUI {
     return row;
   }
 
-  addButton(label, callback) {
-    const row = this.createRow();
+  addButton(label, callback, disabled) {
+    const row = this.createRow(null, disabled);
     const btn = document.createElement("button");
     btn.className = "gui-btn";
     btn.textContent = label;
@@ -93,8 +101,8 @@ class GUI {
     return this;
   }
 
-  addText(label, initialValue, onChange) {
-    const row = this.createRow(label);
+  addText(label, initialValue, onChange = () => {}, disabled) {
+    const row = this.createRow(label, disabled);
     const input = document.createElement("input");
     input.type = "text";
     input.className = "gui-input-text";
@@ -104,8 +112,15 @@ class GUI {
     return this;
   }
 
-  addSelect(label, options, signal, onChange = () => {}) {
-    const row = this.createRow(label);
+  addSelect(label, options, signal, onChange = () => {}, disabled) {
+    const row = this.createRow(label, disabled, () => {
+      const opt = Maf.randomElement(options);
+      if (Array.isArray(opt)) {
+        signal.set(opt[0]);
+      } else {
+        signal.set(opt);
+      }
+    });
     const select = document.createElement("select");
     select.className = "gui-select";
 
@@ -141,8 +156,10 @@ class GUI {
     return this;
   }
 
-  addCheckbox(label, signal, onChange = () => {}) {
-    const row = this.createRow(label);
+  addCheckbox(label, signal, onChange = () => {}, disabled) {
+    const row = this.createRow(label, disabled, () => {
+      signal.set(Math.random() > 0.5);
+    });
     const input = document.createElement("input");
     input.type = "checkbox";
 
@@ -159,7 +176,9 @@ class GUI {
   }
 
   addSlider(label, signal, min, max, step, onChange = () => {}, disabled) {
-    const row = this.createRow(label, disabled);
+    const row = this.createRow(label, disabled, () => {
+      signal.set(formatFloat(Maf.randomInRange(min, max), step));
+    });
 
     const wrapper = document.createElement("div");
     wrapper.className = "gui-slider-container";
@@ -193,8 +212,12 @@ class GUI {
     return this;
   }
 
-  addRangeSlider(label, signal, min, max, step, onChange = () => {}) {
-    const row = this.createRow(label);
+  addRangeSlider(label, signal, min, max, step, onChange = () => {}, disabled) {
+    const row = this.createRow(label, disabled, () => {
+      const a = parseFloat(Maf.randomInRange(min, max), step);
+      const b = parseFloat(Maf.randomInRange(a, max), step);
+      signal.set([a, b]);
+    });
 
     const wrapper = document.createElement("div");
     wrapper.className = "gui-slider-container";
