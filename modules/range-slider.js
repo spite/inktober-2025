@@ -184,11 +184,24 @@ class RangeSlider extends HTMLElement {
       const distMin = Math.abs(value - this._valMin);
       const distMax = Math.abs(value - this._valMax);
 
-      if (distMin < distMax) {
+      if (this._valMin === this._valMax) {
+        if (this._valMin === this._max) {
+          this.currentHandle = "min";
+        } else if (this._valMin === this._min) {
+          this.currentHandle = "max";
+        } else {
+          this.currentHandle = value < this._valMin ? "min" : "max";
+        }
+      } else if (distMin < distMax) {
         this.currentHandle = "min";
         this.elements.thumbMin.style.zIndex = 3;
       } else {
         this.currentHandle = "max";
+      }
+
+      if (this.currentHandle === "min") {
+        this.elements.thumbMin.style.zIndex = 3;
+      } else {
         this.elements.thumbMax.style.zIndex = 3;
       }
     } else {
