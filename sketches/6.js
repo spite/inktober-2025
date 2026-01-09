@@ -72,43 +72,6 @@ gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-effectRAF(() => {
-  serialize();
-});
-
-function serialize() {
-  const fields = [];
-  for (const key of Object.keys(params)) {
-    fields.push([key, params[key]()]);
-  }
-  const data = fields.map((v) => `${v[0]}=${v[1]}`).join("|");
-  setHash(data);
-}
-
-function deserialize(data) {
-  const fields = data.split("|");
-  for (const field of fields) {
-    const [key, value] = field.split("=");
-    switch (typeof defaults[key]) {
-      case "number":
-        params[key].set(parseFloat(value));
-        break;
-      case "object":
-        params[key].set(value.split(",").map((v) => parseFloat(v)));
-        break;
-      case "string":
-        params[key].set(value);
-        break;
-    }
-  }
-}
-
-function reset() {
-  for (const key of Object.keys(defaults)) {
-    params[key].set(defaults[key]);
-  }
-}
-
 const painted = new Painted({ minLevel: -0.2 });
 
 onResize((w, h) => {
@@ -285,7 +248,6 @@ function draw(startTime) {
 }
 
 function start() {
-  serialize();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
@@ -297,4 +259,14 @@ function stop() {
 }
 
 const index = 6;
-export { index, start, stop, draw, randomize, deserialize, canvas };
+export {
+  index,
+  start,
+  stop,
+  draw,
+  randomize,
+  deserialize,
+  params,
+  defaults,
+  canvas,
+};

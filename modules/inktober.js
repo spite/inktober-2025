@@ -35,6 +35,44 @@ const sketches = [
   { id: 30, name: "Metaballs" },
 ];
 
+function serialize() {
+  const params = module.params;
+  const fields = [];
+  for (const key of Object.keys(params)) {
+    fields.push([key, params[key]()]);
+  }
+  const data = fields.map((v) => `${v[0]}=${v[1]}`).join("|");
+  setHash(data);
+}
+window.serialize = serialize;
+
+function deserialize(data, params) {
+  const fields = data.split("|");
+  for (const field of fields) {
+    const [key, value] = field.split("=");
+    switch (typeof defaults[key]) {
+      case "number":
+        params[key].set(parseFloat(value));
+        break;
+      case "object":
+        params[key].set(value.split(",").map((v) => parseFloat(v)));
+        break;
+      case "string":
+        params[key].set(value);
+        break;
+    }
+  }
+}
+
+function reset() {
+  const params = module.params;
+  const defaults = module.defaults;
+  for (const key of Object.keys(defaults)) {
+    params[key].set(defaults[key]);
+  }
+}
+window.reset = reset;
+
 const galleryDiv = document.querySelector("#gallery");
 const galleryContainerDiv = document.querySelector(
   "#gallery .gallery-container"
@@ -154,9 +192,8 @@ if (isNaN(index) || index === "" || index === undefined) {
 async function loadModule() {
   module = await import(`../sketches/${index}.js`);
   document.body.appendChild(module.canvas);
-  if (module.start) {
-    module.start();
-  }
+  // serialize(module.params);
+  module.start();
   return module;
 }
 
@@ -167,14 +204,10 @@ async function init() {
     if (index === module.index) {
       return;
     }
-    if (module && module.canvas) {
-      try {
-        document.body.removeChild(module.canvas);
-      } catch (e) {}
-    }
-    if (module && module.stop) {
-      module.stop();
-    }
+    try {
+      document.body.removeChild(module.canvas);
+    } catch (e) {}
+    module.stop();
     try {
       module = await loadModule();
     } catch (e) {
@@ -218,9 +251,7 @@ async function init() {
   window.addEventListener("hashchange", async (e) => {
     readHash();
     reload();
-    if (module.deserialize) {
-      module.deserialize(params);
-    }
+    // deserialize(params, module.params);
   });
 }
 

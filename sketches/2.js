@@ -61,12 +61,6 @@ gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-function reset() {
-  for (const key of Object.keys(defaults)) {
-    params[key].set(defaults[key]);
-  }
-}
-
 const painted = new Painted();
 
 onResize((w, h) => {
@@ -245,4 +239,4 @@ function stop() {
 }
 
 const index = 2;
-export { index, start, stop, draw, randomize, canvas };
+export { index, start, stop, draw, randomize, params, defaults, canvas };

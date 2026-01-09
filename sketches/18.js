@@ -63,12 +63,6 @@ gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-function reset() {
-  for (const key of Object.keys(defaults)) {
-    params[key].set(defaults[key]);
-  }
-}
-
 const painted = new Painted({ minLevel: -0.2 });
 
 onResize((w, h) => {
@@ -170,6 +164,9 @@ async function generateLines(abort) {
       offset: Maf.randomInRange(-100, 100),
       speed: Maf.randomInRange(1, 2),
     });
+    if (abort.aborted) {
+      return;
+    }
     group.add(mesh);
   }
 }
@@ -250,4 +247,4 @@ function stop() {
 }
 
 const index = 18;
-export { index, start, stop, draw, randomize, canvas };
+export { index, start, stop, draw, randomize, params, defaults, canvas };

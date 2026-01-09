@@ -31,7 +31,7 @@ const defaults = {
   seed: 1337,
   opacity: [0.6, 0.9],
   brush: "brush4",
-  palette: "grayscale",
+  palette: "basic",
 };
 
 const params = {
@@ -69,43 +69,6 @@ gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
-
-effectRAF(() => {
-  serialize();
-});
-
-function serialize() {
-  const fields = [];
-  for (const key of Object.keys(params)) {
-    fields.push([key, params[key]()]);
-  }
-  const data = fields.map((v) => `${v[0]}=${v[1]}`).join("|");
-  setHash(data);
-}
-
-function deserialize(data) {
-  const fields = data.split("|");
-  for (const field of fields) {
-    const [key, value] = field.split("=");
-    switch (typeof defaults[key]) {
-      case "number":
-        params[key].set(parseFloat(value));
-        break;
-      case "object":
-        params[key].set(value.split(",").map((v) => parseFloat(v)));
-        break;
-      case "string":
-        params[key].set(value);
-        break;
-    }
-  }
-}
-
-function reset() {
-  for (const key of Object.keys(defaults)) {
-    params[key].set(defaults[key]);
-  }
-}
 
 const painted = new Painted();
 
@@ -206,6 +169,9 @@ async function generateShape(abort) {
       Maf.randomInRange(-spread, spread)
     );
 
+    if (abort.aborted) {
+      return;
+    }
     group.add(mesh);
 
     mesh.scale.setScalar(5);
@@ -278,7 +244,6 @@ function draw(startTime) {
 }
 
 function start() {
-  serialize();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
@@ -290,4 +255,4 @@ function stop() {
 }
 
 const index = 11;
-export { index, start, stop, draw, randomize, deserialize, canvas };
+export { index, start, stop, draw, randomize, params, defaults, canvas };
