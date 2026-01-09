@@ -74,6 +74,7 @@
 .gui-label {
   opacity: 0.8;
   padding-right: 10px;
+  flex: 1;
 }
 
 .gui input,
