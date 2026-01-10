@@ -190,10 +190,14 @@ if (isNaN(index) || index === "" || index === undefined) {
 }
 
 async function loadModule() {
+  console.log("import module");
   module = await import(`../sketches/${index}.js`);
+  console.log(module);
   document.body.appendChild(module.canvas);
   // serialize(module.params);
+  console.log("start");
   module.start();
+  console.log("done");
   return module;
 }
 
@@ -201,14 +205,17 @@ async function init() {
   module = await loadModule();
 
   async function reload() {
+    console.log(index, module.index);
     if (index === module.index) {
       return;
     }
     try {
       document.body.removeChild(module.canvas);
     } catch (e) {}
+    console.log("stop");
     module.stop();
     try {
+      console.log("load");
       module = await loadModule();
     } catch (e) {
       console.log(e);
