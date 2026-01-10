@@ -249,7 +249,9 @@ async function init() {
 
   function update() {
     requestAnimationFrame(update);
-    module.draw(startTime);
+    if (module.index === index) {
+      module.draw(startTime);
+    }
     // capturer.capture(module.canvas);
   }
 
