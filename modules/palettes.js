@@ -72,6 +72,19 @@ function fix(colors) {
   return colors;
 }
 
+const rainbow = fix([
+  "#ef4444",
+  "#f97316",
+  "#f59e0b",
+  "#84cc16",
+  "#10b981",
+  "#06b6d4",
+  "#3b82f6",
+  "#8b5cf6",
+  "#d946ef",
+  "#f43f5e",
+]);
+
 // https://coolors.co/palettes/trending
 
 const fieryOcean = fix(["#780000", "#c1121f", "#fdf0d5", "#003049", "#669bbc"]);
@@ -266,6 +279,7 @@ const palettes = [
     palette: grayscale,
     name: "Grayscale",
   },
+  { id: "rainbow", palette: rainbow, name: "Rainbow" },
 ];
 const paletteOptions = palettes.map((p) => [p.id, p.name]);
 
