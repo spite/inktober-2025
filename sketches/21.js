@@ -271,6 +271,9 @@ async function generateShape(abort) {
   const opacity = params.opacity();
   const lineWidth = params.lineWidth();
   const surface = params.surface();
+  const enneperN = params.enneperN();
+  const enneperRange = params.enneperRange();
+  const kleinRadius = params.kleinRadius();
   const surfaceFn = surfaces.find((s) => s.id === surface).fn;
   const repeatFactor = params.repeatFactor();
 
