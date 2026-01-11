@@ -127,6 +127,8 @@ async function generateShape(abort) {
   const gradient = new gradientLinear(getPalette(params.palette()));
   const func = generateNoiseFunction();
 
+  const sdf = params.sdf();
+
   const center = new Vector3(0, 0, 0);
   const LINES = params.lines();
   const POINTS = params.segments();
