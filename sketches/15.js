@@ -107,9 +107,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position
-  .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
-  .multiplyScalar(2);
+camera.position.set(1, 1, 1).multiplyScalar(0.7);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -124,6 +122,8 @@ async function generateShape(abort) {
 
   const gradient = new gradientLinear(getPalette(params.palette()));
   const func = generateNoiseFunction();
+
+  const sdf = params.sdf();
 
   const center = new Vector3(0, 0, 0);
   const LINES = params.lines();
