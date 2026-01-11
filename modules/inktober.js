@@ -33,6 +33,7 @@ const sketches = [
   { id: 28, name: "Truchet tiles I" },
   { id: 29, name: "Truchet tiles II" },
   { id: 30, name: "Metaballs" },
+  { id: 31, name: "Lines on a sphere" },
 ];
 
 function serialize() {
