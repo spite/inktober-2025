@@ -24,7 +24,7 @@ const defaults = {
   tilt: 0.1,
   spread: 0.1,
   lineWidth: [0.3, 0.5],
-  brush: "brush1",
+  brush: "brush6",
   palette: "basic",
   seed: 13373,
 };
