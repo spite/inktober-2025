@@ -66,6 +66,7 @@ header {
   }
 }
 
+#switching,
 .btn {
   border-radius: 6px;
   padding: 10px 20px;
@@ -85,6 +86,18 @@ header {
   svg {
     height: 16px;
   }
+}
+
+#switching {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  transition: opacity 300ms ease-out;
+}
+
+#switching.hidden {
+  opacity: 0;
 }
 
 .btn:hover {

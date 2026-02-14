@@ -76,7 +76,7 @@ window.reset = reset;
 
 const galleryDiv = document.querySelector("#gallery");
 const galleryContainerDiv = document.querySelector(
-  "#gallery .gallery-container"
+  "#gallery .gallery-container",
 );
 for (const sketch of sketches) {
   const el = document.createElement("a");
@@ -173,7 +173,7 @@ function saveCanvas() {
       const downloadBtn = document.createElement("a");
       downloadBtn.setAttribute(
         "download",
-        `inktober-2025-${performance.now()}.png`
+        `inktober-2025-${performance.now()}.png`,
       );
       downloadBtn.setAttribute("href", url);
       document.body.appendChild(downloadBtn);
@@ -201,6 +201,8 @@ async function loadModule() {
   console.log("done");
   return module;
 }
+
+const switching = document.querySelector("#switching");
 
 async function init() {
   module = await loadModule();
@@ -252,6 +254,9 @@ async function init() {
     requestAnimationFrame(update);
     if (module.index === index) {
       module.draw(startTime);
+      switching.classList.add("hidden");
+    } else {
+      switching.classList.remove("hidden");
     }
     // capturer.capture(module.canvas);
   }
