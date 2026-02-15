@@ -160,7 +160,7 @@ scene.add(group);
 generateRing();
 generateLines();
 
-effectRAF(() => {
+const sketchEffect = effectRAF(() => {
   console.log("effectRAF2");
   clearScene();
   generateRing();
@@ -217,12 +217,14 @@ function draw() {
 }
 
 function start() {
+  sketchEffect.resume();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
+  sketchEffect.pause();
   controls.enabled = false;
   gui.hide();
 }

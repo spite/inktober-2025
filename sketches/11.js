@@ -185,7 +185,7 @@ scene.add(group);
 
 let abortController = new AbortController();
 
-effectRAF(() => {
+const sketchEffect = effectRAF(() => {
   console.log("effectRAF2");
   abortController.abort();
   clearScene();
@@ -244,12 +244,15 @@ function draw(startTime) {
 }
 
 function start() {
+  sketchEffect.resume();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
+  sketchEffect.pause();
+  abortController.abort();
   controls.enabled = false;
   gui.hide();
 }

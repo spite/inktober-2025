@@ -194,7 +194,7 @@ function generateShape() {
 group.scale.setScalar(0.09);
 scene.add(group);
 
-effectRAF(() => {
+const sketchEffect = effectRAF(() => {
   console.log("effectRAF2");
   clearScene();
   generateShape();
@@ -252,12 +252,14 @@ function draw(startTime) {
 }
 
 function start() {
+  sketchEffect.resume();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
+  sketchEffect.pause();
   controls.enabled = false;
   gui.hide();
 }

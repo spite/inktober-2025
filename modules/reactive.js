@@ -72,17 +72,23 @@ export function effect(fn) {
 
 export function effectRAF(fn) {
   let queued = false;
+  let paused = false;
   const scheduler = (job) => {
-    if (queued) return;
+    if (queued || paused) return;
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
-      job.run();
+      if (!paused) job.run();
     });
   };
 
   const effect = new ReactiveEffect(fn, scheduler);
   effect.run();
+
+  return {
+    pause() { paused = true; },
+    resume() { paused = false; },
+  };
 }
 
 export function computed(fn) {
