@@ -192,14 +192,16 @@ if (isNaN(index) || index === "" || index === undefined) {
 
 async function loadModule() {
   console.log("import module");
-  module = await import(`../sketches/${index}.js`);
-  console.log(module);
-  document.body.appendChild(module.canvas);
+  const loaded = await import(`../sketches/${index}.js`);
+  console.log(loaded);
+  document.body.appendChild(loaded.canvas);
   // serialize(module.params);
   console.log("start");
-  module.start();
+  if (loaded.start) {
+    loaded.start();
+  }
   console.log("done");
-  return module;
+  return loaded;
 }
 
 const switching = document.querySelector("#switching");
@@ -207,19 +209,35 @@ const switching = document.querySelector("#switching");
 async function init() {
   module = await loadModule();
 
+  let loadGeneration = 0;
+
   async function reload() {
     console.log(index, module.index);
     if (index === module.index) {
       return;
     }
+    const thisGeneration = ++loadGeneration;
     try {
       document.body.removeChild(module.canvas);
     } catch (e) {}
     console.log("stop");
-    module.stop();
+    if (module.stop) {
+      module.stop();
+    }
     try {
       console.log("load");
-      module = await loadModule();
+      const loaded = await loadModule();
+      if (thisGeneration !== loadGeneration) {
+        console.log("discarding stale module", loaded.index);
+        try {
+          document.body.removeChild(loaded.canvas);
+        } catch (e) {}
+        if (loaded.stop) {
+          loaded.stop();
+        }
+        return;
+      }
+      module = loaded;
     } catch (e) {
       console.log(e);
     }
