@@ -73,21 +73,54 @@ export function effect(fn) {
 export function effectRAF(fn) {
   let queued = false;
   let paused = false;
-  const scheduler = (job) => {
-    if (queued || paused) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      if (!paused) job.run();
-    });
-  };
+  let dirty = false;
+  let rafId = null;
 
   const effect = new ReactiveEffect(fn, scheduler);
+
+  function scheduler(job) {
+    if (paused) {
+      dirty = true;
+      return;
+    }
+    if (queued) return;
+    queued = true;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      queued = false;
+      if (!paused) {
+        dirty = false;
+        job.run();
+      } else {
+        dirty = true;
+      }
+    });
+  }
+
   effect.run();
 
   return {
-    pause() { paused = true; },
-    resume() { paused = false; },
+    pause() {
+      paused = true;
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+        queued = false;
+        dirty = true;
+      }
+    },
+    resume() {
+      paused = false;
+      if (dirty && !queued) {
+        dirty = false;
+        queued = true;
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          queued = false;
+          effect.run();
+        });
+      }
+    },
   };
 }
 
