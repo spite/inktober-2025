@@ -1,3 +1,5 @@
+import { effectRAF } from "./reactive.js";
+
 let module;
 let index;
 let params = "";
@@ -47,10 +49,11 @@ function serialize() {
 }
 window.serialize = serialize;
 
-function deserialize(data, params) {
+function deserialize(data, params, defaults) {
   const fields = data.split("|");
   for (const field of fields) {
     const [key, value] = field.split("=");
+    if (!(key in defaults) || !(key in params)) continue;
     switch (typeof defaults[key]) {
       case "number":
         params[key].set(parseFloat(value));
@@ -191,44 +194,46 @@ if (isNaN(index) || index === "" || index === undefined) {
 }
 
 async function loadModule() {
-  console.log("import module");
   const loaded = await import(`../sketches/${index}.js`);
-  console.log(loaded);
   document.body.appendChild(loaded.canvas);
-  // serialize(module.params);
-  console.log("start");
+  if (params) {
+    deserialize(params, loaded.params, loaded.defaults);
+  }
   if (loaded.start) {
     loaded.start();
   }
-  console.log("done");
   return loaded;
 }
 
 const switching = document.querySelector("#switching");
 
+function makeSerializeEffect() {
+  return effectRAF(() => {
+    serialize();
+  });
+}
+
 async function init() {
   module = await loadModule();
 
   let loadGeneration = 0;
+  let serializeEffect = makeSerializeEffect();
 
   async function reload() {
-    console.log(index, module.index);
     if (index === module.index) {
       return;
     }
     const thisGeneration = ++loadGeneration;
+    serializeEffect.pause();
     try {
       document.body.removeChild(module.canvas);
     } catch (e) {}
-    console.log("stop");
     if (module.stop) {
       module.stop();
     }
     try {
-      console.log("load");
       const loaded = await loadModule();
       if (thisGeneration !== loadGeneration) {
-        console.log("discarding stale module", loaded.index);
         try {
           document.body.removeChild(loaded.canvas);
         } catch (e) {}
@@ -238,6 +243,7 @@ async function init() {
         return;
       }
       module = loaded;
+      serializeEffect = makeSerializeEffect();
     } catch (e) {
       console.log(e);
     }
@@ -284,7 +290,6 @@ async function init() {
   window.addEventListener("hashchange", async (e) => {
     readHash();
     reload();
-    // deserialize(params, module.params);
   });
 }
 
