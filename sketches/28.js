@@ -145,8 +145,6 @@ class Segment {
       case 14: {
         return { x: -d, y: -d, a: 90, b: 0 };
       }
-      default:
-        debugger;
     }
   }
 
@@ -161,8 +159,6 @@ class Segment {
       case 2:
       case 13:
         return SegmentType.LINE;
-      default:
-        debugger;
     }
   }
 
@@ -180,7 +176,7 @@ class Segment {
     if (params.curved()) {
       const steps = 10;
       const scale = params.curveScale();
-      const s = Maf.randomInRange(scale[0], scale[0]);
+      const s = Maf.randomInRange(scale[0], scale[1]);
       if (s < 1) {
         res.push({ x: 0.5 * Math.cos(a1) + c.x, y: 0.5 * Math.sin(a1) + c.y });
       }
@@ -450,7 +446,6 @@ scene.add(group);
 let abortController = new AbortController();
 
 const sketchEffect = effectRAF(() => {
-  console.log("effectRAF2");
   abortController.abort();
   clearScene();
   abortController = new AbortController();
@@ -472,7 +467,6 @@ function clearScene() {
 function randomize() {
   params.seed.set(performance.now());
   params.offset.set(Maf.randomInRange(-1000, 1000));
-  console.log(params.seed());
 }
 
 function randomizeParams() {
@@ -489,7 +483,7 @@ function randomizeParams() {
   params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
   params.repeatFactor.set(Maf.intRandomInRange(1, 5));
   params.curveFrequency.set(Maf.randomInRange(0.6, 1));
-  params.curveFrequency.set(Maf.randomInRange(0, 0.6));
+  params.lineFrequency.set(Maf.randomInRange(0, 0.6));
 }
 
 let lastTime = performance.now();
