@@ -90,7 +90,6 @@ const geometry = [];
 
 function generateRing() {
   geometry.length = 0;
-  console.log("Generating ring");
   const circleRadius = 2;
   const l = params.ringLength() * Math.PI;
   for (let j = 0; j <= l; j += l / params.segments()) {
@@ -105,7 +104,6 @@ function generateRing() {
 }
 
 function generateLines() {
-  console.log("Generating lines");
   Math.seedrandom(params.seed());
 
   const gradient = new gradientLinear(getPalette(params.palette()));
@@ -161,7 +159,6 @@ generateRing();
 generateLines();
 
 const sketchEffect = effectRAF(() => {
-  console.log("effectRAF2");
   clearScene();
   generateRing();
   generateLines();
@@ -181,7 +178,6 @@ function randomize() {
 }
 
 function randomizeParams() {
-  console.log("randomize");
   params.rings.set(Maf.intRandomInRange(1, 200));
   // params.segments.set(Maf.intRandomInRange(20, 100));
   params.tilt.set(Maf.randomInRange(0, 0.2));
