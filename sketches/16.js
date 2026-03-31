@@ -241,7 +241,6 @@ scene.add(group);
 let abortController = new AbortController();
 
 const sketchEffect = effectRAF(() => {
-  console.log("effectRAF2");
   abortController.abort();
   clearScene();
   abortController = new AbortController();
