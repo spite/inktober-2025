@@ -197,7 +197,6 @@ function map(offset) {
 const maxDistance = 1000;
 const references = pointsOnSphere(100, maxDistance);
 function computeSDFBoundaries(fn) {
-  console.log("------");
   let min = maxDistance;
   for (const p of references) {
     const d = fn(p);
@@ -211,7 +210,6 @@ function computeSDFBoundaries(fn) {
       min = Math.min(d, min);
     }
   }
-  console.log(min);
   return maxDistance - min;
 }
 
@@ -339,7 +337,6 @@ scene.add(group);
 let abortController = new AbortController();
 
 const sketchEffect = effectRAF(() => {
-  console.log("effectRAF2");
   abortController.abort();
   clearScene();
   abortController = new AbortController();
@@ -360,7 +357,6 @@ function clearScene() {
 
 function randomize() {
   params.seed.set(performance.now());
-  console.log(params.seed());
 }
 
 function randomizeParams() {
