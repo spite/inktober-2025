@@ -54,6 +54,12 @@ export function signal(initialValue) {
 
   sig.set = (newValue) => {
     if (Object.is(value, newValue)) return;
+    if (
+      Array.isArray(value) &&
+      Array.isArray(newValue) &&
+      value.length === newValue.length &&
+      value.every((v, i) => Object.is(v, newValue[i]))
+    ) return;
     value = newValue;
     trigger(subscribers);
   };
