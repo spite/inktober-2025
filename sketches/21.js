@@ -354,7 +354,6 @@ scene.add(group);
 let abortController = new AbortController();
 
 const sketchEffect = effectRAF(() => {
-  console.log("effectRAF2");
   abortController.abort();
   clearScene();
   abortController = new AbortController();
@@ -375,7 +374,6 @@ function clearScene() {
 
 function randomize() {
   params.seed.set(performance.now());
-  console.log(params.seed());
 }
 
 function randomizeParams() {
