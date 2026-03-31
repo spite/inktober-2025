@@ -176,7 +176,6 @@ scene.add(group);
 let abortController = new AbortController();
 
 const sketchEffect = effectRAF(() => {
-  console.log("effectRAF2");
   abortController.abort();
   clearScene();
   abortController = new AbortController();
@@ -197,11 +196,10 @@ function randomize() {
 }
 
 function randomizeParams() {
-  console.log("randomize");
   params.charges.set(Maf.intRandomInRange(2, 50));
   params.chargeRange.set(Maf.randomInRange(1, 200));
-  const l = Maf.randomInRange(0.1, 0.9);
-  params.lineWidth.set(Maf.randomInRange(l, 1));
+  const l = Maf.randomInRange(1, 100);
+  params.lineLength.set([l, Maf.randomInRange(l, 100)]);
   const v = Maf.randomInRange(0.1, 0.9);
   params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
   params.brush.set(Maf.randomElement(brushOptions)[0]);
