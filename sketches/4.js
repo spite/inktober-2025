@@ -183,7 +183,6 @@ group.scale.setScalar(0.5);
 scene.add(group);
 
 const sketchEffect = effectRAF(() => {
-  console.log("effectRAF2");
   clearScene();
   generateShape();
 });
@@ -202,7 +201,6 @@ function randomize() {
 }
 
 function randomizeParams() {
-  console.log("randomize");
   params.lines.set(Maf.intRandomInRange(1, 200));
   // params.segments.set(Maf.intRandomInRange(200, 500));
   params.radius.set(Maf.randomInRange(4, 6));
