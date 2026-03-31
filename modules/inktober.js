@@ -52,15 +52,22 @@ window.serialize = serialize;
 function deserialize(data, params, defaults) {
   const fields = data.split("|");
   for (const field of fields) {
-    const [key, value] = field.split("=");
+    const eqIdx = field.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = field.slice(0, eqIdx);
+    const value = field.slice(eqIdx + 1);
     if (!(key in defaults) || !(key in params)) continue;
     switch (typeof defaults[key]) {
-      case "number":
-        params[key].set(parseFloat(value));
+      case "number": {
+        const n = parseFloat(value);
+        if (!isNaN(n)) params[key].set(n);
         break;
-      case "object":
-        params[key].set(value.split(",").map((v) => parseFloat(v)));
+      }
+      case "object": {
+        const arr = value.split(",").map((v) => parseFloat(v));
+        if (arr.every((v) => !isNaN(v))) params[key].set(arr);
         break;
+      }
       case "string":
         params[key].set(value);
         break;
@@ -142,7 +149,7 @@ document.getElementById("randomizeButton").addEventListener("click", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (e.code === "KeyR") {
+  if (e.code === "KeyR" && !e.ctrlKey && !e.metaKey) {
     if (module?.randomize) {
       module.randomize();
     }
@@ -159,7 +166,10 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.setHash = (data) => {
-  window.location.hash = `sketch=${index}+params=${data}`;
+  const newHash = `sketch=${index}+params=${data}`;
+  if (window.location.hash !== `#${newHash}`) {
+    window.location.hash = newHash;
+  }
 };
 
 document.getElementById("downloadButton").addEventListener("click", (e) => {
@@ -196,11 +206,11 @@ if (isNaN(index) || index === "" || index === undefined) {
 async function loadModule() {
   const loaded = await import(`../sketches/${index}.js`);
   document.body.appendChild(loaded.canvas);
-  if (params) {
-    deserialize(params, loaded.params, loaded.defaults);
-  }
   if (loaded.start) {
     loaded.start();
+  }
+  if (params && loaded.defaults && loaded.params) {
+    deserialize(params, loaded.params, loaded.defaults);
   }
   return loaded;
 }
