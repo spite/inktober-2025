@@ -98,6 +98,11 @@ for (const sketch of sketches) {
   galleryContainerDiv.append(el);
 }
 
+function updateButtonState() {
+  document.getElementById("backButton").classList.toggle("disabled", index === 1);
+  document.getElementById("nextButton").classList.toggle("disabled", index === 31);
+}
+
 function readHash() {
   const hash = window.location.hash.replace("#", "");
   const regex = /sketch=(\d*)(\+params=(.*))?/gm;
@@ -106,6 +111,7 @@ function readHash() {
     index = parseInt(m[1] ?? 1);
     params = m[3] ?? "";
   }
+  updateButtonState();
 }
 
 function prev(e) {
