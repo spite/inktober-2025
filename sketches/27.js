@@ -158,7 +158,7 @@ async function generateFlowLines(abort) {
   const points = pointsOnSphere(params.density() * 3000, RADIUS);
   const lines = [];
 
-  points.sort((a, b) => Math.random() > 0.5);
+  points.sort(() => Math.random() - 0.5);
   for (let i = 0; i < points.length; i++) {
     if (i % 1000 === 0) {
       await wait();
