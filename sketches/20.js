@@ -283,8 +283,6 @@ function randomize() {
 function randomizeParams() {
   params.charges.set(Maf.intRandomInRange(2, 50));
   params.chargeRange.set(Maf.randomInRange(0.01, 10));
-  const l = Maf.randomInRange(0.1, 0.9);
-  params.lineWidth.set(Maf.randomInRange(l, 1));
   const v = Maf.randomInRange(0.5, 0.9);
   params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
   params.brush.set(Maf.randomElement(brushOptions)[0]);
