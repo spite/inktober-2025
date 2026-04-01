@@ -163,14 +163,8 @@ async function generateShape(abort) {
       res.normalize().multiplyScalar(0.01);
       p.add(res);
 
-      const ro = p
-        .clone()
-        .normalize()
-        .sub(center)
-        .normalize()
-        .multiplyScalar(1);
-
-      const rd = ro.clone().sub(center).normalize().multiplyScalar(-1);
+      const ro = p.clone().normalize();
+      const rd = ro.clone().negate();
 
       const d = march(ro, rd, map);
       const intersects = rd.multiplyScalar(d).add(ro);
