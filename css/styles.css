@@ -111,6 +111,11 @@ header {
   border-color: #888;
 }
 
+.btn.disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 canvas {
   position: absolute;
   inset: 0;
