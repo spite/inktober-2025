@@ -125,7 +125,7 @@ const getRandomPointOnSphere = () => {
 
 const generateCircleAtPoint = (point) => {
   const minRadius = params.radius()[0];
-  const maxRadius = params.radius()[0];
+  const maxRadius = params.radius()[1];
 
   const r = minRadius + Math.random() * (maxRadius - minRadius);
   const d = Math.sqrt(Math.max(0, 1 - r * r));
@@ -167,6 +167,19 @@ async function generateLines(abort) {
 
   circles.length = 0;
 
+  const colors = [
+    "#ef4444",
+    "#f97316",
+    "#f59e0b",
+    "#84cc16",
+    "#10b981",
+    "#06b6d4",
+    "#3b82f6",
+    "#8b5cf6",
+    "#d946ef",
+    "#f43f5e",
+  ];
+
   for (let k = 0; k < LAYERS; k++) {
     if (abort.aborted) {
       return;
@@ -183,18 +196,6 @@ async function generateLines(abort) {
     const u = new Vector3().subVectors(point, center).normalize();
     const v = new Vector3().crossVectors(normal, u).normalize();
 
-    const colors = [
-      "#ef4444",
-      "#f97316",
-      "#f59e0b",
-      "#84cc16",
-      "#10b981",
-      "#06b6d4",
-      "#3b82f6",
-      "#8b5cf6",
-      "#d946ef",
-      "#f43f5e",
-    ];
     const color = colors[Math.floor(Math.random() * colors.length)];
 
     const newCircle = new Circle(
@@ -269,6 +270,10 @@ function draw(startTime) {
 
   const radius = params.radius();
   const branchAngle = params.branchAngle();
+  const gradient = new gradientLinear(getPalette(params.palette()));
+  const map = brushes[params.brush()];
+  const lineWidth = params.lineWidth();
+  const opacity = params.opacity();
 
   for (let circle of circles) {
     if (!circle.done()) {
@@ -288,10 +293,6 @@ function draw(startTime) {
       }
     );
     if (circle.done() && !circle.rendered) {
-      const gradient = new gradientLinear(getPalette(params.palette()));
-      const map = brushes[params.brush()];
-      const lineWidth = params.lineWidth();
-      const opacity = params.opacity();
       circle.generatePoints();
       const points = circle.points;
 
