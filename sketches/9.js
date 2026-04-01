@@ -120,6 +120,7 @@ function generateShape() {
     const offset = Maf.randomInRange(0, 1);
     const vertices = [];
     const mat = new Matrix4();
+    const d = new Vector3();
     const r =
       params.radius() + Maf.randomInRange(-0.5, 0.5) * params.radiusSpread();
     const r1 = Maf.map(0, LINES, 1, 2, j) * r;
@@ -133,11 +134,7 @@ function generateShape() {
         0,
         r1 * Math.sin(segAngle)
       );
-      const d = new Vector3(
-        r2 * Math.cos(ringAngle),
-        r2 * Math.sin(ringAngle),
-        0
-      );
+      d.set(r2 * Math.cos(ringAngle), r2 * Math.sin(ringAngle), 0);
       mat.makeRotationY(-segAngle);
       d.applyMatrix4(mat);
       p.add(d);
