@@ -413,7 +413,7 @@ async function generateLines() {
     const c = i / mergedSegments.length;
 
     let length = 0;
-    for (let i = 0; i < segment.length - 3; i += 3) {
+    for (let i = 0; i < segment.length - 1; i++) {
       length += segment[i].distanceTo(segment[i + 1]);
     }
 
