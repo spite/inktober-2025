@@ -160,7 +160,7 @@ async function generateShape(abort) {
     const vertices = new Float32Array(POINTS * 3);
     let p = new Vector3();
     p.copy(points[j]);
-    const tmp = p.clone().multiplyScalar(1);
+    const tmp = p.clone();
     for (let i = 0; i < POINTS; i++) {
       const res = curl(
         tmp.multiplyScalar(noiseScale * (1 + (0.5 * j) / LINES)),
@@ -169,13 +169,8 @@ async function generateShape(abort) {
       res.normalize().multiplyScalar(0.02);
       p.sub(res);
 
-      const ro = p
-        .clone()
-        .normalize()
-        .sub(center)
-        .normalize()
-        .multiplyScalar(1);
-      const rd = ro.clone().sub(center).normalize().multiplyScalar(-1);
+      const ro = p.clone().normalize();
+      const rd = ro.clone().negate();
 
       const d = march(ro, rd, map);
       const intersects = rd.multiplyScalar(d).add(ro);
