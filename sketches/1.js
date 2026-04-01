@@ -93,12 +93,7 @@ function generateRing() {
   const circleRadius = 2;
   const l = params.ringLength() * Math.PI;
   for (let j = 0; j <= l; j += l / params.segments()) {
-    const v = new Vector3(
-      0,
-      circleRadius * Math.cos(j),
-      circleRadius * Math.sin(j)
-    );
-    geometry.push(v.x, v.y, v.z);
+    geometry.push(0, circleRadius * Math.cos(j), circleRadius * Math.sin(j));
   }
   geometry.reverse();
 }
@@ -201,7 +196,7 @@ function draw() {
     painted.invalidate();
   }
 
-  circles.forEach((c, id) => {
+  circles.forEach((c) => {
     c.pivot.rotation.y = -c.speed * time * Maf.TAU + c.a;
   });
 
