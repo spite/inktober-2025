@@ -1,4 +1,4 @@
-import { WebGLRenderer, PerspectiveCamera, OrthographicCamera } from "three";
+import { WebGLRenderer, PerspectiveCamera, OrthographicCamera, PCFSoftShadowMap } from "three";
 import { TextureLoader } from "three";
 const loader = new TextureLoader();
 loader.setPath("./assets/");
@@ -30,6 +30,8 @@ function getWebGLRenderer() {
 const resizeFns = [];
 
 const renderer = getWebGLRenderer();
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = PCFSoftShadowMap;
 resize();
 
 function getCamera(fov) {

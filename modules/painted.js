@@ -25,6 +25,8 @@ import {
   incPointer,
   resetPointer,
 } from "./jitter.js";
+import { effect } from "./reactive.js";
+import { onShadowChange, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow } from "./three-meshline.js";
 
 const fragmentShader = `
 precision highp float;
@@ -36,8 +38,13 @@ uniform float vignetteBoost;
 uniform float vignetteReduction;
 uniform float lightenPass;
 uniform sampler2D paperTexture;
-uniform vec3 backgroundColor;
 uniform vec2 mouse;
+uniform float embossAngle;
+uniform float embossEdge;
+uniform float embossStrength;
+uniform float paperStrength;
+uniform float bumpSize;
+uniform float bumpShadow;
 
 in vec2 vUv;
 
@@ -110,29 +117,29 @@ void main() {
   // mousePos.y = 1.- mousePos.y;
   // vec3 dir = normalize(vec3(vUv - mousePos, 0.));
 
-  vec3 dir = normalize(vec3(1.,-1.,0));
+  vec3 dir = normalize(vec3(cos(embossAngle), sin(embossAngle), 0.));
   float l = dot(normal.rgb, dir);
   l = .5 + .5 * l;
   l = 1. - l;
-  float e = .1;
-  l = smoothstep(.5-e, .5+e, l);
+  l = smoothstep(.5 - embossEdge, .5 + embossEdge, l);
   
-  vec2 offset = 10. / resolution.xy;
-  vec4 shadow = texture(inputTexture, vUv + vec2(-1., 1.) * offset);
-  shadow = vec4(mix(vec3(.9), vec3(1.0), 1. - shadow.a), 1.);
+  vec2 bumpDir = vec2(-cos(embossAngle), -sin(embossAngle));
+  vec2 offset = bumpDir * bumpSize / resolution.xy;
+  vec4 shadow = texture(inputTexture, vUv + offset);
+  shadow = vec4(mix(vec3(bumpShadow), vec3(1.0), 1. - shadow.a), 1.);
   shadow.rgb = mix(shadow.rgb, vec3(1.), color.a);  
 
-  color = vec4(mix(backgroundColor, color.rgb, color.a), 1.);
+  color = vec4(color.rgb, 1.);
 
   paper *= shadow;
   // color = mix(paper, color, .5);
-  color = overlay(color, paper, .2);
-  
+  color = overlay(color, paper, paperStrength);
+
   color = softLight(color, vec4(vec3(vignette(vUv, vignetteBoost, vignetteReduction)),1.));
   color += (1. / 255.) * gradientNoise(gl_FragCoord.xy) - (.5 / 255.);
 
-  color = overlay(color, vec4(l), 1.);
-  color = lighten(color, vec4( l-.5));
+  color = overlay(color, vec4(l), embossStrength);
+  color = lighten(color, vec4((l - .5) * embossStrength));
   
   fragColor = color;
 }
@@ -145,6 +152,7 @@ uniform sampler2D prevTexture;
 uniform sampler2D inputTexture;
 uniform float samples;
 uniform bool invalidate;
+uniform vec3 backgroundColor;
 
 in vec2 vUv;
 
@@ -153,11 +161,13 @@ out vec4 fragColor;
 void main() {
   vec4 p = texture(prevTexture, vUv);
   vec4 c = texture(inputTexture, vUv);
+  // Bake background into RGB so zero-alpha clear frames don't darken the accumulation.
+  // Keep raw alpha in .a so the composite can use it for bump-shadow edge detection.
+  vec4 frame = vec4(mix(backgroundColor, c.rgb, c.a), c.a);
   if(invalidate) {
-    fragColor = c;
+    fragColor = frame;
   } else {
-    vec3 color = mix(p.rgb, c.rgb, .05);
-    fragColor = vec4(color, 1.);
+    fragColor = mix(p, frame, .05);
   }
 }`;
 
@@ -185,6 +195,7 @@ class Painted {
     this.maxAccumFrames = 120;
     this.framesPerFrame = 1;
     this.frames = 0;
+    this.compositeNeedsUpdate = true;
 
     let w = 1;
     let h = 1;
@@ -200,77 +211,86 @@ class Painted {
       depthBuffer: true,
     });
 
+    // Accumulates raw 3D renders — emboss composite is NOT baked in here.
+    const rawAccumShader = new RawShaderMaterial({
+      uniforms: {
+        prevTexture:      { value: null },
+        inputTexture:     { value: null },
+        invalidate:       { value: false },
+        samples:          { value: 0 },
+        backgroundColor:  { value: new Color() },
+      },
+      vertexShader: orthoVertexShader,
+      fragmentShader: accumFragmentShader,
+      glslVersion: GLSL3,
+    });
+    this.rawAccumPass = new ShaderPingPongPass(rawAccumShader);
+
+    // Composite pass — reads the accumulated raw result, applies emboss/paper/etc.
     const shader = new RawShaderMaterial({
       uniforms: {
-        resolution: { value: new Vector2(w, h) },
-        vignetteBoost: { value: 0.5 },
+        resolution:     { value: new Vector2(w, h) },
+        vignetteBoost:  { value: 0.5 },
         vignetteReduction: { value: 0.5 },
-        inputTexture: { value: this.colorFBO.texture },
-        backgroundColor: { value: new Color() },
-        mouse: { value: new Vector2() },
-        lightenPass: {
-          value: params.lightenPass !== undefined ? params.lightenPass : 1,
-        },
-        paperTexture: { value: paper },
+        inputTexture:   { value: null },
+        mouse:          { value: new Vector2() },
+        lightenPass:    { value: params.lightenPass !== undefined ? params.lightenPass : 1 },
+        paperTexture:   { value: paper },
+        embossAngle:    { value: -Math.PI / 4 },
+        embossEdge:     { value: 0.1 },
+        embossStrength: { value: 1.0 },
+        paperStrength:  { value: 0.2 },
+        bumpSize:       { value: 10 },
+        bumpShadow:     { value: 0.9 },
       },
       vertexShader: orthoVertexShader,
       fragmentShader: fragmentShader,
       glslVersion: GLSL3,
     });
     this.pass = new ShaderPass(
-      shader,
-      w,
-      h,
-      RGBAFormat,
-      UnsignedByteType,
-      LinearFilter,
-      LinearFilter,
-      ClampToEdgeWrapping,
-      ClampToEdgeWrapping
+      shader, w, h,
+      RGBAFormat, UnsignedByteType,
+      LinearFilter, LinearFilter,
+      ClampToEdgeWrapping, ClampToEdgeWrapping
     );
 
-    const accumShader = new RawShaderMaterial({
-      uniforms: {
-        prevTexture: { value: this.pass.fbo.texture },
-        inputTexture: { value: this.pass.fbo.texture },
-        invalidate: { value: false },
-        samples: { value: 0 },
-      },
-      vertexShader: orthoVertexShader,
-      fragmentShader: accumFragmentShader,
-      glslVersion: GLSL3,
-    });
-    this.accumPass = new ShaderPingPongPass(accumShader);
-
     const finalShader = new RawShaderMaterial({
-      uniforms: {
-        inputTexture: { value: null },
-      },
+      uniforms: { inputTexture: { value: null } },
       vertexShader: orthoVertexShader,
       fragmentShader: finalFragmentShader,
       glslVersion: GLSL3,
     });
     this.finalPass = new ShaderPass(finalShader);
 
+    // Emboss param changes only need a composite re-run, not a 3D re-accumulation.
+    let embossReady = false;
+    effect(() => {
+      embossAngle(); embossEdge(); embossStrength(); paperStrength(); bumpSize(); bumpShadow();
+      if (embossReady) this.compositeNeedsUpdate = true;
+      else embossReady = true;
+    });
+
     this.invalidate();
+    onShadowChange(() => this.invalidate());
   }
 
   get backgroundColor() {
-    return this.pass.shader.uniforms.backgroundColor.value;
+    return this.rawAccumPass.shader.uniforms.backgroundColor.value;
   }
 
   invalidate() {
-    this.accumPass.shader.uniforms.invalidate.value = true;
-    this.accumPass.shader.uniforms.samples.value = 0;
+    this.rawAccumPass.shader.uniforms.invalidate.value = true;
+    this.rawAccumPass.shader.uniforms.samples.value = 0;
     this.frames = 0;
+    this.compositeNeedsUpdate = true;
     resetPointer();
   }
 
   setSize(w, h) {
     this.colorFBO.setSize(w, h);
+    this.rawAccumPass.setSize(w, h);
     this.pass.setSize(w, h);
     this.pass.shader.uniforms.resolution.value.set(w, h);
-    this.accumPass.setSize(w, h);
     this.finalPass.setSize(w, h);
     this.size.set(w, h);
     this.invalidate();
@@ -281,31 +301,51 @@ class Painted {
   }
 
   render(renderer, scene, camera) {
-    if (this.frames > this.maxAccumFrames) {
-      return;
+    const needsAccum = this.frames <= this.maxAccumFrames;
+    if (!needsAccum && !this.compositeNeedsUpdate) return;
+
+    // Update composite uniforms — cheap, always current.
+    this.pass.shader.uniforms.embossAngle.value    = embossAngle();
+    this.pass.shader.uniforms.embossEdge.value     = embossEdge();
+    this.pass.shader.uniforms.embossStrength.value = embossStrength();
+    this.pass.shader.uniforms.paperStrength.value  = paperStrength();
+    this.pass.shader.uniforms.bumpSize.value       = bumpSize();
+    this.pass.shader.uniforms.bumpShadow.value     = bumpShadow();
+
+    if (needsAccum) {
+      // Warm-up pass: installs scene-level hooks (shadow light, scene.onBeforeRender)
+      // before the first accumulated frame so the shadow map is correct from frame 1.
+      if (this.frames === 0) {
+        renderer.setRenderTarget(this.colorFBO);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+      }
+      for (let i = 0; i < this.framesPerFrame; i++) {
+        updateProjectionMatrixJitter(camera, this.size);
+        this.frames++;
+
+        renderer.setRenderTarget(this.colorFBO);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+
+        this.rawAccumPass.shader.uniforms.inputTexture.value = this.colorFBO.texture;
+        this.rawAccumPass.shader.uniforms.prevTexture.value  = this.rawAccumPass.texture;
+        this.rawAccumPass.render(renderer);
+        this.rawAccumPass.shader.uniforms.invalidate.value = false;
+
+        incPointer();
+      }
     }
-    for (let i = 0; i < this.framesPerFrame; i++) {
-      updateProjectionMatrixJitter(camera, this.size);
-      this.frames++;
 
-      renderer.setRenderTarget(this.colorFBO);
-      renderer.render(scene, camera);
-      renderer.setRenderTarget(null);
+    // Composite runs once on the fully (or partially) accumulated raw result.
+    // Emboss param changes re-run only this step — no 3D re-accumulation needed.
+    this.pass.shader.uniforms.inputTexture.value = this.rawAccumPass.texture;
+    this.pass.render(renderer);
 
-      this.pass.render(renderer);
+    this.finalPass.shader.uniforms.inputTexture.value = this.pass.fbo.texture;
+    this.finalPass.render(renderer, true);
 
-      this.accumPass.shader.uniforms.inputTexture.value = this.pass.fbo.texture;
-      this.accumPass.shader.uniforms.prevTexture.value = this.accumPass.texture;
-      this.accumPass.render(renderer);
-
-      this.finalPass.shader.uniforms.inputTexture.value =
-        this.accumPass.texture;
-      this.finalPass.render(renderer, true);
-
-      this.accumPass.shader.uniforms.invalidate.value = false;
-
-      incPointer();
-    }
+    this.compositeNeedsUpdate = false;
   }
 }
 
