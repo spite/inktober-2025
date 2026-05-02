@@ -14,7 +14,6 @@ import {
 
 import orthoVertexShader from "../shaders/ortho.js";
 import vignette from "../shaders/vignette.js";
-import grayscale from "../shaders/grayscale.js";
 import overlay from "../shaders/overlay.js";
 import softLight from "../shaders/soft-light.js";
 import lighten from "../shaders/lighten.js";
@@ -36,9 +35,7 @@ uniform vec2 resolution;
 uniform sampler2D inputTexture;
 uniform float vignetteBoost;
 uniform float vignetteReduction;
-uniform float lightenPass;
 uniform sampler2D paperTexture;
-uniform vec2 mouse;
 uniform float embossAngle;
 uniform float embossEdge;
 uniform float embossStrength;
@@ -53,7 +50,6 @@ out vec4 fragColor;
 ${vignette}
 ${overlay}
 ${softLight}
-${grayscale}
 ${lighten}
 
 float gradientNoise(in vec2 uv) {
@@ -107,8 +103,7 @@ vec4 calcNormalRGB(in sampler2D map, in vec2 uv) {
 void main() {
   vec4 color = texture(inputTexture, vUv);
 
-  vec2 paperUv = gl_FragCoord.xy / resolution.xy;
-  paperUv = paperUv * resolution.xy / vec2(textureSize(paperTexture, 0).xy);
+  vec2 paperUv = gl_FragCoord.xy / vec2(textureSize(paperTexture, 0).xy);
   vec4 paper = texture(paperTexture, paperUv);
 
   vec4 normal = calcNormal(inputTexture, vUv) + calcNormalRGB(paperTexture, paperUv);
@@ -150,9 +145,9 @@ precision highp float;
 
 uniform sampler2D prevTexture;
 uniform sampler2D inputTexture;
-uniform float samples;
 uniform bool invalidate;
 uniform vec3 backgroundColor;
+uniform float samples;
 
 in vec2 vUv;
 
@@ -167,14 +162,13 @@ void main() {
   if(invalidate) {
     fragColor = frame;
   } else {
-    fragColor = mix(p, frame, .05);
+    fragColor = mix(p, frame, max(1.0 / samples, 0.05));
   }
 }`;
 
 const finalFragmentShader = `
 precision highp float;
 uniform sampler2D inputTexture;
-uniform float samples;
 
 in vec2 vUv;
 
@@ -217,7 +211,7 @@ class Painted {
         prevTexture:      { value: null },
         inputTexture:     { value: null },
         invalidate:       { value: false },
-        samples:          { value: 0 },
+        samples:          { value: 1 },
         backgroundColor:  { value: new Color() },
       },
       vertexShader: orthoVertexShader,
@@ -233,8 +227,6 @@ class Painted {
         vignetteBoost:  { value: 0.5 },
         vignetteReduction: { value: 0.5 },
         inputTexture:   { value: null },
-        mouse:          { value: new Vector2() },
-        lightenPass:    { value: params.lightenPass !== undefined ? params.lightenPass : 1 },
         paperTexture:   { value: paper },
         embossAngle:    { value: -Math.PI / 4 },
         embossEdge:     { value: 0.1 },
@@ -280,7 +272,7 @@ class Painted {
 
   invalidate() {
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
-    this.rawAccumPass.shader.uniforms.samples.value = 0;
+    this.rawAccumPass.shader.uniforms.samples.value = 1;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
     resetPointer();
@@ -294,10 +286,6 @@ class Painted {
     this.finalPass.setSize(w, h);
     this.size.set(w, h);
     this.invalidate();
-  }
-
-  setMouse(pos) {
-    this.pass.shader.uniforms.mouse.value.copy(pos);
   }
 
   render(renderer, scene, camera) {
@@ -332,6 +320,7 @@ class Painted {
         this.rawAccumPass.shader.uniforms.prevTexture.value  = this.rawAccumPass.texture;
         this.rawAccumPass.render(renderer);
         this.rawAccumPass.shader.uniforms.invalidate.value = false;
+        this.rawAccumPass.shader.uniforms.samples.value++;
 
         incPointer();
       }

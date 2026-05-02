@@ -712,6 +712,7 @@ ShaderChunk["meshline_frag"] = `
   uniform float offset;
   uniform float opacity;
   uniform float time;
+  uniform float frameIndex;
   uniform sampler2D normalMap;
   uniform float shadingIntensity;
   uniform bool shadingOnly;
@@ -833,7 +834,7 @@ ShaderChunk["meshline_frag"] = `
     // Single jittered tap per frame — temporal accumulation builds soft shadow.
     // Direction rotates by the golden angle each frame (guaranteed 2D disk coverage).
     // Blue noise drives the magnitude so samples don't all land on the same circle.
-    float _st = time * 2.3999632;
+    float _st = frameIndex * 2.3999632;
     vec2 _sNoiseUV = rot2d( gl_FragCoord.xy / vec2( textureSize( blueNoiseMap, 0 ).xy ), _st );
     float _sMag = texture( blueNoiseMap, _sNoiseUV ).r;
     vec2 shadowJitter = vec2( cos( _st ), sin( _st ) ) * _sMag;
@@ -888,7 +889,8 @@ class MeshLineMaterial extends ShaderMaterial {
         useDash: { value: 0 },
         visibility: { value: 1 },
         alphaTest: { value: 0 },
-        time: { value: 0 },
+        time:       { value: 0 },
+        frameIndex: { value: 0 },
         repeat: { value: new Vector2(1, 1) },
         uvOffset: { value: new Vector2(0, 0) },
         lightDirection:    { value: new Vector3(0.408, 0.816, 0.408) },
@@ -1146,6 +1148,7 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
   const w = canvas.width;
   const h = canvas.height;
   mesh.material.uniforms.time.value = t;
+  mesh.material.uniforms.frameIndex.value = scene.userData.__meshlineJitterIndex ?? 0;
   mesh.material.uniforms.resolution.value.set(w, h);
 
   // Apply shared shadow mode and settings to this material.
