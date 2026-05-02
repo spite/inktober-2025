@@ -28,27 +28,27 @@ blueNoise.minFilter = blueNoise.magFilter = NearestFilter;
 
 const shadowMode = signal("on"); // "on" | "off" | "only"
 const shadowModeOptions = [
-  ["on",   "Shadow on"],
-  ["off",  "Shadow off"],
+  ["on", "Shadow on"],
+  ["off", "Shadow off"],
   ["only", "Only shadow"],
 ];
-const shadowIntensity  = signal(0.5);
-const shadowRadius     = signal(4);
-const shadowBias       = signal(-0.005);
-const showLightArrow   = signal(true);
-const shadingDarkLum   = signal(0.55);
+const shadowIntensity = signal(0.5);
+const shadowRadius = signal(4);
+const shadowBias = signal(-0.005);
+const showLightArrow = signal(false);
+const shadingDarkLum = signal(0.55);
 const shadingBrightLum = signal(1.2);
-const shadingDarkSat   = signal(1.5);
+const shadingDarkSat = signal(1.5);
 const shadingBrightSat = signal(1.4);
-const shadowMapRes     = signal("2048"); // string for select
-const castJitterScale  = signal(4);
+const shadowMapRes = signal("2048"); // string for select
+const castJitterScale = signal(4);
 
-export const embossAngle    = signal(-Math.PI / 4); // vec3(1,-1,0) normalised ≈ -45°
-export const embossEdge     = signal(0.1);
+export const embossAngle = signal(-Math.PI / 4); // vec3(1,-1,0) normalised ≈ -45°
+export const embossEdge = signal(0.1);
 export const embossStrength = signal(0.25);
-export const paperStrength  = signal(0.2);
-export const bumpSize       = signal(10);   // offset in pixels
-export const bumpShadow     = signal(0.9);  // dark end of bump shadow (0=black, 1=white)
+export const paperStrength = signal(0.2);
+export const bumpSize = signal(10); // offset in pixels
+export const bumpShadow = signal(0.9); // dark end of bump shadow (0=black, 1=white)
 
 // Shared GUI — created lazily, repositioned to end of #gui-container once per scene
 // so it always follows the active sketch's own params panel.
@@ -60,26 +60,35 @@ function ensureSharedGUI(scene) {
   if (!_sharedGui) {
     _sharedGui = new GUI("Rendering", container);
     _sharedGui.addSelect("Shadow mode", shadowModeOptions, shadowMode);
-    _sharedGui.addSlider("Intensity",       shadowIntensity,  0,     1,    0.01);
+    _sharedGui.addSlider("Intensity", shadowIntensity, 0, 1, 0.01);
     _sharedGui.addSeparator();
-    _sharedGui.addSlider("Dark lum",        shadingDarkLum,   0,     1,    0.01);
-    _sharedGui.addSlider("Bright lum",      shadingBrightLum, 1,     2,    0.01);
-    _sharedGui.addSlider("Dark sat",        shadingDarkSat,   0,     2,    0.01);
-    _sharedGui.addSlider("Bright sat",      shadingBrightSat, 0,     2,    0.01);
+    _sharedGui.addSlider("Dark lum", shadingDarkLum, 0, 1, 0.01);
+    _sharedGui.addSlider("Bright lum", shadingBrightLum, 1, 2, 0.01);
+    _sharedGui.addSlider("Dark sat", shadingDarkSat, 0, 2, 0.01);
+    _sharedGui.addSlider("Bright sat", shadingBrightSat, 0, 2, 0.01);
     _sharedGui.addSeparator();
-    _sharedGui.addSlider("Softness",        shadowRadius,     0,     16,   0.1);
-    _sharedGui.addSlider("Cast jitter",     castJitterScale,  0,     32,   0.1);
-    _sharedGui.addSlider("Bias",            shadowBias,       -0.02, 0,    0.001);
-    _sharedGui.addSelect("Shadow map res",  [["512","512"],["1024","1024"],["2048","2048"],["4096","4096"]], shadowMapRes);
+    _sharedGui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
+    _sharedGui.addSlider("Cast jitter", castJitterScale, 0, 32, 0.1);
+    _sharedGui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
+    _sharedGui.addSelect(
+      "Shadow map res",
+      [
+        ["512", "512"],
+        ["1024", "1024"],
+        ["2048", "2048"],
+        ["4096", "4096"],
+      ],
+      shadowMapRes,
+    );
     _sharedGui.addSeparator();
     _sharedGui.addCheckbox("Light arrow", showLightArrow);
     _sharedGui.addSeparator();
-    _sharedGui.addSlider("Emboss angle",    embossAngle,    -Math.PI, Math.PI, 0.01);
-    _sharedGui.addSlider("Emboss edge",     embossEdge,     0,        0.5,     0.01);
-    _sharedGui.addSlider("Emboss strength", embossStrength, 0,        2,       0.01);
-    _sharedGui.addSlider("Paper",           paperStrength,  0,        1,       0.01);
-    _sharedGui.addSlider("Bump size",       bumpSize,       0,        30,      0.5);
-    _sharedGui.addSlider("Bump shadow",     bumpShadow,     0,        1,       0.01);
+    _sharedGui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
+    _sharedGui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
+    _sharedGui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
+    _sharedGui.addSlider("Paper", paperStrength, 0, 1, 0.01);
+    _sharedGui.addSlider("Bump size", bumpSize, 0, 30, 0.5);
+    _sharedGui.addSlider("Bump shadow", bumpShadow, 0, 1, 0.01);
     _sharedGui.show();
   }
   if (!_sharedGuiScenes.has(scene)) {
@@ -95,9 +104,17 @@ export function onShadowChange(fn) {
 }
 let _shadowInitialized = false;
 effect(() => {
-  shadowMode(); shadowIntensity(); shadowRadius(); shadowBias(); showLightArrow();
-  shadingDarkLum(); shadingBrightLum(); shadingDarkSat(); shadingBrightSat();
-  shadowMapRes(); castJitterScale();
+  shadowMode();
+  shadowIntensity();
+  shadowRadius();
+  shadowBias();
+  showLightArrow();
+  shadingDarkLum();
+  shadingBrightLum();
+  shadingDarkSat();
+  shadingBrightSat();
+  shadowMapRes();
+  castJitterScale();
   if (_shadowInitialized) {
     for (const fn of _shadowChangeCallbacks) fn();
   } else {
@@ -180,7 +197,7 @@ MeshLine.prototype.setGeometry = function (g, c) {
 MeshLine.prototype.setPoints = function (points, wcb) {
   if (!(points instanceof Float32Array) && !(points instanceof Array)) {
     console.error(
-      "ERROR: The BufferArray of points is not instancied correctly."
+      "ERROR: The BufferArray of points is not instancied correctly.",
     );
     return;
   }
@@ -261,7 +278,7 @@ function MeshLineRaycast(raycaster, intersects) {
         vStart,
         vEnd,
         interRay,
-        interSegment
+        interSegment,
       );
 
       if (distSq > precisionSq) continue;
@@ -889,17 +906,17 @@ class MeshLineMaterial extends ShaderMaterial {
         useDash: { value: 0 },
         visibility: { value: 1 },
         alphaTest: { value: 0 },
-        time:       { value: 0 },
+        time: { value: 0 },
         frameIndex: { value: 0 },
         repeat: { value: new Vector2(1, 1) },
         uvOffset: { value: new Vector2(0, 0) },
-        lightDirection:    { value: new Vector3(0.408, 0.816, 0.408) },
-        shadingIntensity:  { value: 0.5 },
-        shadingOnly:       { value: true },
-        shadingDarkLum:    { value: 0.55 },
-        shadingBrightLum:  { value: 1.2 },
-        shadingDarkSat:    { value: 1.5 },
-        shadingBrightSat:  { value: 1.4 },
+        lightDirection: { value: new Vector3(0.408, 0.816, 0.408) },
+        shadingIntensity: { value: 0.5 },
+        shadingOnly: { value: true },
+        shadingDarkLum: { value: 0.55 },
+        shadingBrightLum: { value: 1.2 },
+        shadingDarkSat: { value: 1.5 },
+        shadingBrightSat: { value: 1.4 },
       }),
       vertexShader: ShaderChunk.meshline_vert,
       fragmentShader: ShaderChunk.meshline_frag,
@@ -1116,7 +1133,7 @@ function fitShadowCamera(scene, camera, light) {
   // dimensions at the scene center (origin) as the shadow coverage area.
   // This correctly accounts for shader-driven line widths that Box3 misses.
   const camDist = camera.position.length();
-  const halfFov = (camera.fov * Math.PI / 180) / 2;
+  const halfFov = (camera.fov * Math.PI) / 180 / 2;
   const halfH = camDist * Math.tan(halfFov);
   const halfW = halfH * camera.aspect;
   const r = Math.sqrt(halfW * halfW + halfH * halfH);
@@ -1148,17 +1165,19 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
   const w = canvas.width;
   const h = canvas.height;
   mesh.material.uniforms.time.value = t;
-  mesh.material.uniforms.frameIndex.value = scene.userData.__meshlineJitterIndex ?? 0;
+  mesh.material.uniforms.frameIndex.value =
+    scene.userData.__meshlineJitterIndex ?? 0;
   mesh.material.uniforms.resolution.value.set(w, h);
 
   // Apply shared shadow mode and settings to this material.
   const mode = shadowMode();
-  mesh.material.uniforms.shadingIntensity.value  = mode === "off" ? 0.0 : shadowIntensity();
-  mesh.material.uniforms.shadingOnly.value       = mode === "only";
-  mesh.material.uniforms.shadingDarkLum.value    = shadingDarkLum();
-  mesh.material.uniforms.shadingBrightLum.value  = shadingBrightLum();
-  mesh.material.uniforms.shadingDarkSat.value    = shadingDarkSat();
-  mesh.material.uniforms.shadingBrightSat.value  = shadingBrightSat();
+  mesh.material.uniforms.shadingIntensity.value =
+    mode === "off" ? 0.0 : shadowIntensity();
+  mesh.material.uniforms.shadingOnly.value = mode === "only";
+  mesh.material.uniforms.shadingDarkLum.value = shadingDarkLum();
+  mesh.material.uniforms.shadingBrightLum.value = shadingBrightLum();
+  mesh.material.uniforms.shadingDarkSat.value = shadingDarkSat();
+  mesh.material.uniforms.shadingBrightSat.value = shadingBrightSat();
   if (mesh.customDepthMaterial) {
     mesh.customDepthMaterial.visible = mode !== "off";
   }
@@ -1188,8 +1207,17 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
     scene.userData.__meshlineShadowBasePos = dir.position.clone();
     scene.userData.__meshlineLightDir = new Vector3();
 
-    const lightDir = new Vector3().subVectors(new Vector3(0, 0, 0), dir.position).normalize();
-    const arrow = new ArrowHelper(lightDir, dir.position, dir.position.length(), 0xffff00, 0.15, 0.06);
+    const lightDir = new Vector3()
+      .subVectors(new Vector3(0, 0, 0), dir.position)
+      .normalize();
+    const arrow = new ArrowHelper(
+      lightDir,
+      dir.position,
+      dir.position.length(),
+      0xffff00,
+      0.15,
+      0.06,
+    );
     scene.add(arrow);
     scene.userData.__meshlineLightArrow = arrow;
 
@@ -1204,14 +1232,14 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
         // Shadow map resolution — rebuild if changed.
         const wantRes = parseInt(shadowMapRes());
         if (shadowLight.shadow.mapSize.width !== wantRes) {
-          shadowLight.shadow.mapSize.width  = wantRes;
+          shadowLight.shadow.mapSize.width = wantRes;
           shadowLight.shadow.mapSize.height = wantRes;
           shadowLight.shadow.map?.dispose();
           shadowLight.shadow.map = null;
         }
 
         shadowLight.shadow.radius = shadowRadius();
-        shadowLight.shadow.bias   = shadowBias();
+        shadowLight.shadow.bias = shadowBias();
 
         // Fit frustum from camera FOV + distance (no bounding box needed).
         fitShadowCamera(scene, camera, shadowLight);
@@ -1219,29 +1247,42 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
 
         // Camera-relative "top-left-back" light direction.
         _lightDir.set(-1, 1, 1).transformDirection(camera.matrixWorld);
-        scene.userData.__meshlineShadowBasePos.copy(_lightDir).multiplyScalar(r * 2.5);
+        scene.userData.__meshlineShadowBasePos
+          .copy(_lightDir)
+          .multiplyScalar(r * 2.5);
         scene.userData.__meshlineLightDir.copy(_lightDir);
 
         // Cast-side jitter — golden-angle disk coverage for soft shadows.
-        const jitterRadius = castJitterScale() * r / shadowLight.shadow.mapSize.width;
-        const jitterIndex  = scene.userData.__meshlineJitterIndex ?? 0;
+        const jitterRadius =
+          (castJitterScale() * r) / shadowLight.shadow.mapSize.width;
+        const jitterIndex = scene.userData.__meshlineJitterIndex ?? 0;
         scene.userData.__meshlineJitterIndex = jitterIndex + 1;
         const angle = jitterIndex * 2.3999632;
-        _lightRight.setFromMatrixColumn(shadowLight.shadow.camera.matrixWorld, 0);
+        _lightRight.setFromMatrixColumn(
+          shadowLight.shadow.camera.matrixWorld,
+          0,
+        );
         _lightUp.setFromMatrixColumn(shadowLight.shadow.camera.matrixWorld, 1);
         shadowLight.position
           .copy(scene.userData.__meshlineShadowBasePos)
           .addScaledVector(_lightRight, Math.cos(angle) * jitterRadius)
-          .addScaledVector(_lightUp,    Math.sin(angle) * jitterRadius);
+          .addScaledVector(_lightUp, Math.sin(angle) * jitterRadius);
 
         // Arrow helper.
         const arrow = scene.userData.__meshlineLightArrow;
         if (arrow) {
           arrow.visible = showLightArrow();
           arrow.position.copy(scene.userData.__meshlineShadowBasePos);
-          _lightDir.set(0, 0, 0).sub(scene.userData.__meshlineShadowBasePos).normalize();
+          _lightDir
+            .set(0, 0, 0)
+            .sub(scene.userData.__meshlineShadowBasePos)
+            .normalize();
           arrow.setDirection(_lightDir);
-          arrow.setLength(scene.userData.__meshlineShadowBasePos.length(), 0.15, 0.06);
+          arrow.setLength(
+            scene.userData.__meshlineShadowBasePos.length(),
+            0.15,
+            0.06,
+          );
         }
       };
     })(scene.onBeforeRender);
@@ -1308,20 +1349,20 @@ class MeshLineDepthMaterial extends ShaderMaterial {
   constructor(parameters) {
     super({
       uniforms: {
-        blueNoiseMap:    { value: blueNoise },
-        lineWidth:       { value: 1 },
-        map:             { value: null },
-        useMap:          { value: false },
-        opacity:         { value: 1 },
-        resolution:      { value: new Vector2(1, 1) },
-        time:            { value: 0 },
-        repeat:          { value: new Vector2(1, 1) },
-        uvOffset:        { value: new Vector2(0, 0) },
-        offset:          { value: 0 },
+        blueNoiseMap: { value: blueNoise },
+        lineWidth: { value: 1 },
+        map: { value: null },
+        useMap: { value: false },
+        opacity: { value: 1 },
+        resolution: { value: new Vector2(1, 1) },
+        time: { value: 0 },
+        repeat: { value: new Vector2(1, 1) },
+        uvOffset: { value: new Vector2(0, 0) },
+        offset: { value: 0 },
       },
-      vertexShader:   ShaderChunk.meshline_depth_vert,
+      vertexShader: ShaderChunk.meshline_depth_vert,
       fragmentShader: ShaderChunk.meshline_depth_frag,
-      glslVersion:    GLSL3,
+      glslVersion: GLSL3,
     });
     this.depthPacking = RGBADepthPacking;
     this.isMeshLineDepthMaterial = true;
@@ -1330,43 +1371,75 @@ class MeshLineDepthMaterial extends ShaderMaterial {
     Object.defineProperties(this, {
       lineWidth: {
         enumerable: true,
-        get: function() { return this.uniforms.lineWidth.value; },
-        set: function(v) { this.uniforms.lineWidth.value = v; },
+        get: function () {
+          return this.uniforms.lineWidth.value;
+        },
+        set: function (v) {
+          this.uniforms.lineWidth.value = v;
+        },
       },
       map: {
         enumerable: true,
-        get: function() { return this.uniforms.map.value; },
-        set: function(v) { this.uniforms.map.value = v; },
+        get: function () {
+          return this.uniforms.map.value;
+        },
+        set: function (v) {
+          this.uniforms.map.value = v;
+        },
       },
       useMap: {
         enumerable: true,
-        get: function() { return this.uniforms.useMap.value; },
-        set: function(v) { this.uniforms.useMap.value = v; },
+        get: function () {
+          return this.uniforms.useMap.value;
+        },
+        set: function (v) {
+          this.uniforms.useMap.value = v;
+        },
       },
       opacity: {
         enumerable: true,
-        get: function() { return this.uniforms.opacity.value; },
-        set: function(v) { this.uniforms.opacity.value = v; },
+        get: function () {
+          return this.uniforms.opacity.value;
+        },
+        set: function (v) {
+          this.uniforms.opacity.value = v;
+        },
       },
       resolution: {
         enumerable: true,
-        get: function() { return this.uniforms.resolution.value; },
-        set: function(v) { this.uniforms.resolution.value.copy(v); },
+        get: function () {
+          return this.uniforms.resolution.value;
+        },
+        set: function (v) {
+          this.uniforms.resolution.value.copy(v);
+        },
       },
       repeat: {
         enumerable: true,
-        get: function() { return this.uniforms.repeat.value; },
-        set: function(v) { this.uniforms.repeat.value.copy(v); },
+        get: function () {
+          return this.uniforms.repeat.value;
+        },
+        set: function (v) {
+          this.uniforms.repeat.value.copy(v);
+        },
       },
       uvOffset: {
         enumerable: true,
-        get: function() { return this.uniforms.uvOffset.value; },
-        set: function(v) { this.uniforms.uvOffset.value.copy(v); },
+        get: function () {
+          return this.uniforms.uvOffset.value;
+        },
+        set: function (v) {
+          this.uniforms.uvOffset.value.copy(v);
+        },
       },
       offset: {
         enumerable: true,
-        get: function() { return this.uniforms.offset.value; },
-        set: function(v) { this.uniforms.offset.value = v; },
+        get: function () {
+          return this.uniforms.offset.value;
+        },
+        set: function (v) {
+          this.uniforms.offset.value = v;
+        },
       },
     });
 

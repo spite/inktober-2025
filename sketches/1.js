@@ -80,7 +80,7 @@ controls.addEventListener("change", () => {
   painted.invalidate();
 });
 
-camera.position.set(7.8, 3.6, 7.3).multiplyScalar(0.8);
+camera.position.set(7.8, 3.6, 7.3).multiplyScalar(0.169);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
