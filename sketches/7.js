@@ -87,7 +87,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(35, 15, -35).multiplyScalar(0.075);
+camera.position.set(35, 15, -35).multiplyScalar(0.085);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
