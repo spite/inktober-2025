@@ -25,7 +25,7 @@ import {
   resetPointer,
 } from "./jitter.js";
 import { effect } from "./reactive.js";
-import { onShadowChange, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow } from "./three-meshline.js";
+import { onShadowChange, onShadowParamChange, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow } from "./three-meshline.js";
 
 const fragmentShader = `
 precision highp float;
@@ -146,6 +146,7 @@ precision highp float;
 uniform sampler2D prevTexture;
 uniform sampler2D inputTexture;
 uniform bool invalidate;
+uniform float invalidateBlend;
 uniform vec3 backgroundColor;
 uniform float samples;
 
@@ -159,11 +160,8 @@ void main() {
   // Bake background into RGB so zero-alpha clear frames don't darken the accumulation.
   // Keep raw alpha in .a so the composite can use it for bump-shadow edge detection.
   vec4 frame = vec4(mix(backgroundColor, c.rgb, c.a), c.a);
-  if(invalidate) {
-    fragColor = frame;
-  } else {
-    fragColor = mix(p, frame, max(1.0 / samples, 0.05));
-  }
+  float blendWeight = invalidate ? invalidateBlend : max(1.0 / samples, 0.05);
+  fragColor = mix(p, frame, blendWeight);
 }`;
 
 const finalFragmentShader = `
@@ -211,6 +209,7 @@ class Painted {
         prevTexture:      { value: null },
         inputTexture:     { value: null },
         invalidate:       { value: false },
+        invalidateBlend:  { value: 1.0 },
         samples:          { value: 1 },
         backgroundColor:  { value: new Color() },
       },
@@ -254,16 +253,26 @@ class Painted {
     });
     this.finalPass = new ShaderPass(finalShader);
 
-    // Emboss param changes only need a composite re-run, not a 3D re-accumulation.
+    // embossAngle drives the 3D light — needs shadow re-accumulation.
+    let angleReady = false;
+    effect(() => {
+      embossAngle();
+      if (angleReady) this.softInvalidate();
+      else angleReady = true;
+    });
+
+    // Other emboss params only need a composite re-run, not 3D re-accumulation.
     let embossReady = false;
     effect(() => {
-      embossAngle(); embossEdge(); embossStrength(); paperStrength(); bumpSize(); bumpShadow();
+      embossEdge(); embossStrength(); paperStrength(); bumpSize(); bumpShadow();
       if (embossReady) this.compositeNeedsUpdate = true;
       else embossReady = true;
     });
 
     this.invalidate();
+    // Hard invalidate on scene change (new shadow light installed); soft on param tweaks.
     onShadowChange(() => this.invalidate());
+    onShadowParamChange(() => this.softInvalidate());
   }
 
   get backgroundColor() {
@@ -272,6 +281,16 @@ class Painted {
 
   invalidate() {
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
+    this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;
+    this.rawAccumPass.shader.uniforms.samples.value = 1;
+    this.frames = 0;
+    this.compositeNeedsUpdate = true;
+    resetPointer();
+  }
+
+  softInvalidate() {
+    this.rawAccumPass.shader.uniforms.invalidate.value = true;
+    this.rawAccumPass.shader.uniforms.invalidateBlend.value = 0.5;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
@@ -301,6 +320,17 @@ class Painted {
     this.pass.shader.uniforms.bumpShadow.value     = bumpShadow();
 
     if (needsAccum) {
+      // Hard invalidate: wipe both ping-pong FBOs so no previous-sketch depth can
+      // bleed through, even if prevTexture is stale from a cached module revisit.
+      if (this.rawAccumPass.shader.uniforms.invalidate.value &&
+          this.rawAccumPass.shader.uniforms.invalidateBlend.value === 1.0) {
+        for (const fbo of this.rawAccumPass.fbos) {
+          renderer.setRenderTarget(fbo);
+          renderer.clear(true, false, false);
+        }
+        renderer.setRenderTarget(null);
+      }
+
       // Warm-up pass: installs scene-level hooks (shadow light, scene.onBeforeRender)
       // before the first accumulated frame so the shadow map is correct from frame 1.
       if (this.frames === 0) {

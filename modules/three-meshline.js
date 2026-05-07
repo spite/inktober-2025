@@ -98,9 +98,15 @@ function ensureSharedGUI(scene) {
 }
 
 // Invalidation registry — any Painted instance can subscribe.
+// Hard callbacks: scene fully replaced (shadow light installation on new scene).
+// Soft callbacks: param tweak on the same scene (shadow mode/intensity/radius/etc.).
 const _shadowChangeCallbacks = [];
+const _shadowParamCallbacks = [];
 export function onShadowChange(fn) {
   _shadowChangeCallbacks.push(fn);
+}
+export function onShadowParamChange(fn) {
+  _shadowParamCallbacks.push(fn);
 }
 let _shadowInitialized = false;
 effect(() => {
@@ -116,7 +122,7 @@ effect(() => {
   shadowMapRes();
   castJitterScale();
   if (_shadowInitialized) {
-    for (const fn of _shadowChangeCallbacks) fn();
+    for (const fn of _shadowParamCallbacks) fn();
   } else {
     _shadowInitialized = true;
   }
@@ -1245,8 +1251,9 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
         fitShadowCamera(scene, camera, shadowLight);
         const r = scene.userData.__meshlineShadowFrustumR;
 
-        // Camera-relative "top-left-back" light direction.
-        _lightDir.set(-1, 1, 1).transformDirection(camera.matrixWorld);
+        // Light direction follows emboss angle in camera space.
+        const _a = embossAngle();
+        _lightDir.set(Math.cos(_a), Math.sin(_a), 1.0).normalize().transformDirection(camera.matrixWorld);
         scene.userData.__meshlineShadowBasePos
           .copy(_lightDir)
           .multiplyScalar(r * 2.5);
