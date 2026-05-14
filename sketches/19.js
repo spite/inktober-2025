@@ -18,7 +18,7 @@ import { Painted } from "../modules/painted.js";
 import { pointsOnSphere } from "../modules/points-sphere.js";
 import { init } from "../modules/dipoles-3d.js";
 import GUI from "../modules/gui.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 
 const defaults = {
   lines: 2000,
@@ -48,10 +48,10 @@ const params = {
 
 const gui = new GUI(
   "Electric fields II",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel(
-  "Lines generated following an electric field over the surface of a sphere."
+  "Lines generated following an electric field over the surface of a sphere.",
 );
 gui.addSlider("Lines", params.lines, 1, 2000, 1);
 gui.addSlider("Segments", params.segments, 10, 200, 1);
@@ -113,7 +113,7 @@ async function generateLines(abort) {
     WIDTH,
     HEIGHT,
     DEPTH,
-    params.chargeRange()
+    params.chargeRange(),
   );
   const tmp = new Vector3();
   charges.charges.forEach((p, i) => {
@@ -218,15 +218,17 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.charges.set(Maf.intRandomInRange(2, 50));
-  params.chargeRange.set(Maf.randomInRange(0.01, 10));
-  const v = Maf.randomInRange(0.5, 0.9);
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = Maf.randomInRange(0.5, 0.9);
-  params.opacity.set([o, Maf.randomInRange(0.9, 1)]);
-  params.depthRange.set(Maf.randomInRange(0.1, 0.2));
+  batch(() => {
+    params.charges.set(Maf.intRandomInRange(2, 50));
+    params.chargeRange.set(Maf.randomInRange(0.01, 10));
+    const v = Maf.randomInRange(0.5, 0.9);
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = Maf.randomInRange(0.5, 0.9);
+    params.opacity.set([o, Maf.randomInRange(0.9, 1)]);
+    params.depthRange.set(Maf.randomInRange(0.1, 0.2));
+  });
 }
 
 let lastTime = performance.now();

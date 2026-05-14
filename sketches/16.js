@@ -26,7 +26,7 @@ import {
   sdIcosahedron,
   sdDodecahedron,
 } from "../modules/raymarch.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -77,10 +77,10 @@ const sdfOptions = Object.keys(sdfs).map((k) => [k, sdfs[k].name]);
 
 const gui = new GUI(
   "Curl over SDFs III",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel(
-  "Tracing lines folling a curl noise field on the surface of signed distance fields."
+  "Tracing lines folling a curl noise field on the surface of signed distance fields.",
 );
 gui.addSlider("Segments per line", params.segments, 50, 250, 1);
 gui.addSlider("Lines", params.lines, 1, 1000, 1);
@@ -119,7 +119,7 @@ painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
-  .multiplyScalar(1.7);
+  .multiplyScalar(1.5);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -164,7 +164,7 @@ async function generateShape(abort) {
     for (let i = 0; i < POINTS; i++) {
       const res = curl(
         tmp.multiplyScalar(noiseScale * (1 + (0.5 * j) / LINES)),
-        func
+        func,
       );
       res.normalize().multiplyScalar(0.02);
       p.sub(res);
@@ -202,7 +202,7 @@ async function generateShape(abort) {
       repeat: new Vector2(Math.ceil(Maf.randomInRange(length, length * 10)), 1),
       dashArray: new Vector2(
         1,
-        Math.ceil(Maf.randomInRange(1 * length, 2 * length))
+        Math.ceil(Maf.randomInRange(1 * length, 2 * length)),
       ),
       useDash: true,
       opacity: Maf.randomInRange(opacity[0], opacity[1]),
@@ -217,7 +217,7 @@ async function generateShape(abort) {
     const spread = new Vector3(
       Maf.randomInRange(-lineSpread, lineSpread),
       Maf.randomInRange(-lineSpread, lineSpread),
-      Maf.randomInRange(-lineSpread, lineSpread)
+      Maf.randomInRange(-lineSpread, lineSpread),
     );
     mesh.position.copy(spread);
 
@@ -256,20 +256,22 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.sdf.set(Maf.randomElement(sdfOptions)[0]);
-  params.lines.set(Maf.intRandomInRange(200, 1000));
-  // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.noiseScale.set(Maf.randomInRange(0.5, 1.5));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
+  batch(() => {
+    params.sdf.set(Maf.randomElement(sdfOptions)[0]);
+    params.lines.set(Maf.intRandomInRange(200, 1000));
+    // params.segments.set(Maf.intRandomInRange(200, 500));
+    params.noiseScale.set(Maf.randomInRange(0.5, 1.5));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
 
-  params.lineWidth.set([
-    Maf.randomInRange(0.1, 0.4),
-    Maf.randomInRange(0.6, 1),
-  ]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+    params.lineWidth.set([
+      Maf.randomInRange(0.1, 0.4),
+      Maf.randomInRange(0.6, 1),
+    ]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  });
 }
 
 let lastTime = performance.now();

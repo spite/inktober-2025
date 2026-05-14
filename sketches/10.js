@@ -19,7 +19,7 @@ import { AizawaAttractor } from "../modules/aizawa-attractor.js";
 import { AnishchenkoAstakhovAttractor } from "../modules/anishchenko-astakhov-attractor.js";
 import { BurkeShawAttractor } from "../modules/burke-shaw-attractor.js";
 import { HadleyAttractor } from "../modules/hadley-attractor.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const attractors = [
@@ -98,7 +98,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(35, 15, -35).multiplyScalar(0.2);
+camera.position.set(35, 15, -35).multiplyScalar(0.181);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -172,12 +172,12 @@ function generateShape() {
 
   const center = new Vector3();
   bounds.getCenter(center);
-  group.position.copy(center.multiplyScalar(-1));
+  group.position.copy(center.multiplyScalar(-0.09));
 
   painted.invalidate();
 }
 
-scene.scale.setScalar(0.09);
+group.scale.setScalar(0.09);
 scene.add(group);
 
 const sketchEffect = effectRAF(() => {
@@ -199,17 +199,19 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.attractor.set(Maf.randomElement(attractorOptions)[0]);
-  params.lines.set(Maf.intRandomInRange(100, 400));
-  // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.radiusSpread.set(Maf.randomInRange(0.1, 2));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
-  const v = 0.1;
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  batch(() => {
+    params.attractor.set(Maf.randomElement(attractorOptions)[0]);
+    params.lines.set(Maf.intRandomInRange(100, 400));
+    // params.segments.set(Maf.intRandomInRange(200, 500));
+    params.radiusSpread.set(Maf.randomInRange(0.1, 2));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
+    const v = 0.1;
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  });
 }
 
 let lastTime = performance.now();

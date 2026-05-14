@@ -16,7 +16,7 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import perlin from "../third_party/perlin.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -53,7 +53,7 @@ const params = {
 
 const gui = new GUI(
   "Truchet tiles II",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel("Lines following a pattern built with triangular Truchet Tiles.");
 gui.addSlider("Width", params.width, 1, 80, 1);
@@ -92,7 +92,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(0, 0, 1.8);
+camera.position.set(0, 0, 9.36).multiplyScalar(0.2);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -208,7 +208,7 @@ function mergeSegments(segments) {
   const PRECISION = 0;
   const hashVertex = (v) => {
     return `${v.x.toFixed(PRECISION)},${v.y.toFixed(PRECISION)},${v.z.toFixed(
-      PRECISION
+      PRECISION,
     )}`;
   };
 
@@ -340,7 +340,7 @@ async function generateLines() {
     for (let x = 0; x < WIDTH; x++) {
       const v = perlin.simplex2(
         x * noiseScale + offset,
-        y * noiseScale + offset
+        y * noiseScale + offset,
       );
       const a = Math.round(Maf.map(-1, 1, 0, 4, v)) * 90;
       const t = getWeightedOption([0, 1, 2], weights);
@@ -358,7 +358,7 @@ async function generateLines() {
         cy,
         (isPointingUp ? -Math.PI / 2 : Math.PI / 2) + tileOffset,
         t,
-        a
+        a,
       );
       grid.push(tile);
     }
@@ -376,9 +376,9 @@ async function generateLines() {
         new Vector3(
           d.x - 0.25 * WIDTH + 0.5,
           d.y - ((0.75 * side) / Math.sqrt(3)) * HEIGHT + 0.5,
-          0
-        ).multiplyScalar(SIZE)
-      )
+          0,
+        ).multiplyScalar(SIZE),
+      ),
     );
   }
 
@@ -389,7 +389,7 @@ async function generateLines() {
     const c =
       perlin.simplex2(
         (segment[0].x * noiseScale) / WIDTH + offset,
-        (segment[0].y * noiseScale) / HEIGHT + offset
+        (segment[0].y * noiseScale) / HEIGHT + offset,
       ) *
         0.5 +
       0.5;
@@ -452,17 +452,19 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.noiseScale.set(Maf.randomInRange(0.01, 0.3));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, 1]);
-  const v = 0.7;
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  params.repeatFactor.set(Maf.intRandomInRange(1, 5));
-  params.tile1Weight.set(Maf.randomInRange(0.6, 1));
-  params.tile2Weight.set(Maf.randomInRange(0, 0.6));
-  params.tile3Weight.set(Maf.randomInRange(0.6, 1));
+  batch(() => {
+    params.noiseScale.set(Maf.randomInRange(0.01, 0.3));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, 1]);
+    const v = 0.7;
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+    params.repeatFactor.set(Maf.intRandomInRange(1, 5));
+    params.tile1Weight.set(Maf.randomInRange(0.6, 1));
+    params.tile2Weight.set(Maf.randomInRange(0, 0.6));
+    params.tile3Weight.set(Maf.randomInRange(0.6, 1));
+  });
 }
 
 let lastTime = performance.now();

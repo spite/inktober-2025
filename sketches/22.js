@@ -17,7 +17,7 @@ import { Painted } from "../modules/painted.js";
 import { MarchingSquares } from "../modules/marching-squares.js";
 import perlin from "../third_party/perlin.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -123,7 +123,7 @@ function pattern(x, y, scale, octaves, lacunarity, gain) {
     scale,
     octaves,
     lacunarity,
-    gain
+    gain,
   );
 }
 
@@ -156,7 +156,7 @@ async function generateIsoLines(abort) {
         s,
         params.octaves(),
         params.lacunarity(),
-        params.gain()
+        params.gain(),
       );
     }
   }
@@ -174,7 +174,7 @@ async function generateIsoLines(abort) {
       values,
       -0.9 + (1.8 * i) / LINES,
       WIDTH,
-      HEIGHT
+      HEIGHT,
     );
 
     for (const path of paths) {
@@ -183,7 +183,7 @@ async function generateIsoLines(abort) {
         new Vector3(p.x, z * 2, p.y)
           .multiplyScalar(1 / WIDTH)
           .sub(center)
-          .multiplyScalar(0.05)
+          .multiplyScalar(0.05),
       );
 
       const l = Math.round(Maf.randomInRange(1, path.length / 20));
@@ -249,14 +249,16 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(50, 200));
-  params.scale.set(Maf.randomInRange(150, 300));
-  const v = 0.1;
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(50, 200));
+    params.scale.set(Maf.randomInRange(150, 300));
+    const v = 0.1;
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  });
 }
 
 let lastTime = performance.now();

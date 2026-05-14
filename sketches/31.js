@@ -30,7 +30,7 @@ import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 import { Circle } from "../modules/circle.js";
 
@@ -60,10 +60,10 @@ const params = {
 
 const gui = new GUI(
   "Lines on a sphere",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel(
-  "Lines generated following circles on a sphere, stopping at interesctions."
+  "Lines generated following circles on a sphere, stopping at interesctions.",
 );
 gui.addSlider("Initial lines", params.lines, 10, 500, 1);
 gui.addRangeSlider("Radius range", params.radius, 0.1, 1, 0.01);
@@ -98,7 +98,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(0, 0, 0.37);
+camera.position.set(0, 0, 9.36).multiplyScalar(0.05);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -210,7 +210,7 @@ async function generateLines(abort) {
         generation: 0,
         parentId: null,
       },
-      params.branchFrequency()
+      params.branchFrequency(),
     );
 
     circles.push(newCircle);
@@ -247,18 +247,20 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(100, 300));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, 1]);
-  const v = 0.7;
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  const s = Maf.randomInRange(0.1, 0.3);
-  params.lines.set(Maf.intRandomInRange(10, 300));
-  params.radius.set([Maf.randomInRange(0.1, 0.5), Maf.randomInRange(0.5, 1)]);
-  params.branchFrequency.set(Maf.randomInRange(10, 70));
-  params.branchAngle.set(Maf.randomInRange(10, 180));
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(100, 300));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, 1]);
+    const v = 0.7;
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+    const s = Maf.randomInRange(0.1, 0.3);
+    params.lines.set(Maf.intRandomInRange(10, 300));
+    params.radius.set([Maf.randomInRange(0.1, 0.5), Maf.randomInRange(0.5, 1)]);
+    params.branchFrequency.set(Maf.randomInRange(10, 70));
+    params.branchAngle.set(Maf.randomInRange(10, 180));
+  });
 }
 
 let lastTime = performance.now();
@@ -290,7 +292,7 @@ function draw(startTime) {
       (p, f) => {
         const circle = new Circle({ id: uuid(), ...p }, f);
         circles.push(circle);
-      }
+      },
     );
     if (circle.done() && !circle.rendered) {
       circle.generatePoints();

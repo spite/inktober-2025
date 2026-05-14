@@ -16,7 +16,7 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import { MarchingSquares } from "../modules/marching-squares.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -78,7 +78,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(0, 0, 0.56);
+camera.position.set(0, 0, 9.36).multiplyScalar(0.06);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -104,7 +104,7 @@ function generateSpheres() {
     const center = new Vector3(
       Maf.randomInRange(-s, s),
       Maf.randomInRange(-s, s),
-      Maf.randomInRange(-s, s)
+      Maf.randomInRange(-s, s),
     );
     spheres.push({ center, radius });
   }
@@ -150,12 +150,12 @@ async function generateLines(abort) {
   const axis = new Vector3(
     Maf.randomInRange(-1, 1),
     Maf.randomInRange(-1, 1),
-    Maf.randomInRange(-1, 1)
+    Maf.randomInRange(-1, 1),
   ).normalize();
 
   const rot = new Matrix4().makeRotationAxis(
     axis,
-    Maf.randomInRange(0, 2 * Math.PI)
+    Maf.randomInRange(0, 2 * Math.PI),
   );
 
   const spread = 0.01;
@@ -173,12 +173,12 @@ async function generateLines(abort) {
     const axis2 = new Vector3(
       Maf.randomInRange(-1, 1),
       Maf.randomInRange(-1, 1),
-      Maf.randomInRange(-1, 1)
+      Maf.randomInRange(-1, 1),
     ).normalize();
 
     const rot2 = new Matrix4().makeRotationAxis(
       axis2,
-      Maf.randomInRange(-tilt * Math.PI, tilt * Math.PI)
+      Maf.randomInRange(-tilt * Math.PI, tilt * Math.PI),
     );
 
     const p = new Vector3();
@@ -189,7 +189,7 @@ async function generateLines(abort) {
         p.set(
           Maf.map(0, WIDTH, -RADIUS, RADIUS, x),
           y,
-          Maf.map(0, DEPTH, -RADIUS, RADIUS, z)
+          Maf.map(0, DEPTH, -RADIUS, RADIUS, z),
         );
         p.applyMatrix4(rot).applyMatrix4(rot2);
         values[z][x] = fn(p);
@@ -200,7 +200,7 @@ async function generateLines(abort) {
       values,
       0,
       1 / WIDTH,
-      1 / DEPTH
+      1 / DEPTH,
     );
 
     for (const line of lines) {
@@ -211,14 +211,14 @@ async function generateLines(abort) {
       painted.invalidate();
 
       const repeat = Math.round(
-        Maf.randomInRange(1, Math.round(line.length / 20))
+        Maf.randomInRange(1, Math.round(line.length / 20)),
       );
 
       const material = new MeshLineMaterial({
         map,
         useMap: true,
         color: gradient.getAt(
-          Maf.map(0, LAYERS - 1, 0, 1, k) + Maf.randomInRange(-0.05, 0.05)
+          Maf.map(0, LAYERS - 1, 0, 1, k) + Maf.randomInRange(-0.05, 0.05),
         ),
         lineWidth: Maf.randomInRange(lineWidth[0], lineWidth[1]) * 0.0025,
         opacity: Maf.randomInRange(opacity[0], opacity[1]),
@@ -226,7 +226,7 @@ async function generateLines(abort) {
         useDash: true,
         dashArray: new Vector2(
           1,
-          Math.round(Maf.randomInRange(1, (repeat - 1) / 10))
+          Math.round(Maf.randomInRange(1, (repeat - 1) / 10)),
         ),
         uvOffset: new Vector2(Maf.randomInRange(0, 1), 0),
       });
@@ -234,7 +234,7 @@ async function generateLines(abort) {
       const points = line.map((p) =>
         new Vector3(2 * RADIUS * (p.x - 0.5), y, 2 * RADIUS * (p.y - 0.5))
           .applyMatrix4(rot)
-          .applyMatrix4(rot2)
+          .applyMatrix4(rot2),
       );
       var g = new MeshLine();
       g.setPoints(points);
@@ -285,16 +285,18 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(100, 300));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, 1]);
-  const v = 0.7;
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  const s = Maf.randomInRange(0.1, 0.3);
-  params.scaleRange.set([s, Maf.randomInRange(s, 0.5)]);
-  params.tilt.set(Maf.randomInRange(0, 0.02));
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(100, 300));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, 1]);
+    const v = 0.7;
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+    const s = Maf.randomInRange(0.1, 0.3);
+    params.scaleRange.set([s, Maf.randomInRange(s, 0.5)]);
+    params.tilt.set(Maf.randomInRange(0, 0.02));
+  });
 }
 
 let lastTime = performance.now();

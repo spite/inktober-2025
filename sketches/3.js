@@ -15,7 +15,7 @@ import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { TorusKnot, TrefoilKnot } from "../third_party/CurveExtras.js";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF, computed } from "../modules/reactive.js";
+import { signal, effectRAF, computed, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -50,7 +50,7 @@ const params = {
 
 const gui = new GUI(
   "Trefoil and torus knot curves",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel("Lines generated tracing Trefoil and Torus Knot curves.");
 gui.addSlider("Segments per line", params.segments, 200, 500, 1);
@@ -60,7 +60,7 @@ gui.addSelect(
     ["trefoil", "Trefoil knot"],
     ["torusknot", "Torus knot"],
   ],
-  params.type
+  params.type,
 );
 gui.addSlider(
   "Coprime integer P",
@@ -69,7 +69,7 @@ gui.addSlider(
   6,
   1,
   undefined,
-  computed(() => params.type() !== "torusknot")
+  computed(() => params.type() !== "torusknot"),
 );
 gui.addSlider(
   "Coprime integer Q",
@@ -78,7 +78,7 @@ gui.addSlider(
   6,
   1,
   undefined,
-  computed(() => params.type() !== "torusknot")
+  computed(() => params.type() !== "torusknot"),
 );
 gui.addSlider("Lines", params.lines, 1, 200, 1);
 gui.addSlider("Radius spread", params.radiusSpread, 0, 1, 0.01);
@@ -115,7 +115,7 @@ controls.addEventListener("change", () => {
   painted.invalidate();
 });
 
-camera.position.set(5, -2.5, -16).multiplyScalar(0.83);
+camera.position.set(5, -2.5, -16).multiplyScalar(1);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
@@ -167,8 +167,8 @@ function generateShape() {
         1,
         params.lineRepeat()[0],
         params.lineRepeat()[1],
-        Math.random()
-      )
+        Math.random(),
+      ),
     );
 
     const material = new MeshLineMaterial({
@@ -180,7 +180,7 @@ function generateShape() {
       repeat: new Vector2(repeat, 1),
       dashArray: new Vector2(
         1,
-        Math.round(Maf.randomInRange(0.5 * repeat, repeat - 1))
+        Math.round(Maf.randomInRange(0.5 * repeat, repeat - 1)),
       ),
       useDash: true,
       opacity: 0.8,
@@ -192,7 +192,7 @@ function generateShape() {
     mesh.position.set(
       Maf.randomInRange(-spread, spread),
       Maf.randomInRange(-spread, spread),
-      Maf.randomInRange(-spread, spread)
+      Maf.randomInRange(-spread, spread),
     );
     group.add(mesh);
     meshes.push({
@@ -228,21 +228,23 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(1, 200));
-  // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.radiusSpread.set(Maf.randomInRange(0, 1));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
-  const r = Maf.randomInRange(1, 10);
-  params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
-  const v = Maf.randomInRange(0.1, 0.9);
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.type.set(Maf.randomElement(["trefoil", "torusknot"]));
-  if (params.type() === "torusknot") {
-    params.knotP.set(Maf.intRandomInRange(1, 6));
-    params.knotQ.set(Maf.intRandomInRange(1, 6));
-  }
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(1, 200));
+    // params.segments.set(Maf.intRandomInRange(200, 500));
+    params.radiusSpread.set(Maf.randomInRange(0, 1));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
+    const r = Maf.randomInRange(1, 10);
+    params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
+    const v = Maf.randomInRange(0.1, 0.9);
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.type.set(Maf.randomElement(["trefoil", "torusknot"]));
+    if (params.type() === "torusknot") {
+      params.knotP.set(Maf.intRandomInRange(1, 6));
+      params.knotQ.set(Maf.intRandomInRange(1, 6));
+    }
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  });
 }
 
 let lastTime = performance.now();

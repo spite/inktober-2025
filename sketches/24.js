@@ -18,7 +18,7 @@ import { MarchingSquares } from "../modules/marching-squares.js";
 import perlin from "../third_party/perlin.js";
 import { sphericalToCartesian } from "../modules/conversions.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -76,7 +76,7 @@ painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
-  .multiplyScalar(1.1);
+  .multiplyScalar(1.2);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -88,14 +88,14 @@ function generate(scale) {
   const offset = new Vector3(
     Maf.randomInRange(-100, 100),
     Maf.randomInRange(-100, 100),
-    Maf.randomInRange(-100, 100)
+    Maf.randomInRange(-100, 100),
   );
 
   return (x, y, z) => {
     return perlin.simplex3(
       x * scale + offset.x,
       y * scale + offset.y,
-      z * scale + offset.z
+      z * scale + offset.z,
     );
   };
 }
@@ -107,7 +107,7 @@ const lonSteps = HEIGHT;
 const rotDir = new Vector3(
   Maf.randomInRange(-1, 1),
   Maf.randomInRange(-1, 1),
-  Maf.randomInRange(-1, 1)
+  Maf.randomInRange(-1, 1),
 ).normalize();
 
 async function generateIsoLines(abort) {
@@ -153,7 +153,7 @@ async function generateIsoLines(abort) {
       values,
       -0.9 + (1.8 * i) / LINES,
       1 / WIDTH,
-      1 / HEIGHT
+      1 / HEIGHT,
     );
 
     for (const path of paths) {
@@ -227,14 +227,16 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(10, 200));
-  params.scale.set(Maf.randomInRange(0.5, 2));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, 1]);
-  const v = 0.7;
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(10, 200));
+    params.scale.set(Maf.randomInRange(0.5, 2));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, 1]);
+    const v = 0.7;
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  });
 }
 
 let lastTime = performance.now();

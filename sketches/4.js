@@ -14,7 +14,7 @@ import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF, computed } from "../modules/reactive.js";
+import { signal, effectRAF, computed, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 import { Easings } from "../modules/easings.js";
 
@@ -89,7 +89,7 @@ controls.addEventListener("change", () => {
   painted.invalidate();
 });
 
-camera.position.set(5, -2.5, -16).multiplyScalar(0.77);
+camera.position.set(5, -2.5, -16).multiplyScalar(0.72);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
@@ -116,7 +116,7 @@ function generateShape() {
     const lineSpread = new Vector3(
       Maf.randomInRange(-spread, spread),
       Maf.randomInRange(-spread, spread),
-      Maf.randomInRange(-spread, spread)
+      Maf.randomInRange(-spread, spread),
     );
     const q = Easings.InOutQuad(0.5 + 0.5 * Math.cos(Maf.PI + t * Maf.TAU));
     const r = radius;
@@ -147,8 +147,8 @@ function generateShape() {
         1,
         params.lineRepeat()[0],
         params.lineRepeat()[1],
-        Math.random()
-      )
+        Math.random(),
+      ),
     );
     const offset = Maf.randomInRange(-10, 10);
     const material = new MeshLineMaterial({
@@ -201,20 +201,22 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(1, 200));
-  // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.radius.set(Maf.randomInRange(4, 6));
-  params.radiusSpread.set(Maf.randomInRange(0, 1));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
-  const r = 1;
-  params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
-  const v = 0.1;
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.twist.set(Maf.randomInRange(0, 1));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = Maf.randomInRange(0.1, 1);
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(1, 200));
+    // params.segments.set(Maf.intRandomInRange(200, 500));
+    params.radius.set(Maf.randomInRange(4, 6));
+    params.radiusSpread.set(Maf.randomInRange(0, 1));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
+    const r = 1;
+    params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
+    const v = 0.1;
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.twist.set(Maf.randomInRange(0, 1));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = Maf.randomInRange(0.1, 1);
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  });
 }
 
 let lastTime = performance.now();

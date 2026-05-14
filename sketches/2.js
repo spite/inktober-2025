@@ -15,7 +15,7 @@ import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { KnotCurve } from "../third_party/CurveExtras.js";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -82,7 +82,7 @@ controls.addEventListener("change", () => {
   painted.invalidate();
 });
 
-camera.position.set(5, -2.5, -26).multiplyScalar(1.06);
+camera.position.set(5, -2.5, -26).multiplyScalar(1);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 painted.backgroundColor.set(new Color(0xf6f2e9));
@@ -129,8 +129,8 @@ function generateShape() {
         1,
         params.lineRepeat()[0],
         params.lineRepeat()[1],
-        Math.random()
-      )
+        Math.random(),
+      ),
     );
 
     const material = new MeshLineMaterial({
@@ -152,7 +152,7 @@ function generateShape() {
     mesh.position.set(
       Maf.randomInRange(-lineSpread, lineSpread),
       Maf.randomInRange(-lineSpread, lineSpread),
-      Maf.randomInRange(-lineSpread, lineSpread)
+      Maf.randomInRange(-lineSpread, lineSpread),
     );
     group.add(mesh);
     meshes.push({
@@ -188,16 +188,18 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(1, 200));
-  // params.segments.set(Maf.intRandomInRange(100, 500));
-  params.radiusSpread.set(Maf.randomInRange(0, 1));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
-  const r = Maf.randomInRange(1, 10);
-  params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
-  const v = Maf.randomInRange(0.1, 0.9);
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(1, 200));
+    // params.segments.set(Maf.intRandomInRange(100, 500));
+    params.radiusSpread.set(Maf.randomInRange(0, 1));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
+    const r = Maf.randomInRange(1, 10);
+    params.lineRepeat.set([r, Maf.randomInRange(r, 10)]);
+    const v = Maf.randomInRange(0.1, 0.9);
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  });
 }
 
 let lastTime = performance.now();

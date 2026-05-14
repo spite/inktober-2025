@@ -18,7 +18,7 @@ import { Painted } from "../modules/painted.js";
 import { Poisson2D } from "../modules/poisson-2d.js";
 import { init } from "../modules/dipoles-2d.js";
 import GUI from "../modules/gui.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 
 const defaults = {
   charges: 30,
@@ -44,7 +44,7 @@ const params = {
 
 const gui = new GUI(
   "Electric fields I",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel("Lines generated following an electric field.");
 gui.addSlider("Charges", params.charges, 2, 50, 1);
@@ -80,7 +80,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(1.8, 0, 2).multiplyScalar(0.8);
+camera.position.set(1.8, 0, 2).multiplyScalar(1);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -196,16 +196,18 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.charges.set(Maf.intRandomInRange(2, 50));
-  params.chargeRange.set(Maf.randomInRange(1, 200));
-  const l = Maf.randomInRange(1, 100);
-  params.lineLength.set([l, Maf.randomInRange(l, 100)]);
-  const v = Maf.randomInRange(0.1, 0.9);
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  batch(() => {
+    params.charges.set(Maf.intRandomInRange(2, 50));
+    params.chargeRange.set(Maf.randomInRange(1, 200));
+    const l = Maf.randomInRange(1, 100);
+    params.lineLength.set([l, Maf.randomInRange(l, 100)]);
+    const v = Maf.randomInRange(0.1, 0.9);
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  });
 }
 
 let lastTime = performance.now();

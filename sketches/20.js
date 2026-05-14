@@ -37,7 +37,7 @@ import {
   loadIcosahedron,
 } from "../modules/models.js";
 import GUI from "../modules/gui.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 
 // Add the extension functions
 BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -68,14 +68,14 @@ await Promise.all(
       geometry.computeBoundsTree();
       const mesh = new Mesh(
         geometry,
-        new MeshBasicMaterial({ color: 0xf6f2e9 })
+        new MeshBasicMaterial({ color: 0xf6f2e9 }),
       );
       const sampler = new MeshSurfaceSampler(mesh).build();
       g.geometry = geometry;
       g.sampler = sampler;
       resolve();
     });
-  })
+  }),
 );
 
 const geometryOptions = geometries.map((g) => [g.id, g.name]);
@@ -110,10 +110,10 @@ const params = {
 
 const gui = new GUI(
   "Electric fields III",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel(
-  "Lines generated following an electric field over the surface of SDFs generated from models."
+  "Lines generated following an electric field over the surface of SDFs generated from models.",
 );
 gui.addSlider("Lines", params.lines, 1, 2000, 1);
 gui.addSlider("Segments", params.segments, 10, 200, 1);
@@ -151,11 +151,9 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(
-  -0.38997204674241887,
-  -0.1646326072361011,
-  0.3548472598819808
-);
+camera.position
+  .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
+  .multiplyScalar(1);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -247,7 +245,7 @@ async function generateShape(abort) {
     }
     mesh.material.uniforms.dashArray.value.set(
       1,
-      Math.round(Maf.randomInRange(1, 2))
+      Math.round(Maf.randomInRange(1, 2)),
     );
     mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.5));
     const speed = 1 * Math.round(Maf.randomInRange(1, 3));
@@ -281,16 +279,18 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.charges.set(Maf.intRandomInRange(2, 50));
-  params.chargeRange.set(Maf.randomInRange(0.01, 10));
-  const v = Maf.randomInRange(0.5, 0.9);
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = Maf.randomInRange(0.5, 0.9);
-  params.opacity.set([o, Maf.randomInRange(0.9, 1)]);
-  params.depthRange.set(Maf.randomInRange(0.1, 0.2));
-  params.geometry.set(Maf.randomElement(geometryOptions)[0]);
+  batch(() => {
+    params.charges.set(Maf.intRandomInRange(2, 50));
+    params.chargeRange.set(Maf.randomInRange(0.01, 10));
+    const v = Maf.randomInRange(0.5, 0.9);
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = Maf.randomInRange(0.5, 0.9);
+    params.opacity.set([o, Maf.randomInRange(0.9, 1)]);
+    params.depthRange.set(Maf.randomInRange(0.1, 0.2));
+    params.geometry.set(Maf.randomElement(geometryOptions)[0]);
+  });
 }
 
 let lastTime = performance.now();

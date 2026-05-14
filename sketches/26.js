@@ -18,7 +18,7 @@ import perlin from "../third_party/perlin.js";
 import { Poisson2D } from "../modules/poisson-2d.js";
 import { Grid } from "../modules/grid-2d.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -49,7 +49,7 @@ const params = {
 
 const gui = new GUI(
   "Flow field lines I",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel("Lines following a flow field of perlin noise.");
 gui.addSlider("Max segments", params.segments, 10, 500, 1);
@@ -87,7 +87,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(0, 0, 0.37);
+camera.position.set(0, 0, 9.36).multiplyScalar(0.05);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -129,7 +129,7 @@ function pattern(x, y, scale, octaves, lacunarity, gain) {
     scale,
     octaves,
     lacunarity,
-    gain
+    gain,
   );
 }
 
@@ -194,7 +194,7 @@ async function generateFlowLines(abort) {
   const d = new Vector2();
   const offset = new Vector2(
     Maf.randomInRange(-100, 100),
-    Maf.randomInRange(-100, 100)
+    Maf.randomInRange(-100, 100),
   );
   const scale = params.scale();
 
@@ -236,7 +236,7 @@ async function generateFlowLines(abort) {
           o.copy(lines[i].points[lines[i].points.length - 1]);
           const p = perlin.simplex2(
             scale * o.x + offset.x,
-            scale * o.y + offset.y
+            scale * o.y + offset.y,
           );
           const a = lines[i].offset + p * twistiness;
           d.set(Math.cos(a), Math.sin(a)).normalize().multiplyScalar(0.2);
@@ -329,16 +329,18 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.scale.set(Maf.randomInRange(0.01, 0.3));
-  params.density.set(Maf.randomInRange(0.2, 1));
-  params.twistiness.set(Maf.randomInRange(0.1, 5));
-  params.delay.set(Maf.randomInRange(0.1, 1));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, 1]);
-  const v = 0.7;
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  batch(() => {
+    params.scale.set(Maf.randomInRange(0.01, 0.3));
+    params.density.set(Maf.randomInRange(0.2, 1));
+    params.twistiness.set(Maf.randomInRange(0.1, 5));
+    params.delay.set(Maf.randomInRange(0.1, 1));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, 1]);
+    const v = 0.7;
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  });
 }
 
 let lastTime = performance.now();

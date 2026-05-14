@@ -16,7 +16,7 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import perlin from "../third_party/perlin.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -55,7 +55,7 @@ const params = {
 
 const gui = new GUI(
   "Truchet tiles I",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel("Lines following a pattern built with square Truchet Tiles.");
 gui.addSlider("Width", params.width, 1, 80, 1);
@@ -95,7 +95,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(0, 0, 1.8);
+camera.position.set(0, 0, 9.36).multiplyScalar(0.2);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -268,7 +268,7 @@ function mergeSegments(segments) {
   const PRECISION = 4;
   const hashVertex = (v) => {
     return `${v.x.toFixed(PRECISION)},${v.y.toFixed(PRECISION)},${v.z.toFixed(
-      PRECISION
+      PRECISION,
     )}`;
   };
 
@@ -378,7 +378,7 @@ async function generateLines() {
     for (let x = 0; x < WIDTH; x++) {
       const v = perlin.simplex2(
         x * noiseScale + offset,
-        y * noiseScale + offset
+        y * noiseScale + offset,
       );
       const a = Math.round(Maf.map(-1, 1, 0, 4, v)) * 90;
       const r = Maf.randomInRange(0, frequencyRange);
@@ -400,9 +400,9 @@ async function generateLines() {
         new Vector3(
           d.x - 0.5 * WIDTH + 0.5,
           d.y - 0.5 * HEIGHT + 0.5,
-          0
-        ).multiplyScalar(SIZE)
-      )
+          0,
+        ).multiplyScalar(SIZE),
+      ),
     );
   }
 
@@ -470,20 +470,22 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.curveScale.set([
-    Maf.randomInRange(0.8, 0.9),
-    Maf.randomInRange(0.9, 1),
-  ]);
-  params.noiseScale.set(Maf.randomInRange(0.01, 0.3));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, 1]);
-  const v = 0.7;
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  params.repeatFactor.set(Maf.intRandomInRange(1, 5));
-  params.curveFrequency.set(Maf.randomInRange(0.6, 1));
-  params.lineFrequency.set(Maf.randomInRange(0, 0.6));
+  batch(() => {
+    params.curveScale.set([
+      Maf.randomInRange(0.8, 0.9),
+      Maf.randomInRange(0.9, 1),
+    ]);
+    params.noiseScale.set(Maf.randomInRange(0.01, 0.3));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, 1]);
+    const v = 0.7;
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+    params.repeatFactor.set(Maf.intRandomInRange(1, 5));
+    params.curveFrequency.set(Maf.randomInRange(0.6, 1));
+    params.lineFrequency.set(Maf.randomInRange(0, 0.6));
+  });
 }
 
 let lastTime = performance.now();

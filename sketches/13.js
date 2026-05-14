@@ -15,7 +15,7 @@ import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import { sphericalToCartesian } from "../modules/conversions.js";
 import { march } from "../modules/raymarch.js";
 import { SphubeSDF } from "../modules/sphube.js";
@@ -48,7 +48,7 @@ const params = {
 
 const gui = new GUI(
   "Sphube (3D squircle)",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel("Tracing lines over a sphube.");
 gui.addSlider("Segments per line", params.segments, 50, 500, 1);
@@ -154,12 +154,12 @@ async function generateShape(abort) {
   const axis = new Vector3(
     Maf.randomInRange(-1, 1),
     Maf.randomInRange(-1, 1),
-    Maf.randomInRange(-1, 1)
+    Maf.randomInRange(-1, 1),
   ).normalize();
 
   const rot = new Matrix4().makeRotationAxis(
     axis,
-    Maf.randomInRange(0, 2 * Math.PI)
+    Maf.randomInRange(0, 2 * Math.PI),
   );
 
   for (let j = 0; j < LINES; j++) {
@@ -182,7 +182,7 @@ async function generateShape(abort) {
     const spread = new Vector3(
       Maf.randomInRange(-lineSpread, lineSpread),
       Maf.randomInRange(-lineSpread, lineSpread),
-      0
+      0,
     ).applyMatrix4(rot);
 
     for (let i = 0; i < POINTS; i++) {
@@ -263,16 +263,18 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(50, 500));
-  // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.sphubeFactor.set(Maf.randomInRange(0.01, 0.99));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
-  const v = 0.1;
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(50, 500));
+    // params.segments.set(Maf.intRandomInRange(200, 500));
+    params.sphubeFactor.set(Maf.randomInRange(0.01, 0.99));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
+    const v = 0.1;
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  });
 }
 
 let lastTime = performance.now();

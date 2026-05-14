@@ -15,7 +15,7 @@ import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import GUI from "../modules/gui.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 
 const defaults = {
   rings: 72,
@@ -173,15 +173,17 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.rings.set(Maf.intRandomInRange(1, 200));
-  // params.segments.set(Maf.intRandomInRange(20, 100));
-  params.tilt.set(Maf.randomInRange(0, 0.2));
-  params.spread.set(Maf.randomInRange(0, 0.2));
-  params.ringLength.set(Maf.randomInRange(0.1, 2));
-  const v = Maf.randomInRange(0.1, 0.9);
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  batch(() => {
+    params.rings.set(Maf.intRandomInRange(1, 200));
+    // params.segments.set(Maf.intRandomInRange(20, 100));
+    params.tilt.set(Maf.randomInRange(0, 0.2));
+    params.spread.set(Maf.randomInRange(0, 0.2));
+    params.ringLength.set(Maf.randomInRange(0.1, 2));
+    const v = Maf.randomInRange(0.1, 0.9);
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+  });
 }
 
 let lastTime = performance.now();

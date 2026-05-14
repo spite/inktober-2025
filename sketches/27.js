@@ -26,7 +26,7 @@ import { pointsOnSphere } from "../modules/points-sphere.js";
 import perlin from "../third_party/perlin.js";
 import { Grid } from "../modules/grid-3d.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI from "../modules/gui.js";
 
 const defaults = {
@@ -57,10 +57,10 @@ const params = {
 
 const gui = new GUI(
   "Flow field lines II",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel(
-  "Lines following a flow field of perlin noise on the surface of a sphere."
+  "Lines following a flow field of perlin noise on the surface of a sphere.",
 );
 gui.addSlider("Max segments", params.segments, 10, 500, 1);
 gui.addSlider("Noise scale", params.scale, 0.01, 0.5, 0.01);
@@ -97,7 +97,7 @@ controls.addEventListener("change", () => {
 });
 painted.backgroundColor.set(new Color(0xf6f2e9));
 
-camera.position.set(0, 0, 0.30);
+camera.position.set(0, 0, 9.36).multiplyScalar(0.04);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -106,14 +106,14 @@ const RADIUS = 8;
 const offset = new Vector3(
   Maf.randomInRange(-100, 100),
   Maf.randomInRange(-100, 100),
-  Maf.randomInRange(-100, 100)
+  Maf.randomInRange(-100, 100),
 );
 
 function pattern1(x, y, z, scale = 1) {
   return perlin.simplex3(
     x * scale + offset.x,
     y * scale + offset.y,
-    z * scale + offset.z
+    z * scale + offset.z,
   );
 }
 
@@ -183,7 +183,7 @@ async function generateFlowLines(abort) {
   const offset = new Vector3(
     Maf.randomInRange(-100, 100),
     Maf.randomInRange(-100, 100),
-    Maf.randomInRange(-100, 100)
+    Maf.randomInRange(-100, 100),
   );
   const scale = params.scale();
 
@@ -233,7 +233,7 @@ async function generateFlowLines(abort) {
             scale * o.x + offset.x,
             scale * o.y + offset.y,
             scale * o.z + offset.z,
-            1
+            1,
           );
           const a = lines[i].offset + p * twistiness;
           n.copy(o).normalize();
@@ -320,16 +320,18 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.scale.set(Maf.randomInRange(0.01, 0.3));
-  params.density.set(Maf.randomInRange(0.2, 1));
-  params.twistiness.set(Maf.randomInRange(0.1, 5));
-  params.delay.set(Maf.randomInRange(0.1, 1));
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, 1]);
-  const v = 0.7;
-  params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  batch(() => {
+    params.scale.set(Maf.randomInRange(0.01, 0.3));
+    params.density.set(Maf.randomInRange(0.2, 1));
+    params.twistiness.set(Maf.randomInRange(0.1, 5));
+    params.delay.set(Maf.randomInRange(0.1, 1));
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, 1]);
+    const v = 0.7;
+    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
+  });
 }
 
 let lastTime = performance.now();

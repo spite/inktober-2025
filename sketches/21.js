@@ -15,7 +15,7 @@ import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF, computed } from "../modules/reactive.js";
+import { signal, effectRAF, computed, batch } from "../modules/reactive.js";
 
 import GUI from "../modules/gui.js";
 
@@ -73,7 +73,7 @@ const params = {
 
 const gui = new GUI(
   "Minimal and Non-Orientable surfaces",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel("Tracing lines over different surfaces.");
 gui.addSlider("Segments per line", params.segments, 200, 500, 1);
@@ -86,7 +86,7 @@ gui.addSlider(
   4,
   1,
   undefined,
-  computed(() => params.surface() !== "enneper")
+  computed(() => params.surface() !== "enneper"),
 );
 gui.addSlider(
   "Enneper range",
@@ -95,7 +95,7 @@ gui.addSlider(
   4,
   0.01,
   undefined,
-  computed(() => params.surface() !== "enneper")
+  computed(() => params.surface() !== "enneper"),
 );
 gui.addSlider(
   "Klein bottle radius",
@@ -104,7 +104,7 @@ gui.addSlider(
   3,
   0.01,
   undefined,
-  computed(() => params.surface() !== "klein")
+  computed(() => params.surface() !== "klein"),
 );
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
@@ -140,7 +140,7 @@ painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
-  .multiplyScalar(0.7);
+  .multiplyScalar(0.8);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -280,7 +280,7 @@ async function generateShape(abort) {
   const axis = new Vector3(
     Maf.randomInRange(-1, 1),
     Maf.randomInRange(-1, 1),
-    Maf.randomInRange(-1, 1)
+    Maf.randomInRange(-1, 1),
   ).normalize();
 
   const tmp = new Vector3();
@@ -334,7 +334,7 @@ async function generateShape(abort) {
     const spread = new Vector3(
       Maf.randomInRange(-lineSpread, lineSpread),
       Maf.randomInRange(-lineSpread, lineSpread),
-      Maf.randomInRange(-lineSpread, lineSpread)
+      Maf.randomInRange(-lineSpread, lineSpread),
     );
     mesh.position.copy(spread);
 
@@ -377,20 +377,22 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(50, 500));
-  // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.enneperN.set(Maf.intRandomInRange(1, 4));
-  params.enneperRange.set(Maf.randomInRange(1, 2));
-  params.kleinRadius.set(Maf.randomInRange(1, 3));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
-  const v = 0.1;
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
-  params.repeatFactor.set(Maf.randomInRange(0.1, 2));
-  params.surface.set(Maf.randomElement(surfaces).id);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(50, 500));
+    // params.segments.set(Maf.intRandomInRange(200, 500));
+    params.enneperN.set(Maf.intRandomInRange(1, 4));
+    params.enneperRange.set(Maf.randomInRange(1, 2));
+    params.kleinRadius.set(Maf.randomInRange(1, 3));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
+    const v = 0.1;
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+    params.repeatFactor.set(Maf.randomInRange(0.1, 2));
+    params.surface.set(Maf.randomElement(surfaces).id);
+  });
 }
 
 let lastTime = performance.now();

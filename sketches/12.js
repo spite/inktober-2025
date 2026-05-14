@@ -17,7 +17,7 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import { pointsOnSphere } from "../modules/points-sphere.js";
 import { curl, generateNoiseFunction, seedFunc } from "../modules/curl.js";
-import { signal, effectRAF } from "../modules/reactive.js";
+import { signal, effectRAF, batch } from "../modules/reactive.js";
 
 import GUI from "../modules/gui.js";
 
@@ -51,10 +51,10 @@ const params = {
 
 const gui = new GUI(
   "Curl noise shells",
-  document.querySelector("#gui-container")
+  document.querySelector("#gui-container"),
 );
 gui.addLabel(
-  "Tracing lines following a curl noise field on different spherical shells."
+  "Tracing lines following a curl noise field on different spherical shells.",
 );
 gui.addSlider("Segments per line", params.segments, 50, 500, 1);
 gui.addSlider("Lines", params.lines, 1, 400, 1);
@@ -95,7 +95,7 @@ painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
-  .multiplyScalar(1.9);
+  .multiplyScalar(2);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
 
@@ -203,18 +203,20 @@ function randomize() {
 }
 
 function randomizeParams() {
-  params.lines.set(Maf.intRandomInRange(50, 500));
-  // params.segments.set(Maf.intRandomInRange(200, 500));
-  params.seedScale.set(Maf.randomInRange(0.01, 2));
-  params.noiseScale.set(Maf.randomInRange(0.5, 1.5));
-  params.radius.set(Maf.randomInRange(0.1, 1));
-  params.lineSpread.set(Maf.randomInRange(0, 1));
-  const v = 0.1;
-  params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-  params.brush.set(Maf.randomElement(brushOptions)[0]);
-  params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  const o = 0.5;
-  params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  batch(() => {
+    params.lines.set(Maf.intRandomInRange(50, 500));
+    // params.segments.set(Maf.intRandomInRange(200, 500));
+    params.seedScale.set(Maf.randomInRange(0.01, 2));
+    params.noiseScale.set(Maf.randomInRange(0.5, 1.5));
+    params.radius.set(Maf.randomInRange(0.1, 1));
+    params.lineSpread.set(Maf.randomInRange(0, 1));
+    const v = 0.1;
+    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
+    params.brush.set(Maf.randomElement(brushOptions)[0]);
+    params.palette.set(Maf.randomElement(paletteOptions)[0]);
+    const o = 0.5;
+    params.opacity.set([o, Maf.randomInRange(o, 1)]);
+  });
 }
 
 let lastTime = performance.now();
