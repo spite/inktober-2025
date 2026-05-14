@@ -202,6 +202,8 @@ class Painted {
     this.framesPerFrame = 1;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
+    this._lastInvalidateTime = 0;
+    this._burstFrames = 0;
 
     let w = 1;
     let h = 1;
@@ -293,6 +295,13 @@ class Painted {
 
   invalidate() {
     registerActivePainted(this);
+    // Burst: accumulate multiple frames per tick for the first few ticks after a
+    // hard reset so the TAA converges quickly and the single-frame "blink" is minimised.
+    // Skip burst when called rapidly (< 100 ms apart) — that's an animated sketch that
+    // invalidates every frame, where burst would be too expensive.
+    const now = performance.now();
+    this._burstFrames = (now - this._lastInvalidateTime > 100) ? 5 : 0;
+    this._lastInvalidateTime = now;
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
     this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
@@ -355,7 +364,12 @@ class Painted {
         renderer.render(scene, camera);
         renderer.setRenderTarget(null);
       }
-      for (let i = 0; i < this.framesPerFrame; i++) {
+      let framesThisTick = this.framesPerFrame;
+      if (this._burstFrames > 0) {
+        framesThisTick = 8;
+        this._burstFrames--;
+      }
+      for (let i = 0; i < framesThisTick; i++) {
         updateProjectionMatrixJitter(camera, this.size);
         this.frames++;
 
