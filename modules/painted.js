@@ -10,6 +10,10 @@ import {
   GLSL3,
   Color,
   UnsignedByteType,
+  OrthographicCamera,
+  Scene,
+  Mesh,
+  PlaneGeometry,
 } from "three";
 
 import orthoVertexShader from "../shaders/ortho.js";
@@ -25,7 +29,7 @@ import {
   resetPointer,
 } from "./jitter.js";
 import { effect } from "./reactive.js";
-import { onShadowChange, onShadowParamChange, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow } from "./three-meshline.js";
+import { registerActivePainted, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow, shadowStrength, showShadowBuffer } from "./three-meshline.js";
 
 const fragmentShader = `
 precision highp float;
@@ -42,6 +46,7 @@ uniform float embossStrength;
 uniform float paperStrength;
 uniform float bumpSize;
 uniform float bumpShadow;
+uniform float shadowStrength;
 
 in vec2 vUv;
 
@@ -106,29 +111,24 @@ void main() {
   vec2 paperUv = gl_FragCoord.xy / vec2(textureSize(paperTexture, 0).xy);
   vec4 paper = texture(paperTexture, paperUv);
 
-  vec4 normal = calcNormal(inputTexture, vUv) + calcNormalRGB(paperTexture, paperUv);
-  
-  // vec2 mousePos = mouse/resolution.xy;
-  // mousePos.y = 1.- mousePos.y;
-  // vec3 dir = normalize(vec3(vUv - mousePos, 0.));
+  // paperStrength scales how much the paper texture contributes to the bump normal.
+  vec4 normal = calcNormal(inputTexture, vUv) + calcNormalRGB(paperTexture, paperUv) * paperStrength;
 
   vec3 dir = normalize(vec3(cos(embossAngle), sin(embossAngle), 0.));
   float l = dot(normal.rgb, dir);
   l = .5 + .5 * l;
-  l = 1. - l;
   l = smoothstep(.5 - embossEdge, .5 + embossEdge, l);
-  
-  vec2 bumpDir = vec2(-cos(embossAngle), -sin(embossAngle));
+
+  vec2 bumpDir = vec2(cos(embossAngle), sin(embossAngle));
   vec2 offset = bumpDir * bumpSize / resolution.xy;
-  vec4 shadow = texture(inputTexture, vUv + offset);
-  shadow = vec4(mix(vec3(bumpShadow), vec3(1.0), 1. - shadow.a), 1.);
-  shadow.rgb = mix(shadow.rgb, vec3(1.), color.a);  
+  vec4 shadowSample = texture(inputTexture, vUv + offset);
+  vec3 shadowColor = mix(vec3(bumpShadow), vec3(1.0), 1. - shadowSample.a);
+  shadowColor = mix(shadowColor, vec3(1.), color.a);
 
   color = vec4(color.rgb, 1.);
 
-  paper *= shadow;
-  // color = mix(paper, color, .5);
-  color = overlay(color, paper, paperStrength);
+  // Shadow blended independently of paper.
+  color.rgb = mix(color.rgb, color.rgb * shadowColor, shadowStrength);
 
   color = softLight(color, vec4(vec3(vignette(vUv, vignetteBoost, vignetteReduction)),1.));
   color += (1. / 255.) * gradientNoise(gl_FragCoord.xy) - (.5 / 255.);
@@ -175,6 +175,20 @@ out vec4 fragColor;
 void main() {
   vec4 c = texture(inputTexture, vUv);
   fragColor = vec4(c.rgb, 1.);
+}`;
+
+const shadowPreviewFragmentShader = `
+precision highp float;
+uniform sampler2D shadowMap;
+in vec2 vUv;
+out vec4 fragColor;
+float unpackRGBAToDepth(vec4 v) {
+  // three.js r163 packing: PackFactors=(1,256,65536,16777216), UnpackDownscale=255/256
+  return dot(v, vec4(255.0/256.0, 255.0/65536.0, 255.0/16777216.0, 1.0/16777216.0));
+}
+void main() {
+  float d = unpackRGBAToDepth(texture(shadowMap, vUv));
+  fragColor = vec4(vec3(d), 1.0);
 }`;
 
 const loader = new TextureLoader();
@@ -229,10 +243,11 @@ class Painted {
         paperTexture:   { value: paper },
         embossAngle:    { value: -Math.PI / 4 },
         embossEdge:     { value: 0.1 },
-        embossStrength: { value: 1.0 },
-        paperStrength:  { value: 0.2 },
-        bumpSize:       { value: 10 },
-        bumpShadow:     { value: 0.9 },
+        embossStrength:  { value: 1.0 },
+        paperStrength:   { value: 0.2 },
+        bumpSize:        { value: 4 },
+        bumpShadow:      { value: 0.1 },
+        shadowStrength:  { value: 0.2 },
       },
       vertexShader: orthoVertexShader,
       fragmentShader: fragmentShader,
@@ -264,15 +279,12 @@ class Painted {
     // Other emboss params only need a composite re-run, not 3D re-accumulation.
     let embossReady = false;
     effect(() => {
-      embossEdge(); embossStrength(); paperStrength(); bumpSize(); bumpShadow();
+      embossEdge(); embossStrength(); paperStrength(); bumpSize(); bumpShadow(); shadowStrength(); showShadowBuffer();
       if (embossReady) this.compositeNeedsUpdate = true;
       else embossReady = true;
     });
 
     this.invalidate();
-    // Hard invalidate on scene change (new shadow light installed); soft on param tweaks.
-    onShadowChange(() => this.invalidate());
-    onShadowParamChange(() => this.softInvalidate());
   }
 
   get backgroundColor() {
@@ -280,6 +292,7 @@ class Painted {
   }
 
   invalidate() {
+    registerActivePainted(this);
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
     this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
@@ -309,7 +322,10 @@ class Painted {
 
   render(renderer, scene, camera) {
     const needsAccum = this.frames <= this.maxAccumFrames;
-    if (!needsAccum && !this.compositeNeedsUpdate) return;
+    if (!needsAccum && !this.compositeNeedsUpdate) {
+      this._drawShadowPreview(renderer, scene);
+      return;
+    }
 
     // Update composite uniforms — cheap, always current.
     this.pass.shader.uniforms.embossAngle.value    = embossAngle();
@@ -318,6 +334,7 @@ class Painted {
     this.pass.shader.uniforms.paperStrength.value  = paperStrength();
     this.pass.shader.uniforms.bumpSize.value       = bumpSize();
     this.pass.shader.uniforms.bumpShadow.value     = bumpShadow();
+    this.pass.shader.uniforms.shadowStrength.value = shadowStrength();
 
     if (needsAccum) {
       // Hard invalidate: wipe both ping-pong FBOs so no previous-sketch depth can
@@ -365,6 +382,43 @@ class Painted {
     this.finalPass.render(renderer, true);
 
     this.compositeNeedsUpdate = false;
+    this._drawShadowPreview(renderer, scene);
+  }
+
+  _drawShadowPreview(renderer, scene) {
+    if (!showShadowBuffer()) return;
+    const shadowTex = scene.userData.__meshlineShadowLight?.shadow?.map?.texture;
+    if (!shadowTex) return;
+    if (!this._shadowPreview) {
+      const mat = new RawShaderMaterial({
+        uniforms: { shadowMap: { value: null } },
+        vertexShader: orthoVertexShader,
+        fragmentShader: shadowPreviewFragmentShader,
+        glslVersion: GLSL3,
+        depthTest: false,
+        depthWrite: false,
+      });
+      // near=0.00001 so the z=0 plane maps to clip_z≈-1 (on the near plane, not culled)
+      const cam = new OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 0.00001, 1000);
+      const sc = new Scene();
+      sc.add(new Mesh(new PlaneGeometry(1, 1), mat));
+      this._shadowPreview = { mat, cam, sc };
+    }
+    const { mat, cam, sc } = this._shadowPreview;
+    mat.uniforms.shadowMap.value = shadowTex;
+    const size = Math.floor(Math.min(this.size.x, this.size.y) / 4);
+    const margin = 8;
+    // Disable autoClear: the shadow renderer sets gl.clearColor(1,1,1,1) and never
+    // resets it, so autoClear would wipe the preview viewport to white.
+    const prevAutoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.setViewport(margin, margin, size, size);
+    renderer.setScissor(margin, margin, size, size);
+    renderer.setScissorTest(true);
+    renderer.render(sc, cam);
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, this.size.x, this.size.y);
+    renderer.autoClear = prevAutoClear;
   }
 }
 
