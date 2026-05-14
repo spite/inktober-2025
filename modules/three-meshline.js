@@ -1138,20 +1138,21 @@ const _lightRight = new Vector3();
 const _lightUp = new Vector3();
 
 function fitShadowCamera(scene, camera, light) {
-  // Scene is framed to fill the camera view, so use the camera's frustum
-  // dimensions at the scene center (origin) as the shadow coverage area.
-  // This correctly accounts for shader-driven line widths that Box3 misses.
-  // Compute r once from the initial camera framing and never update it.
-  // The shadow frustum must always cover the full object regardless of zoom.
-  if (scene.userData.__meshlineShadowFrustumR) {
-    return;
-  }
+  // Frozen on first call — r must not change after the initial framing.
+  if (scene.userData.__meshlineShadowFrustumR) return;
+
   const camDist = camera.position.length();
   const halfFov = (camera.fov * Math.PI) / 180 / 2;
   const halfH = camDist * Math.tan(halfFov);
-  const halfW = halfH * camera.aspect;
-  const r = Math.sqrt(halfW * halfW + halfH * halfH);
+  // Use halfH (vertical content radius) + 10% padding instead of the diagonal.
+  // All sketches share camera distance ≈ 9.36 with FOV 35°, so this produces
+  // the same r ≈ 3.25 for every sketch regardless of aspect ratio.
+  const r = halfH * 1.1;
 
+  _applyShadowRadius(scene, light, r);
+}
+
+function _applyShadowRadius(scene, light, r) {
   if (!light.target.parent) scene.add(light.target);
   light.target.updateMatrixWorld();
 
@@ -1160,11 +1161,22 @@ function fitShadowCamera(scene, camera, light) {
   cam.right = r;
   cam.top = r;
   cam.bottom = -r;
-  const lightDist = light.position.length();
+  // Light is placed at r * 2.5 from the origin (set in onBeforeRender),
+  // so use that distance — not light.position.length() which reflects the
+  // initial placeholder position before the first frame repositions the light.
+  const lightDist = r * 2.5;
   cam.near = Math.max(0.1, lightDist - r);
   cam.far = lightDist + r;
   cam.updateProjectionMatrix();
   scene.userData.__meshlineShadowFrustumR = r;
+}
+
+// Call before the first render to override the auto-computed frustum radius.
+// r is the half-width of the square shadow frustum in world units.
+export function setShadowRadius(scene, r) {
+  scene.userData.__meshlineShadowFrustumR = r; // freeze early so fitShadowCamera skips
+  const light = scene.userData.__meshlineShadowLight;
+  if (light) _applyShadowRadius(scene, light, r); // apply if light already exists
 }
 
 MeshLineMaterial.prototype.onBeforeRender = (...args) => {
