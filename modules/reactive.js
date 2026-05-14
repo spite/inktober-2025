@@ -108,23 +108,18 @@ export function effectRAF(fn) {
   return {
     pause() {
       paused = true;
+      dirty = true;
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
         queued = false;
-        dirty = true;
       }
     },
     resume() {
       paused = false;
       if (dirty && !queued) {
         dirty = false;
-        queued = true;
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          queued = false;
-          effect.run();
-        });
+        effect.run();
       }
     },
   };
