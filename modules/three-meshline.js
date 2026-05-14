@@ -17,6 +17,7 @@ import {
   AmbientLight,
   DirectionalLight,
   ArrowHelper,
+  CameraHelper,
 } from "three";
 import GUI from "./gui.js";
 import { signal, effect } from "./reactive.js";
@@ -32,10 +33,12 @@ const shadowModeOptions = [
   ["off", "Shadow off"],
   ["only", "Only shadow"],
 ];
-const shadowIntensity = signal(0.5);
-const shadowRadius = signal(4);
-const shadowBias = signal(-0.005);
+const shadowIntensity = signal(1);
+const shadowRadius = signal(16);
+const shadowBias = signal(-0.02);
 const showLightArrow = signal(false);
+const showShadowFrustum = signal(false);
+export const showShadowBuffer = signal(false);
 const shadingDarkLum = signal(0.55);
 const shadingBrightLum = signal(1.2);
 const shadingDarkSat = signal(1.5);
@@ -43,12 +46,13 @@ const shadingBrightSat = signal(1.4);
 const shadowMapRes = signal("2048"); // string for select
 const castJitterScale = signal(4);
 
-export const embossAngle = signal(-Math.PI / 4); // vec3(1,-1,0) normalised ≈ -45°
-export const embossEdge = signal(0.1);
-export const embossStrength = signal(0.25);
+export const embossAngle = signal(1.8);
+export const embossEdge = signal(0.13);
+export const embossStrength = signal(0.67);
 export const paperStrength = signal(0.2);
-export const bumpSize = signal(10); // offset in pixels
-export const bumpShadow = signal(0.9); // dark end of bump shadow (0=black, 1=white)
+export const bumpSize = signal(4); // offset in pixels
+export const bumpShadow = signal(0.1); // dark end of bump shadow (0=black, 1=white)
+export const shadowStrength = signal(0.2); // blend factor for the 2D ink shadow
 
 // Shared GUI — created lazily, repositioned to end of #gui-container once per scene
 // so it always follows the active sketch's own params panel.
@@ -82,13 +86,16 @@ function ensureSharedGUI(scene) {
     );
     _sharedGui.addSeparator();
     _sharedGui.addCheckbox("Light arrow", showLightArrow);
+    _sharedGui.addCheckbox("Shadow frustum", showShadowFrustum);
+    _sharedGui.addCheckbox("Shadow buffer", showShadowBuffer);
     _sharedGui.addSeparator();
     _sharedGui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
     _sharedGui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
     _sharedGui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
-    _sharedGui.addSlider("Paper", paperStrength, 0, 1, 0.01);
+    _sharedGui.addSlider("Paper bump", paperStrength, 0, 1, 0.01);
     _sharedGui.addSlider("Bump size", bumpSize, 0, 30, 0.5);
     _sharedGui.addSlider("Bump shadow", bumpShadow, 0, 1, 0.01);
+    _sharedGui.addSlider("Shadow blend", shadowStrength, 0, 1, 0.01);
     _sharedGui.show();
   }
   if (!_sharedGuiScenes.has(scene)) {
@@ -97,16 +104,10 @@ function ensureSharedGUI(scene) {
   }
 }
 
-// Invalidation registry — any Painted instance can subscribe.
-// Hard callbacks: scene fully replaced (shadow light installation on new scene).
-// Soft callbacks: param tweak on the same scene (shadow mode/intensity/radius/etc.).
-const _shadowChangeCallbacks = [];
-const _shadowParamCallbacks = [];
-export function onShadowChange(fn) {
-  _shadowChangeCallbacks.push(fn);
-}
-export function onShadowParamChange(fn) {
-  _shadowParamCallbacks.push(fn);
+// Single active Painted reference — only the currently visible sketch gets soft-invalidated.
+let _activePainted = null;
+export function registerActivePainted(painted) {
+  _activePainted = painted;
 }
 let _shadowInitialized = false;
 effect(() => {
@@ -115,6 +116,8 @@ effect(() => {
   shadowRadius();
   shadowBias();
   showLightArrow();
+  showShadowFrustum();
+  showShadowBuffer();
   shadingDarkLum();
   shadingBrightLum();
   shadingDarkSat();
@@ -122,7 +125,7 @@ effect(() => {
   shadowMapRes();
   castJitterScale();
   if (_shadowInitialized) {
-    for (const fn of _shadowParamCallbacks) fn();
+    _activePainted?.softInvalidate();
   } else {
     _shadowInitialized = true;
   }
@@ -1138,6 +1141,11 @@ function fitShadowCamera(scene, camera, light) {
   // Scene is framed to fill the camera view, so use the camera's frustum
   // dimensions at the scene center (origin) as the shadow coverage area.
   // This correctly accounts for shader-driven line widths that Box3 misses.
+  // Compute r once from the initial camera framing and never update it.
+  // The shadow frustum must always cover the full object regardless of zoom.
+  if (scene.userData.__meshlineShadowFrustumR) {
+    return;
+  }
   const camDist = camera.position.length();
   const halfFov = (camera.fov * Math.PI) / 180 / 2;
   const halfH = camDist * Math.tan(halfFov);
@@ -1227,6 +1235,11 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
     scene.add(arrow);
     scene.userData.__meshlineLightArrow = arrow;
 
+    const frustumHelper = new CameraHelper(dir.shadow.camera);
+    frustumHelper.visible = false;
+    scene.add(frustumHelper);
+    scene.userData.__meshlineShadowFrustumHelper = frustumHelper;
+
     // Install a scene-level hook that runs BEFORE the shadow pass each frame,
     // so the shadow map always uses the current frame's light position.
     scene.onBeforeRender = (function (origHook) {
@@ -1274,6 +1287,13 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
           .copy(scene.userData.__meshlineShadowBasePos)
           .addScaledVector(_lightRight, Math.cos(angle) * jitterRadius)
           .addScaledVector(_lightUp, Math.sin(angle) * jitterRadius);
+
+        // Frustum helper.
+        const frustumHelper = scene.userData.__meshlineShadowFrustumHelper;
+        if (frustumHelper) {
+          frustumHelper.visible = showShadowFrustum();
+          if (frustumHelper.visible) frustumHelper.update();
+        }
 
         // Arrow helper.
         const arrow = scene.userData.__meshlineLightArrow;
