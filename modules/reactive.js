@@ -1,4 +1,6 @@
 let activeEffect = null;
+let batchDepth = 0;
+const pendingBatchEffects = new Set();
 
 class ReactiveEffect {
   constructor(fn, scheduler) {
@@ -35,12 +37,34 @@ function track(subscribers) {
 function trigger(subscribers) {
   const effectsToRun = new Set(subscribers);
   effectsToRun.forEach((effect) => {
-    if (effect.scheduler) {
+    if (batchDepth > 0) {
+      pendingBatchEffects.add(effect);
+    } else if (effect.scheduler) {
       effect.scheduler(effect);
     } else {
       effect.run();
     }
   });
+}
+
+export function batch(fn) {
+  batchDepth++;
+  try {
+    fn();
+  } finally {
+    batchDepth--;
+    if (batchDepth === 0) {
+      const toRun = new Set(pendingBatchEffects);
+      pendingBatchEffects.clear();
+      toRun.forEach((effect) => {
+        if (effect.scheduler) {
+          effect.scheduler(effect);
+        } else {
+          effect.run();
+        }
+      });
+    }
+  }
 }
 
 export function signal(initialValue) {
