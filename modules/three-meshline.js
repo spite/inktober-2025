@@ -63,6 +63,7 @@ function ensureSharedGUI(scene) {
   if (!container) return;
   if (!_sharedGui) {
     _sharedGui = new GUI("Rendering", container);
+    _sharedGui.rowsExpanded.set(false);
     _sharedGui.addSelect("Shadow mode", shadowModeOptions, shadowMode);
     _sharedGui.addSlider("Intensity", shadowIntensity, 0, 1, 0.01);
     _sharedGui.addSeparator();
