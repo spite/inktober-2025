@@ -1181,7 +1181,7 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
   const camera = args[2];
   const canvas = renderer.domElement;
   const mesh = args[4];
-  const t = performance.now() / 1000;
+  const t = scene.userData.__meshlineFrameTime ?? performance.now() / 1000;
   ensureSharedGUI(scene);
 
   const w = canvas.width;
@@ -1281,6 +1281,7 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
         scene.userData.__meshlineLightDir.copy(_lightDir);
 
         scene.userData.__meshlineJitterIndex = (scene.userData.__meshlineJitterIndex ?? 0) + 1;
+        scene.userData.__meshlineFrameTime = performance.now() / 1000;
         shadowLight.position.copy(scene.userData.__meshlineShadowBasePos);
 
         // Frustum helper.
@@ -1337,7 +1338,6 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
   if (mesh.customDepthMaterial?.uniforms) {
     mesh.customDepthMaterial.lineWidth = mesh.material.lineWidth;
     mesh.customDepthMaterial.uniforms.time.value = t;
-    mesh.customDepthMaterial.uniforms.resolution.value.set(w, h);
   }
 };
 
