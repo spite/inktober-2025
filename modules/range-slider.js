@@ -234,7 +234,8 @@ class RangeSlider extends HTMLElement {
     let value = Math.round(rawValue / this._step) * this._step;
 
     value = Math.max(this._min, Math.min(this._max, value));
-    value = parseFloat(value.toFixed(2));
+    const decimals = this._step < 1 ? Math.ceil(-Math.log10(this._step)) : 0;
+    value = parseFloat(value.toFixed(decimals));
 
     if (this.currentHandle === "min") {
       if (value > this._valMax) value = this._valMax;
