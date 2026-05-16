@@ -381,7 +381,9 @@ class Painted {
 
       // Warm-up pass: installs scene-level hooks (shadow light, scene.onBeforeRender)
       // before the first accumulated frame so the shadow map is correct from frame 1.
-      if (this.frames === 0) {
+      // Skipped once the shadow system is initialized — avoids a full redundant render
+      // every time the camera moves (OrbitControls resets frames to 0 each frame).
+      if (this.frames === 0 && !scene.userData.__meshlineShadowLight) {
         renderer.setRenderTarget(this.colorFBO);
         renderer.render(scene, camera);
         renderer.setRenderTarget(null);
