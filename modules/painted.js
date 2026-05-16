@@ -204,6 +204,10 @@ class Painted {
     this.compositeNeedsUpdate = true;
     this._lastInvalidateTime = 0;
     this._burstFrames = 0;
+    // Burst-on-stop tracking: fire a convergence burst the first render after
+    // the invalidation stream ends (camera stopped or scene finished rebuilding).
+    this._invalidatedThisFrame = false;
+    this._prevFrameWasInvalidated = false;
 
     let w = 1;
     let h = 1;
@@ -295,15 +299,22 @@ class Painted {
 
   invalidate() {
     registerActivePainted(this);
-    // Burst: accumulate multiple frames per tick for the first few ticks after a
-    // hard reset so the TAA converges quickly and the single-frame "blink" is minimised.
-    // Skip burst when called rapidly (< 100 ms apart) — that's an animated sketch that
-    // invalidates every frame, where burst would be too expensive.
     const now = performance.now();
-    this._burstFrames = (now - this._lastInvalidateTime > 100) ? 5 : 0;
+    const timeSinceLastInvalidate = now - this._lastInvalidateTime;
     this._lastInvalidateTime = now;
+    this._invalidatedThisFrame = true;
+
+    // Calls arriving every frame (~16 ms at 60 fps) are camera-motion via OrbitControls.
+    // Use a soft blend so partial accumulation is preserved across frames — during
+    // deceleration the consecutive frames are nearly identical, so the carryover acts
+    // like a running average and keeps shadows smooth. Old history decays in ~10 frames
+    // (0.5^10 ≈ 0.001) so there is no visible ghosting during fast movement.
+    // Calls arriving after a gap are scene/param rebuilds — wipe clean to avoid ghosts.
+    const isMotion = timeSinceLastInvalidate < 50;
+    const blendWeight = isMotion ? 0.5 : 1.0;
+
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
-    this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;
+    this.rawAccumPass.shader.uniforms.invalidateBlend.value = blendWeight;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
@@ -311,6 +322,7 @@ class Painted {
   }
 
   softInvalidate() {
+    this._invalidatedThisFrame = true;
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
     this.rawAccumPass.shader.uniforms.invalidateBlend.value = 0.5;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
@@ -330,6 +342,16 @@ class Painted {
   }
 
   render(renderer, scene, camera) {
+    // Detect the first render frame where the invalidation stream has ended
+    // (camera stopped moving, or scene finished rebuilding). Fire a burst of
+    // full jitter cycles so shadows converge in ~8 display frames instead of
+    // drifting slowly. This runs even if we early-return below so state stays correct.
+    if (this._prevFrameWasInvalidated && !this._invalidatedThisFrame && this._burstFrames === 0) {
+      this._burstFrames = 8;
+    }
+    this._prevFrameWasInvalidated = this._invalidatedThisFrame;
+    this._invalidatedThisFrame = false;
+
     const needsAccum = this.frames <= this.maxAccumFrames;
     if (!needsAccum && !this.compositeNeedsUpdate) {
       this._drawShadowPreview(renderer, scene);
