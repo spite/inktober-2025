@@ -44,7 +44,6 @@ const shadingBrightLum = signal(1.2);
 const shadingDarkSat = signal(1.5);
 const shadingBrightSat = signal(1.4);
 const shadowMapRes = signal("2048"); // string for select
-const castJitterScale = signal(4);
 
 export const embossAngle = signal(1.8);
 export const embossEdge = signal(0.13);
@@ -73,7 +72,6 @@ function ensureSharedGUI(scene) {
     _sharedGui.addSlider("Bright sat", shadingBrightSat, 0, 2, 0.01);
     _sharedGui.addSeparator();
     _sharedGui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
-    _sharedGui.addSlider("Cast jitter", castJitterScale, 0, 32, 0.1);
     _sharedGui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
     _sharedGui.addSelect(
       "Shadow map res",
@@ -124,7 +122,6 @@ effect(() => {
   shadingDarkSat();
   shadingBrightSat();
   shadowMapRes();
-  castJitterScale();
   if (_shadowInitialized) {
     _activePainted?.softInvalidate();
   } else {
@@ -1135,8 +1132,6 @@ class MeshLineMaterial extends ShaderMaterial {
 }
 
 const _lightDir = new Vector3();
-const _lightRight = new Vector3();
-const _lightUp = new Vector3();
 
 function fitShadowCamera(scene, camera, light) {
   // Frozen on first call — r must not change after the initial framing.
@@ -1285,21 +1280,8 @@ MeshLineMaterial.prototype.onBeforeRender = (...args) => {
           .multiplyScalar(r * 2.5);
         scene.userData.__meshlineLightDir.copy(_lightDir);
 
-        // Cast-side jitter — golden-angle disk coverage for soft shadows.
-        const jitterRadius =
-          (castJitterScale() * r) / shadowLight.shadow.mapSize.width;
-        const jitterIndex = scene.userData.__meshlineJitterIndex ?? 0;
-        scene.userData.__meshlineJitterIndex = jitterIndex + 1;
-        const angle = jitterIndex * 2.3999632;
-        _lightRight.setFromMatrixColumn(
-          shadowLight.shadow.camera.matrixWorld,
-          0,
-        );
-        _lightUp.setFromMatrixColumn(shadowLight.shadow.camera.matrixWorld, 1);
-        shadowLight.position
-          .copy(scene.userData.__meshlineShadowBasePos)
-          .addScaledVector(_lightRight, Math.cos(angle) * jitterRadius)
-          .addScaledVector(_lightUp, Math.sin(angle) * jitterRadius);
+        scene.userData.__meshlineJitterIndex = (scene.userData.__meshlineJitterIndex ?? 0) + 1;
+        shadowLight.position.copy(scene.userData.__meshlineShadowBasePos);
 
         // Frustum helper.
         const frustumHelper = scene.userData.__meshlineShadowFrustumHelper;
