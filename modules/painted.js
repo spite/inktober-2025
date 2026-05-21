@@ -29,7 +29,7 @@ import {
   resetPointer,
 } from "./jitter.js";
 import { effect } from "./reactive.js";
-import { registerActivePainted, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow, shadowStrength, showShadowBuffer } from "./three-meshline.js";
+import { registerActivePainted, paperColor, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow, shadowStrength, showShadowBuffer } from "./three-meshline.js";
 import { AdaptivePassTimer } from "./gpu-timer.js";
 
 const fragmentShader = `
@@ -283,6 +283,14 @@ class Painted {
       embossEdge(); embossStrength(); paperStrength(); bumpSize(); bumpShadow(); shadowStrength(); showShadowBuffer();
       if (embossReady) this.compositeNeedsUpdate = true;
       else embossReady = true;
+    });
+
+    // Paper color is baked into the accumulation — needs a full re-accumulation.
+    let colorReady = false;
+    effect(() => {
+      this.backgroundColor.set(paperColor());
+      if (colorReady) this.invalidate();
+      else colorReady = true;
     });
 
     this.invalidate();

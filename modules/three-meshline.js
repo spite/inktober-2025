@@ -45,6 +45,7 @@ const shadingDarkSat = signal(1.5);
 const shadingBrightSat = signal(1.4);
 const shadowMapRes = signal("2048"); // string for select
 
+export const paperColor = signal("#f6f2e9");
 export const embossAngle = signal(1.8);
 export const embossEdge = signal(0.13);
 export const embossStrength = signal(0.67);
@@ -88,6 +89,7 @@ function ensureSharedGUI(scene) {
     _sharedGui.addCheckbox("Shadow frustum", showShadowFrustum);
     _sharedGui.addCheckbox("Shadow buffer", showShadowBuffer);
     _sharedGui.addSeparator();
+    _sharedGui.addColorPicker("Paper color", paperColor);
     _sharedGui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
     _sharedGui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
     _sharedGui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
