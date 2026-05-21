@@ -858,9 +858,8 @@ ShaderChunk["meshline_frag"] = `
     // Direction rotates by the golden angle each frame (guaranteed 2D disk coverage).
     // Blue noise drives the magnitude so samples don't all land on the same circle.
     float _st = frameIndex * 2.3999632;
-    vec2 _sNoiseUV = rot2d( gl_FragCoord.xy / vec2( textureSize( blueNoiseMap, 0 ).xy ), _st );
-    float _sMag = texture( blueNoiseMap, _sNoiseUV ).r;
-    vec2 shadowJitter = vec2( cos( _st ), sin( _st ) ) * _sMag;
+    float _sMag = fract(gradientNoise(gl_FragCoord.xy) + fract(frameIndex * 0.6180339887));
+    vec2 shadowJitter = vec2(cos(_st), sin(_st)) * _sMag;
 
     float shadowFactor = 1.0;
     #pragma unroll_loop_start
