@@ -156,6 +156,9 @@ canvas {
     top: 10px;
     right: 10px;
     width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 }
 
@@ -190,6 +193,9 @@ canvas {
     bottom: 10px;
     left: 10px;
     right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 
     .gui-scroller {
       max-height: 50vh;
