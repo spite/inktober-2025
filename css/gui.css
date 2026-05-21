@@ -93,6 +93,23 @@
   accent-color: white;
 }
 
+.gui input.gui-color {
+  width: calc(100% - 140px);
+  height: 24px;
+  padding: 0;
+  cursor: pointer;
+  background: #3e3e3e;
+  border: 1px solid #555;
+  border-radius: 4px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.gui input.gui-color:focus {
+  border-color: #888;
+}
+
 .gui select {
   width: calc(100% - 140px);
 }

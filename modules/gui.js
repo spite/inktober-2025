@@ -255,6 +255,31 @@ class GUI {
     return this;
   }
 
+  addColorPicker(label, signal, onChange = () => {}, disabled) {
+    const row = this.createRow(label, disabled, () => {
+      const r = Math.floor(Math.random() * 256).toString(16).padStart(2, "0");
+      const g = Math.floor(Math.random() * 256).toString(16).padStart(2, "0");
+      const b = Math.floor(Math.random() * 256).toString(16).padStart(2, "0");
+      signal.set(`#${r}${g}${b}`);
+    });
+    const input = document.createElement("input");
+    input.type = "color";
+    input.className = "gui-color";
+    input.value = signal();
+
+    effect(() => {
+      input.value = signal();
+    });
+
+    input.oninput = (e) => {
+      signal.set(e.target.value);
+      onChange(e.target.value);
+    };
+
+    row.append(input);
+    return this;
+  }
+
   addLabel(label) {
     const row = this.createRow(label);
     return this;
