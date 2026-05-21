@@ -101,7 +101,7 @@ class GUI {
     return this;
   }
 
-  addText(label, initialValue, onChange = () => {}, disabled) {
+  addTextInput(label, initialValue, onChange = () => {}, disabled) {
     const row = this.createRow(label, disabled);
     const input = document.createElement("input");
     input.type = "text";
