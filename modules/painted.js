@@ -30,6 +30,7 @@ import {
 } from "./jitter.js";
 import { effect } from "./reactive.js";
 import { registerActivePainted, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow, shadowStrength, showShadowBuffer } from "./three-meshline.js";
+import { AdaptivePassTimer } from "./gpu-timer.js";
 
 const fragmentShader = `
 precision highp float;
@@ -160,7 +161,7 @@ void main() {
   // Bake background into RGB so zero-alpha clear frames don't darken the accumulation.
   // Keep raw alpha in .a so the composite can use it for bump-shadow edge detection.
   vec4 frame = vec4(mix(backgroundColor, c.rgb, c.a), c.a);
-  float blendWeight = invalidate ? invalidateBlend : max(1.0 / samples, 0.05);
+  float blendWeight = invalidate ? invalidateBlend : 1.0 / samples;
   fragColor = mix(p, frame, blendWeight);
 }`;
 
@@ -199,15 +200,9 @@ paper.wrapS = paper.wrapT = RepeatWrapping;
 class Painted {
   constructor(params = {}) {
     this.maxAccumFrames = 120;
-    this.framesPerFrame = 1;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
-    this._lastInvalidateTime = 0;
-    this._burstFrames = 0;
-    // Burst-on-stop tracking: fire a convergence burst the first render after
-    // the invalidation stream ends (camera stopped or scene finished rebuilding).
-    this._invalidatedThisFrame = false;
-    this._prevFrameWasInvalidated = false;
+    this._passTimer = new AdaptivePassTimer({ budgetMs: 10 });
 
     let w = 1;
     let h = 1;
@@ -299,22 +294,9 @@ class Painted {
 
   invalidate() {
     registerActivePainted(this);
-    const now = performance.now();
-    const timeSinceLastInvalidate = now - this._lastInvalidateTime;
-    this._lastInvalidateTime = now;
-    this._invalidatedThisFrame = true;
-
-    // Calls arriving every frame (~16 ms at 60 fps) are camera-motion via OrbitControls.
-    // Use a soft blend so partial accumulation is preserved across frames — during
-    // deceleration the consecutive frames are nearly identical, so the carryover acts
-    // like a running average and keeps shadows smooth. Old history decays in ~10 frames
-    // (0.5^10 ≈ 0.001) so there is no visible ghosting during fast movement.
-    // Calls arriving after a gap are scene/param rebuilds — wipe clean to avoid ghosts.
-    const isMotion = timeSinceLastInvalidate < 50;
-    const blendWeight = isMotion ? 0.5 : 1.0;
 
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
-    this.rawAccumPass.shader.uniforms.invalidateBlend.value = blendWeight;
+    this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
@@ -322,7 +304,6 @@ class Painted {
   }
 
   softInvalidate() {
-    this._invalidatedThisFrame = true;
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
     this.rawAccumPass.shader.uniforms.invalidateBlend.value = 0.5;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
@@ -341,17 +322,7 @@ class Painted {
     this.invalidate();
   }
 
-  render(renderer, scene, camera) {
-    // Detect the first render frame where the invalidation stream has ended
-    // (camera stopped moving, or scene finished rebuilding). Fire a burst of
-    // full jitter cycles so shadows converge in ~8 display frames instead of
-    // drifting slowly. This runs even if we early-return below so state stays correct.
-    if (this._prevFrameWasInvalidated && !this._invalidatedThisFrame && this._burstFrames === 0) {
-      this._burstFrames = 8;
-    }
-    this._prevFrameWasInvalidated = this._invalidatedThisFrame;
-    this._invalidatedThisFrame = false;
-
+  render(renderer, scene, camera, frameStart = performance.now()) {
     const needsAccum = this.frames <= this.maxAccumFrames;
     if (!needsAccum && !this.compositeNeedsUpdate) {
       this._drawShadowPreview(renderer, scene);
@@ -388,12 +359,10 @@ class Painted {
         renderer.render(scene, camera);
         renderer.setRenderTarget(null);
       }
-      let framesThisTick = this.framesPerFrame;
-      if (this._burstFrames > 0) {
-        framesThisTick = 8;
-        this._burstFrames--;
-      }
-      for (let i = 0; i < framesThisTick; i++) {
+      this._passTimer.beginFrame(renderer, frameStart);
+      this._passTimer.beginPasses();
+      let passesRun = 0;
+      while (this._passTimer.shouldContinue(passesRun) && this.frames <= this.maxAccumFrames) {
         updateProjectionMatrixJitter(camera, this.size);
         this.frames++;
 
@@ -408,7 +377,9 @@ class Painted {
         this.rawAccumPass.shader.uniforms.samples.value++;
 
         incPointer();
+        passesRun++;
       }
+      this._passTimer.endPasses(passesRun);
     }
 
     // Composite runs once on the fully (or partially) accumulated raw result.
