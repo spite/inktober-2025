@@ -622,7 +622,6 @@ ShaderChunk["meshline_vert"] = `
   #endif
 
   ${ShaderChunk.logdepthbuf_vertex}
-  ${ShaderChunk.fog_vertex}
   vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
   ${ShaderChunk.fog_vertex}
   }
@@ -905,11 +904,10 @@ class MeshLineMaterial extends ShaderMaterial {
         sizeAttenuation: { value: 1 },
         depthWrite: { value: 1 },
         depthTest: { value: 1 },
-        dashArray: { value: 0 },
+        dashArray: { value: new Vector2(1, 1) },
         dashOffset: { value: 0 },
         offset: { value: 0 },
         dashRatio: { value: 0.5 },
-        dashArray: { value: new Vector2(1, 1) },
         useDash: { value: 0 },
         visibility: { value: 1 },
         alphaTest: { value: 0 },
@@ -1122,7 +1120,7 @@ class MeshLineMaterial extends ShaderMaterial {
           return this.uniforms.time.value;
         },
         set: function (value) {
-          this.uniforms.time.value.copy(value);
+          this.uniforms.time.value = value;
         },
       },
     });
@@ -1175,12 +1173,8 @@ export function setShadowRadius(scene, r) {
   if (light) _applyShadowRadius(scene, light, r); // apply if light already exists
 }
 
-MeshLineMaterial.prototype.onBeforeRender = (...args) => {
-  const renderer = args[0];
-  const scene = args[1];
-  const camera = args[2];
+MeshLineMaterial.prototype.onBeforeRender = (renderer, scene, camera, _geometry, mesh) => {
   const canvas = renderer.domElement;
-  const mesh = args[4];
   const t = scene.userData.__meshlineFrameTime ?? performance.now() / 1000;
   ensureSharedGUI(scene);
 
