@@ -109,6 +109,7 @@ function ensureSharedGUI(scene) {
 let _activePainted = null;
 export function registerActivePainted(painted) {
   _activePainted = painted;
+  painted.backgroundColor.set(paperColor());
 }
 let _shadowInitialized = false;
 effect(() => {
