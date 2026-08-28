@@ -31,6 +31,8 @@ class Grid {
     this.points = new Map();
     this.allPoints = [];
     this.boundingBox = new Box2();
+    // Scratch for getNeighbours' cell lookups; hash() only ever reads x/y off it.
+    this._cell = { x: 0, y: 0 };
   }
 
   add(position, p) {
@@ -55,7 +57,7 @@ class Grid {
 
   reset() {
     this.points.clear();
-    this.allPoints.lenght = 0;
+    this.allPoints.length = 0;
     this.boundingBox.makeEmpty();
   }
 
@@ -77,16 +79,22 @@ class Grid {
     return 100000;
   }
 
+  // See the note in grid-3d.js: this rebuilt and recopied the result array once per cell
+  // it hit, in a loop the sketches run per point per growth step.
   getNeighbours(p, distance) {
-    let res = [];
+    const res = [];
     const x = Math.round(p.x / this.size) * this.size;
     const y = Math.round(p.y / this.size) * this.size;
-    const cells = distance / this.size;
+    const cell = this._cell;
     for (let i = x - distance; i <= x + distance; i++) {
       for (let j = y - distance; j <= y + distance; j++) {
-        const points = this.get({ x: i, y: j });
+        cell.x = i;
+        cell.y = j;
+        const points = this.get(cell);
         if (points) {
-          res = [...res, ...points];
+          for (let n = 0; n < points.length; n++) {
+            res.push(points[n]);
+          }
         }
       }
     }

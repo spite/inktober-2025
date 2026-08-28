@@ -31,6 +31,8 @@ class Grid {
     this.points = new Map();
     this.allPoints = [];
     this.boundingBox = new Box3();
+    // Scratch for getNeighbours' cell lookups; hash() only ever reads x/y/z off it.
+    this._cell = { x: 0, y: 0, z: 0 };
   }
 
   add(position, p) {
@@ -47,7 +49,7 @@ class Grid {
 
   reset() {
     this.points.clear();
-    this.allPoints.lenght = 0;
+    this.allPoints.length = 0;
     this.boundingBox.makeEmpty();
   }
 
@@ -69,18 +71,29 @@ class Grid {
     return 100000;
   }
 
+  // Called once per point per growth step by the sketches that space their lines out, so
+  // this is about the hottest thing in them. It used to rebuild the whole result array for
+  // every cell it found something in -- `res = [...res, ...points]` allocates a new array
+  // and recopies everything already in it -- across up to 27 cells, plus a throwaway
+  // `{ x, y, z }` for each lookup. Same cells visited in the same order, same array handed
+  // back; it just appends in place and reuses one object to ask with.
   getNeighbours(p, distance) {
-    let res = [];
+    const res = [];
     const x = Math.round(p.x / this.size) * this.size;
     const y = Math.round(p.y / this.size) * this.size;
     const z = Math.round(p.z / this.size) * this.size;
-    const cells = distance / this.size;
+    const cell = this._cell;
     for (let i = x - distance; i <= x + distance; i++) {
       for (let j = y - distance; j <= y + distance; j++) {
         for (let k = z - distance; k <= z + distance; k++) {
-          const points = this.get({ x: i, y: j, z: k });
+          cell.x = i;
+          cell.y = j;
+          cell.z = k;
+          const points = this.get(cell);
           if (points) {
-            res = [...res, ...points];
+            for (let n = 0; n < points.length; n++) {
+              res.push(points[n]);
+            }
           }
         }
       }

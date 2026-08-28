@@ -1,20 +1,9 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector2,
-  Vector3,
-  Color,
-  Matrix4,
-  MeshNormalMaterial,
-  BoxGeometry,
-} from "three";
+import { Scene, Mesh, Group, Vector2, Vector3, Matrix4 } from "three";
 import {
   renderer,
   getCamera,
   isRunning,
   onResize,
-  waitForRender,
   brushes,
   brushOptions,
   addInfo,
@@ -29,8 +18,16 @@ import { pointsOnSphere } from "../modules/points-sphere.js";
 import { MarchingSquares } from "../modules/marching-squares.js";
 import { superShape3D, presets } from "../modules/supershape.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
+import { batch } from "../modules/reactive.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { random, seed } from "../modules/random.js";
 
 const params1 = presets[3].a;
 const params2 = presets[3].b;
@@ -58,32 +55,20 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  lines: signal(defaults.lines),
-  aa: signal(defaults.aa),
-  ab: signal(defaults.ab),
-  am: signal(defaults.am),
-  an1: signal(defaults.an1),
-  an2: signal(defaults.an2),
-  an3: signal(defaults.an3),
-  ba: signal(defaults.ba),
-  bb: signal(defaults.bb),
-  bm: signal(defaults.bm),
-  bn1: signal(defaults.bn1),
-  bn2: signal(defaults.bn2),
-  bn3: signal(defaults.bn3),
-  round: signal(defaults.round),
-  lineWidth: signal(defaults.lineWidth),
-  repeatFactor: signal(defaults.repeatFactor),
-  opacity: signal(defaults.opacity),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI("Isolines IV", document.querySelector("#gui-container"));
 gui.addLabel("Lines generated following the surface of a supershape.");
-gui.addSlider("Lines", params.lines, 10, 300, 1);
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
+rollWithin(
+  gui.addSlider("Lines", params.lines, 10, 300, 1),
+  100, 200, 1,
+);
 gui.addLabel("Shape 1");
 gui.addSlider("A", params.aa, 0.5, 2.5, 0.01);
 gui.addSlider("B", params.ab, 0.5, 2.5, 0.01);
@@ -100,25 +85,40 @@ gui.addSlider("N2", params.bn2, -50, 50, 0.01);
 gui.addSlider("N3", params.bn3, -50, 50, 0.01);
 gui.addCheckbox("Round", params.round);
 
-gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01);
+rollPair(
+  gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01),
+  [0.7, 0.7], [0.7, 1], 0.01,
+);
 gui.addSlider("Repeat factor", params.repeatFactor, 10, 40, 1);
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.5], [1, 1], 0.01,
+);
 
 gui.addSeparator();
 gui.addLabel(
   "Some random combinations might not produce an output. Keep trying.",
 );
-gui.addButton("Randomize params", randomizeParams);
+// The twelve shape sliders above each reroll on their own, but a *good* supershape is not
+// twelve independent numbers — most combinations collapse to something with no surface worth
+// tracing. So after the panel-wide reroll, the pair is drawn together and retried until it
+// encloses enough volume, which is what the old randomizeParams() did with its do/while.
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () => {
+  rollSuperShape();
+  serialize();
+});
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
 const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -128,11 +128,11 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.screenSpacePanning = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position.set(1, 1, 1).multiplyScalar(0.5);
 camera.lookAt(group.position);
@@ -152,10 +152,40 @@ function randomParams() {
   // if (p.n2 === 0) p.n2 = 0.25;
   // if (p.n3 === 0) p.n3 = 0.25;
 
-  p.n1 *= Math.random() > 0.5 ? 1 : -1;
-  p.n2 *= Math.random() > 0.5 ? 1 : -1;
-  p.n3 *= Math.random() > 0.5 ? 1 : -1;
+  p.n1 *= random() > 0.5 ? 1 : -1;
+  p.n2 *= random() > 0.5 ? 1 : -1;
+  p.n3 *= random() > 0.5 ? 1 : -1;
   return p;
+}
+
+// Rejection sampling: generateSuperShape() sets `scale` from the shape's own extent, and a
+// shape that stays under 0.2 has folded in on itself. Cheap enough to just draw again.
+function rollSuperShape() {
+  batch(() => {
+    // Capped: nothing guarantees a draw ever clears the threshold, and an unbounded loop
+    // here runs with no frames in between — a run of bad luck would read as a hung tab.
+    // Giving up leaves the last pair in place, which is what the panel's note is about.
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const a = randomParams();
+      params.aa.set(a.a);
+      params.ab.set(a.b);
+      params.am.set(a.m);
+      params.an1.set(a.n1);
+      params.an2.set(a.n2);
+      params.an3.set(a.n3);
+
+      const b = randomParams();
+      params.ba.set(b.a);
+      params.bb.set(b.b);
+      params.bm.set(b.m);
+      params.bn1.set(b.n1);
+      params.bn2.set(b.n2);
+      params.bn3.set(b.n3);
+
+      generateSuperShape();
+      if (scale >= 0.2) break;
+    }
+  });
 }
 
 function roundParams(p) {
@@ -219,12 +249,6 @@ const SIZE = 5;
 const WIDTH = 200;
 const DEPTH = 200;
 
-const box = new Mesh(
-  new BoxGeometry(SIZE, SIZE, SIZE),
-  new MeshNormalMaterial({ wireframe: true }),
-);
-group.add(box);
-
 let scale = 1;
 let fn;
 
@@ -234,7 +258,7 @@ function generateSuperShape() {
 }
 
 async function generateLines(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const LAYERS = params.lines();
 
@@ -332,17 +356,15 @@ async function generateLines(abort) {
   }
 }
 
-generateSuperShape();
 group.scale.setScalar(0.1);
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateLines(abortController.signal);
+const rebuild = createRebuilder(clearScene, (signal) => {
+  // Inside the rebuild, not once at import: generateSuperShape() reads the twelve shape
+  // signals through map(), so this is what subscribes the rebuild to them — and what keeps
+  // `fn` and `scale` in step with the sliders rather than frozen at their startup values.
+  generateSuperShape();
+  return generateLines(signal);
 });
 
 function clearScene() {
@@ -351,8 +373,8 @@ function clearScene() {
     mesh.mesh.material.dispose();
     group.remove(mesh.mesh);
   }
-  for (const el of group.children) {
-    group.remove(el);
+  while (group.children.length) {
+    group.remove(group.children[0]);
   }
   meshes.length = 0;
 }
@@ -361,43 +383,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    do {
-      const a = randomParams();
-      params.aa.set(a.a);
-      params.ab.set(a.b);
-      params.am.set(a.m);
-      params.an1.set(a.n1);
-      params.an2.set(a.n2);
-      params.an3.set(a.n3);
-
-      const b = randomParams();
-      params.ba.set(b.a);
-      params.bb.set(b.b);
-      params.bm.set(b.m);
-      params.bn1.set(b.n1);
-      params.bn2.set(b.n2);
-      params.bn3.set(b.n3);
-
-      generateSuperShape();
-    } while (scale < 0.2);
-
-    params.lines.set(Maf.intRandomInRange(100, 200));
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = 0.5;
-    params.opacity.set([o, 1]);
-    const v = 0.7;
-    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-    params.repeatFactor.set(Maf.intRandomInRange(10, 40));
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -414,20 +403,23 @@ function draw(startTime) {
   // group.rotation.y = 2 * time * Maf.TAU;
   // group.rotation.z = 1.1 * time * Maf.TAU;
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

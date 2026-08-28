@@ -21,6 +21,7 @@ import {
 } from "three";
 import GUI from "./gui.js";
 import { signal, effect } from "./reactive.js";
+import { bindKey } from "guspira";
 
 const loader = new TextureLoader();
 const blueNoise = loader.load("./assets/bluenoise64.png");
@@ -56,15 +57,39 @@ export const shadowStrength = signal(0.2); // blend factor for the 2D ink shadow
 
 // Shared GUI — created lazily, repositioned to end of #gui-container once per scene
 // so it always follows the active sketch's own params panel.
+//
+// It is advanced: shadow modes, luminance ranges and shadow-map resolution are for tuning the
+// look of the renderer, not for playing with a sketch, and having it open alongside the
+// sketch's own panel is what filled the screen. Hidden by default, toggled with A, and the
+// choice is remembered — so it stays out of the way until it is wanted, and stays available
+// once it is.
+const ADVANCED_KEY = "inktober-advanced-rendering";
+const showAdvanced = signal(localStorage.getItem(ADVANCED_KEY) === "1");
+effect(() => localStorage.setItem(ADVANCED_KEY, showAdvanced() ? "1" : "0"));
+
+bindKey("KeyA", () => showAdvanced.set(!showAdvanced.peek()));
+
 let _sharedGui = null;
 const _sharedGuiScenes = new WeakSet();
+let _sharedGuiContainer = null;
+// Called from MeshLineMaterial.onBeforeRender, which three.js runs per mesh per draw call
+// -- so per mesh, per shadow and colour pass, per accumulation pass. A sketch with a couple
+// of thousand lines settling its 120 passes got through a quarter of a million calls in
+// half a minute, every one of them past the first doing nothing but a document.querySelector
+// and two lookups. The already-set-up case now answers without touching the DOM at all, and
+// the container is found once rather than re-queried (only cached once found, so a panel
+// that is not in the document yet is still picked up later).
 function ensureSharedGUI(scene) {
-  const container = document.querySelector("#gui-container");
+  if (_sharedGui && _sharedGuiScenes.has(scene)) return;
+
+  const container =
+    _sharedGuiContainer ??
+    (_sharedGuiContainer = document.querySelector("#gui-container"));
   if (!container) return;
   if (!_sharedGui) {
     _sharedGui = new GUI("Rendering", container);
     _sharedGui.rowsExpanded.set(false);
-    _sharedGui.addSelect("Shadow mode", shadowModeOptions, shadowMode);
+    _sharedGui.addSelect("Shadow mode", shadowMode, shadowModeOptions);
     _sharedGui.addSlider("Intensity", shadowIntensity, 0, 1, 0.01);
     _sharedGui.addSeparator();
     _sharedGui.addSlider("Dark lum", shadingDarkLum, 0, 1, 0.01);
@@ -74,22 +99,18 @@ function ensureSharedGUI(scene) {
     _sharedGui.addSeparator();
     _sharedGui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
     _sharedGui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
-    _sharedGui.addSelect(
-      "Shadow map res",
-      [
-        ["512", "512"],
-        ["1024", "1024"],
-        ["2048", "2048"],
-        ["4096", "4096"],
-      ],
-      shadowMapRes,
-    );
+    _sharedGui.addSelect("Shadow map res", shadowMapRes, [
+      ["512", "512"],
+      ["1024", "1024"],
+      ["2048", "2048"],
+      ["4096", "4096"],
+    ]);
     _sharedGui.addSeparator();
     _sharedGui.addCheckbox("Light arrow", showLightArrow);
     _sharedGui.addCheckbox("Shadow frustum", showShadowFrustum);
     _sharedGui.addCheckbox("Shadow buffer", showShadowBuffer);
     _sharedGui.addSeparator();
-    _sharedGui.addColorPicker("Paper color", paperColor);
+    _sharedGui.addColor("Paper color", paperColor);
     _sharedGui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
     _sharedGui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
     _sharedGui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
@@ -97,7 +118,11 @@ function ensureSharedGUI(scene) {
     _sharedGui.addSlider("Bump size", bumpSize, 0, 30, 0.5);
     _sharedGui.addSlider("Bump shadow", bumpShadow, 0, 1, 0.01);
     _sharedGui.addSlider("Shadow blend", shadowStrength, 0, 1, 0.01);
-    _sharedGui.show();
+
+    // The panel is built either way — doing it lazily on a keypress would mean the first press
+    // appearing to do nothing while two dozen rows were constructed. Only its visibility
+    // follows the flag, and this replaces the unconditional show() that used to be here.
+    effect(() => (showAdvanced() ? _sharedGui.show() : _sharedGui.hide()));
   }
   if (!_sharedGuiScenes.has(scene)) {
     _sharedGuiScenes.add(scene);
@@ -395,12 +420,17 @@ MeshLine.prototype.process = function () {
   this.next.push(v[0], v[1], v[2]);
   this.next.push(v[0], v[1], v[2]);
 
-  // redefining the attribute seems to prevent range errors
-  // if the user sets a differing number of vertices
-  if (
-    !this._attributes ||
-    this._attributes.position.count !== this.positions.length
-  ) {
+  // Redefining the attributes prevents range errors when the caller sets a differing
+  // number of vertices; when the count is unchanged the buffers are refreshed in place,
+  // which is a sub-buffer upload rather than eight fresh allocations and a full one.
+  //
+  // The guard used to compare `position.count` against `this.positions.length`. count is
+  // the number of vertices — array.length / itemSize — so the two were only ever equal
+  // when both were zero, and the reuse branch below had never once run. Every setPoints
+  // reallocated. That is what circle.js's fixed `segments` argument and sketch 31's
+  // ARC_SEGMENTS were written to avoid: 31 redraws every growing arc each frame.
+  const vertexCount = this.positions.length / 3;
+  if (!this._attributes || this._attributes.position.count !== vertexCount) {
     this._attributes = {
       position: new BufferAttribute(new Float32Array(this.positions), 3),
       previous: new BufferAttribute(new Float32Array(this.previous), 3),
@@ -412,20 +442,25 @@ MeshLine.prototype.process = function () {
       counters: new BufferAttribute(new Float32Array(this.counters), 1),
     };
   } else {
-    this._attributes.position.copyArray(new Float32Array(this.positions));
-    this._attributes.position.needsUpdate = true;
-    this._attributes.previous.copyArray(new Float32Array(this.previous));
-    this._attributes.previous.needsUpdate = true;
-    this._attributes.next.copyArray(new Float32Array(this.next));
-    this._attributes.next.needsUpdate = true;
-    this._attributes.side.copyArray(new Float32Array(this.side));
-    this._attributes.side.needsUpdate = true;
-    this._attributes.width.copyArray(new Float32Array(this.width));
-    this._attributes.width.needsUpdate = true;
-    this._attributes.uv.copyArray(new Float32Array(this.uvs));
-    this._attributes.uv.needsUpdate = true;
-    this._attributes.index.copyArray(new Uint16Array(this.indices_array));
-    this._attributes.index.needsUpdate = true;
+    // copyArray takes a plain array — it is `this.array.set(array)` — so the
+    // `new Float32Array(...)` these calls used to be wrapped in allocated a full
+    // throwaway copy of every buffer on the path whose whole point is not to allocate.
+    //
+    // `counters` is refreshed here too. It was the one attribute the branch left alone,
+    // which never showed because the branch was unreachable, but counters is rebuilt by
+    // setPoints on every call and drives the dash pattern through vCounters.
+    const update = (attribute, data) => {
+      attribute.copyArray(data);
+      attribute.needsUpdate = true;
+    };
+    update(this._attributes.position, this.positions);
+    update(this._attributes.previous, this.previous);
+    update(this._attributes.next, this.next);
+    update(this._attributes.side, this.side);
+    update(this._attributes.width, this.width);
+    update(this._attributes.uv, this.uvs);
+    update(this._attributes.counters, this.counters);
+    update(this._attributes.index, this.indices_array);
   }
 
   this.setAttribute("position", this._attributes.position);
@@ -857,12 +892,10 @@ ShaderChunk["meshline_frag"] = `
     c.rgb = mix( c.rgb, applyShading( c.rgb, vDiffuse ), shadingIntensity );
 
   #if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 0
-    // Single jittered tap per frame — temporal accumulation builds soft shadow.
-    // Direction rotates by the golden angle each frame (guaranteed 2D disk coverage).
-    // Blue noise drives the magnitude so samples don't all land on the same circle.
-    float _st = frameIndex * 2.3999632;
-    float _sMag = fract(gradientNoise(gl_FragCoord.xy) + fract(frameIndex * 0.6180339887));
-    vec2 shadowJitter = vec2(cos(_st), sin(_st)) * _sMag;
+    // N taps per frame on a Vogel spiral — each frame advances N steps so the
+    // spiral continues seamlessly across accumulated frames with no gaps.
+    // N taps per pass reduces per-frame variance by sqrt(N) vs a single tap.
+    const int N_SHADOW_TAPS = 4;
 
     float shadowFactor = 1.0;
     #pragma unroll_loop_start
@@ -873,9 +906,17 @@ ShaderChunk["meshline_frag"] = `
 
       bool inFrustum = sc.x >= 0.0 && sc.x <= 1.0 && sc.y >= 0.0 && sc.y <= 1.0;
       if ( inFrustum && sc.z <= 1.0 ) {
-        vec2 jitter = shadowJitter * directionalLightShadows[ i ].shadowRadius
-                      / directionalLightShadows[ i ].shadowMapSize;
-        shadowFactor *= texture2DCompare( directionalShadowMap[ i ], sc.xy + jitter, sc.z );
+        float tapSum = 0.0;
+        for (int s = 0; s < N_SHADOW_TAPS; s++) {
+          float sampleIdx = frameIndex * float(N_SHADOW_TAPS) + float(s);
+          float angle = sampleIdx * 2.3999632;
+          float mag = fract(gradientNoise(gl_FragCoord.xy) + fract(sampleIdx * 0.6180339887));
+          vec2 jitter = vec2(cos(angle), sin(angle)) * mag
+                        * directionalLightShadows[ i ].shadowRadius
+                        / directionalLightShadows[ i ].shadowMapSize;
+          tapSum += texture2DCompare( directionalShadowMap[ i ], sc.xy + jitter, sc.z );
+        }
+        shadowFactor *= tapSum / float(N_SHADOW_TAPS);
       }
     }
     #pragma unroll_loop_end
@@ -1313,7 +1354,10 @@ MeshLineMaterial.prototype.onBeforeRender = (renderer, scene, camera, _geometry,
     mesh.receiveShadow = true;
   }
 
-  // Auto-create a matching depth material for shadow casting.
+  // Auto-create a matching depth material for shadow casting. Paired to the material it
+  // was derived from, so disposing that one disposes this one too -- see the dispose
+  // override below. Nothing else can free it: it is created here, at render time, and the
+  // sketches only ever see mesh.material.
   if (!mesh.customDepthMaterial) {
     const mat = mesh.material;
     mesh.customDepthMaterial = new MeshLineDepthMaterial({
@@ -1323,6 +1367,7 @@ MeshLineMaterial.prototype.onBeforeRender = (renderer, scene, camera, _geometry,
       offset: mat.uniforms.offset?.value ?? 0,
     });
     mesh.customDepthMaterial.lineWidth = mat.lineWidth;
+    mat.__depthMaterial = mesh.customDepthMaterial;
   }
 
   // Keep light direction in sync — written by the scene-level hook each frame.
@@ -1361,6 +1406,21 @@ MeshLineMaterial.prototype.copy = function (source) {
   this.uvOffset.copy(source.uvOffset);
 
   return this;
+};
+
+// Every sketch's clearScene() disposes mesh.material on rebuild, and used to leave the
+// depth material that onBeforeRender had quietly attached to the mesh behind. Nothing
+// referenced it any more and nothing freed it, so each rebuild leaked one shader material
+// per line: with a couple of hundred lines and a slider being dragged, that is thousands of
+// live materials and a program whose usedTimes climbed by ~50 per rebuild and never came
+// back down. Pairing the two here means the existing dispose() calls free both.
+const _disposeMeshLineMaterial = MeshLineMaterial.prototype.dispose;
+MeshLineMaterial.prototype.dispose = function () {
+  if (this.__depthMaterial) {
+    this.__depthMaterial.dispose();
+    this.__depthMaterial = null;
+  }
+  return _disposeMeshLineMaterial.call(this);
 };
 
 class MeshLineDepthMaterial extends ShaderMaterial {

@@ -4,8 +4,6 @@ import {
   Group,
   Vector2,
   Vector3,
-  BoxGeometry,
-  Color,
   MeshNormalMaterial,
 } from "three";
 import {
@@ -26,16 +24,22 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import { pointsOnSphere } from "../modules/points-sphere.js";
 import { curl, generateNoiseFunction } from "../modules/curl.js";
-import { getClosestPoint, opRound, sdTorus } from "../modules/raymarch.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
-import { SphubeSDF } from "../modules/sphube.js";
+import { getClosestPoint, sdTorus } from "../modules/raymarch.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
 import { MarchingCubesGeometry } from "../third_party/MarchingCubesGeometry.js";
 import { MeshSurfaceSampler } from "../third_party/MeshSurfaceSampler.js";
 import { MobiusStrip } from "../modules/MobiusStripSDF.js";
 import { sdGyroid } from "../modules/GyroidSDF.js";
 import { TrefoilSDF } from "../modules/TrefoilSDF.js";
 import { GoursatSurface } from "../modules/GoursatTangleSDF.js";
+import { random, seed } from "../modules/random.js";
 
 const defaults = {
   lines: 1000,
@@ -51,42 +55,14 @@ const defaults = {
   palette: "basic",
 };
 
-const params = {
-  lines: signal(defaults.lines),
-  segments: signal(defaults.segments),
-  sdf: signal(defaults.sdf),
-  dashFactor: signal(defaults.dashFactor),
-  noiseScale: signal(defaults.noiseScale),
-  lineSpread: signal(defaults.lineSpread),
-  lineWidth: signal(defaults.lineWidth),
-  seed: signal(defaults.seed),
-  brush: signal(defaults.brush),
-  opacity: signal(defaults.opacity),
-  palette: signal(defaults.palette),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const trefoil = new TrefoilSDF();
-const sphube = new SphubeSDF();
 const mobiusStrip = new MobiusStrip({ radius: 2, width: 1, twists: 1 });
 const goursat = new GoursatSurface();
-
-function sdDie(p) {
-  const qx = Math.abs(p.x) - 1.0;
-  const qy = Math.abs(p.y) - 1.0;
-  const qz = Math.abs(p.z) - 1.0;
-
-  const mQx = Math.max(qx, 0);
-  const mQy = Math.max(qy, 0);
-  const mQz = Math.max(qz, 0);
-
-  const distBox = Math.sqrt(mQx * mQx + mQy * mQy + mQz * mQz);
-
-  const lenP = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
-
-  const distSphere = lenP - 1.35;
-
-  return Math.max(distBox, distSphere);
-}
 
 const sdfs = {
   torus: {
@@ -139,29 +115,50 @@ const gui = new GUI(
   document.querySelector("#gui-container"),
 );
 gui.addLabel(
-  'Tracing lines folling a curl noise field on the surface of signed distance fields with genus >0 (with "holes").',
+  'Tracing lines following a curl noise field on the surface of signed distance fields with genus >0 (with "holes").',
 );
-gui.addSlider("Segments per line", params.segments, 50, 250, 1);
-gui.addSlider("Lines", params.lines, 1, 1000, 1);
-gui.addSelect("SDF", sdfOptions, params.sdf);
-gui.addSlider("Noise scale", params.noiseScale, 0.4, 4, 0.01);
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
+gui.addSlider("Segments per line", params.segments, 50, 250, 1, {
+  randomizable: false,
+});
+rollWithin(
+  gui.addSlider("Lines", params.lines, 1, 1000, 1),
+  200, 1000, 1,
+);
+gui.addSelect("SDF", params.sdf, sdfOptions);
+rollWithin(
+  gui.addSlider("Noise scale", params.noiseScale, 0.4, 4, 0.01),
+  0.5, 1.5, 0.01,
+);
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.01);
-gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+rollPair(
+  gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01),
+  [0.1, 0.4], [0.6, 1], 0.01,
+);
 gui.addSlider("Dash factor", params.dashFactor, 0.1, 2, 0.01);
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.5], [0.5, 1], 0.01,
+);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -171,10 +168,10 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
@@ -213,22 +210,31 @@ function generateSampler(map) {
   samplerMesh.geometry.computeBoundingBox();
   // group.add(samplerMesh);
 
-  return new MeshSurfaceSampler(samplerMesh).build();
+  // The sampler defaults to Math.random; point it at the sketches' generator so the
+  // points it picks belong to the seed like everything else. See modules/random.js.
+  return new MeshSurfaceSampler(samplerMesh)
+    .setRandomGenerator(random)
+    .build();
 }
 
-for (const sdf in sdfs) {
-  sdfs[sdf].sampler = generateSampler(sdfs[sdf].map);
+// On demand and cached, rather than all of them up front. One sampler is an 80^3 grid —
+// 512k evaluations of an SDF like the Goursat tangle or the trefoil — and building all
+// five at module scope spent 2.5M of them synchronously before the import resolved,
+// locking the tab on arrival to produce four samplers the sketch would never look at.
+function getSampler(id) {
+  const entry = sdfs[id];
+  entry.sampler ??= generateSampler(entry.map);
+  return entry.sampler;
 }
 
 const meshes = [];
 
 async function generateShape(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const POINTS = params.segments();
-  const center = new Vector3(0, 0, 0);
   const LINES = params.lines();
-  const points = pointsOnSphere(LINES).sort((a, b) => Math.random() - 0.5);
+  const points = pointsOnSphere(LINES).sort((a, b) => random() - 0.5);
   const noiseScale = params.noiseScale();
   const sdf = params.sdf();
   const lineSpread = params.lineSpread() / 10;
@@ -237,9 +243,20 @@ async function generateShape(abort) {
   const dashFactor = params.dashFactor();
 
   const gradient = new gradientLinear(getPalette(params.palette()));
+  // Read here rather than in the loop below. Everything past the first `await` runs
+  // outside the effect, so a parameter first touched down there is never subscribed to
+  // and its control cannot trigger a rebuild — the brush dropdown did nothing.
+  const brush = brushes[params.brush()];
   const func = generateNoiseFunction();
 
-  const sampler = sdfs[sdf].sampler;
+  // Yield before the sampler: the first use of an SDF still has to build its grid, and
+  // this lets the cleared scene paint instead of the frame simply stopping. `sdf` was
+  // read synchronously above, so the rebuild is already subscribed to the dropdown.
+  await wait();
+  if (abort.aborted) {
+    return;
+  }
+  const sampler = getSampler(sdf);
 
   for (let j = 0; j < LINES; j++) {
     if (abort.aborted) {
@@ -292,7 +309,7 @@ async function generateShape(abort) {
     var g = new MeshLine();
 
     const material = new MeshLineMaterial({
-      map: brushes[params.brush()],
+      map: brush,
       useMap: true,
       color: gradient.getAt(Maf.randomInRange(0, 1)),
       lineWidth: 0.02 * Maf.randomInRange(lineWidth[0], lineWidth[1]),
@@ -328,14 +345,7 @@ async function generateShape(abort) {
 
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateShape(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateShape);
 
 function clearScene() {
   for (const mesh of meshes) {
@@ -350,29 +360,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.sdf.set(Maf.randomElement(sdfOptions)[0]);
-    params.lines.set(Maf.intRandomInRange(200, 1000));
-    // params.segments.set(Maf.intRandomInRange(200, 500));
-    params.noiseScale.set(Maf.randomInRange(0.5, 1.5));
-    params.lineSpread.set(Maf.randomInRange(0, 1));
-
-    params.lineWidth.set([
-      Maf.randomInRange(0.1, 0.4),
-      Maf.randomInRange(0.6, 1),
-    ]);
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = 0.5;
-    params.opacity.set([o, Maf.randomInRange(o, 1)]);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -387,20 +378,23 @@ function draw(startTime) {
 
   group.rotation.y = time * Maf.TAU;
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

@@ -1,12 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector3,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-} from "three";
+import { Scene, Mesh, Group, Vector3 } from "three";
 import {
   renderer,
   getCamera,
@@ -26,8 +18,15 @@ import { pointsOnSphere } from "../modules/points-sphere.js";
 import perlin from "../third_party/perlin.js";
 import { Grid } from "../modules/grid-3d.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { random, seed } from "../modules/random.js";
 
 const defaults = {
   segments: 100,
@@ -42,18 +41,10 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  segments: signal(defaults.segments),
-  scale: signal(defaults.scale),
-  density: signal(defaults.density),
-  twistiness: signal(defaults.twistiness),
-  delay: signal(defaults.delay),
-  lineWidth: signal(defaults.lineWidth),
-  opacity: signal(defaults.opacity),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI(
   "Flow field lines II",
@@ -62,26 +53,48 @@ const gui = new GUI(
 gui.addLabel(
   "Lines following a flow field of perlin noise on the surface of a sphere.",
 );
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
 gui.addSlider("Max segments", params.segments, 10, 500, 1);
-gui.addSlider("Noise scale", params.scale, 0.01, 0.5, 0.01);
+rollWithin(
+  gui.addSlider("Noise scale", params.scale, 0.01, 0.5, 0.01),
+  0.01, 0.3, 0.01,
+);
 gui.addSlider("Line density", params.density, 0.2, 1, 0.01);
-gui.addSlider("Line twistiness", params.twistiness, 0.01, 5, 0.01);
-gui.addSlider("Growth delay", params.delay, 0, 1, 0.01);
-gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01);
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+rollWithin(
+  gui.addSlider("Line twistiness", params.twistiness, 0.01, 5, 0.01),
+  0.1, 5, 0.01,
+);
+rollWithin(
+  gui.addSlider("Growth delay", params.delay, 0, 1, 0.01),
+  0.1, 1, 0.01,
+);
+rollPair(
+  gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01),
+  [0.7, 0.7], [0.7, 1], 0.01,
+);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.5], [1, 1], 0.01,
+);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -91,11 +104,11 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.screenSpacePanning = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position.set(0, 0, 9.36).multiplyScalar(0.04);
 camera.lookAt(group.position);
@@ -103,18 +116,14 @@ renderer.setClearColor(0, 0);
 
 const RADIUS = 8;
 
-const offset = new Vector3(
-  Maf.randomInRange(-100, 100),
-  Maf.randomInRange(-100, 100),
-  Maf.randomInRange(-100, 100),
-);
-
+// This used to add a second offset of its own, drawn at module scope -- which is to say
+// from the page-level Math.seedrandom(performance.now()) in index.html, before any sketch
+// gets to seed anything. The flow field it sampled was therefore different on every page
+// load, and #sketch=27+params=... never once reproduced the drawing it was a link to.
+// generateFlowLines already draws an offset inside the seeded region and adds it at the
+// call site below, which is the one that was meant to be here.
 function pattern1(x, y, z, scale = 1) {
-  return perlin.simplex3(
-    x * scale + offset.x,
-    y * scale + offset.y,
-    z * scale + offset.z,
-  );
+  return perlin.simplex3(x * scale, y * scale, z * scale);
 }
 
 const meshes = [];
@@ -143,7 +152,7 @@ function intersects(p, line) {
 }
 
 async function generateFlowLines(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   grid.reset();
 
@@ -154,11 +163,15 @@ async function generateFlowLines(abort) {
   const gradient = new gradientLinear(getPalette(params.palette()));
   const lineWidth = params.lineWidth();
   const opacity = params.opacity();
+  // Read here rather than further down. Everything past the first `await` runs outside
+  // the effect, so a parameter first touched down there is never subscribed to and its
+  // control cannot trigger a rebuild — the noise scale slider did nothing.
+  const scale = params.scale();
 
   const points = pointsOnSphere(params.density() * 3000, RADIUS);
   const lines = [];
 
-  points.sort(() => Math.random() - 0.5);
+  points.sort(() => random() - 0.5);
   for (let i = 0; i < points.length; i++) {
     if (i % 1000 === 0) {
       await wait();
@@ -185,7 +198,48 @@ async function generateFlowLines(abort) {
     Maf.randomInRange(-100, 100),
     Maf.randomInRange(-100, 100),
   );
-  const scale = params.scale();
+
+  // Width and opacity are drawn here, in index order, instead of at mesh-creation time.
+  // Lines are emitted as they finish now, which is not index order, and pulling from the
+  // shared seeded stream down there would hand every line a different value than it used
+  // to get. As its own pass, sitting where the old emit loop's draws effectively sat --
+  // the trace below consumes no randomness at all -- the sequence is unchanged, so the
+  // same seed still produces the same drawing.
+  for (let i = 0; i < lines.length; i++) {
+    lines[i].lineWidth = 0.00125 * Maf.randomInRange(lineWidth[0], lineWidth[1]);
+    lines[i].opacity = Maf.randomInRange(opacity[0], opacity[1]);
+  }
+
+  function addLine(i) {
+    const line = lines[i];
+    // A line that intersected on its very first point never got one, and MeshLine divides
+    // by l - 1 for its UVs, so fewer than two points fills the buffers with NaN. The old
+    // build handed those to setPoints as an empty array and added the empty mesh anyway.
+    if (line.points.length < 2) {
+      return;
+    }
+
+    const material = new MeshLineMaterial({
+      map,
+      useMap: true,
+      color: gradient.getAt(i / lines.length),
+      lineWidth: line.lineWidth,
+      opacity: line.opacity,
+    });
+
+    const vertices = [];
+    for (const p of line.points) {
+      vertices.push(p.x, p.y, p.z);
+    }
+    const g = new MeshLine();
+    g.setPoints(vertices);
+
+    const mesh = new Mesh(g.geometry, material);
+    mesh.g = g;
+    group.add(mesh);
+
+    meshes.push({ mesh, offset: 0, speed: 0 });
+  }
 
   let p = 0;
   while (lines.some((l) => l.active === true)) {
@@ -194,6 +248,16 @@ async function generateFlowLines(abort) {
     }
 
     for (let i = 0; i < points.length; i++) {
+      const line = lines[i];
+
+      // Finished lines used to be walked every pass until the last one died, doing
+      // nothing but incrementing a counter they no longer read. Skipping them is also
+      // what makes the emit at the bottom a clean edge: the body below only ever runs on
+      // a line that was still growing when it started.
+      if (!line.active) {
+        continue;
+      }
+
       p++;
 
       if (p % 1000 === 0) {
@@ -204,38 +268,38 @@ async function generateFlowLines(abort) {
         return;
       }
 
-      const segment = lines[i].segment - lines[i].delay;
-      lines[i].segment++;
+      const segment = line.segment - line.delay;
+      line.segment++;
 
       if (segment === 0) {
         let skip = true;
         const pp = points[i];
         if (!intersects(pp, i)) {
-          lines[i].points[0] = pp;
+          line.points[0] = pp;
           grid.add(pp, { point: pp, line: i });
           skip = false;
 
           continue;
         }
         if (skip) {
-          lines[i].active = false;
+          line.active = false;
         }
       }
 
       if (segment > 0) {
         if (segment > SEGMENTS) {
-          lines[i].active = false;
+          line.active = false;
         }
 
-        if (lines[i].active) {
-          o.copy(lines[i].points[lines[i].points.length - 1]);
+        if (line.active) {
+          o.copy(line.points[line.points.length - 1]);
           const p = pattern1(
             scale * o.x + offset.x,
             scale * o.y + offset.y,
             scale * o.z + offset.z,
             1,
           );
-          const a = lines[i].offset + p * twistiness;
+          const a = line.offset + p * twistiness;
           n.copy(o).normalize();
           tan.crossVectors(up, n);
           tan.applyAxisAngle(n, a);
@@ -243,65 +307,33 @@ async function generateFlowLines(abort) {
 
           const t = o.clone().add(tan).normalize().multiplyScalar(RADIUS);
 
-          if (lines[i].active) {
+          if (line.active) {
             if (!intersects(t, i)) {
               grid.add(t, { point: t, line: i });
             } else {
-              lines[i].active = false;
+              line.active = false;
             }
           }
 
-          lines[i].points.push(t);
+          line.points.push(t);
         }
       }
+
+      // Emitted the moment the line stops growing, rather than all at once in a final
+      // pass. Nothing whatsoever used to reach the screen until every one of the ~3000
+      // lines had finished tracing, which is why this sketch alone sat on blank paper for
+      // its entire build while the others filled in as they went.
+      if (!line.active) {
+        addLine(i);
+      }
     }
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    if (i % 40 === 0) {
-      await wait();
-      painted.invalidate();
-    }
-    const material = new MeshLineMaterial({
-      map,
-      useMap: true,
-      color: gradient.getAt(i / lines.length),
-      lineWidth: 0.00125 * Maf.randomInRange(lineWidth[0], lineWidth[1]),
-      opacity: Maf.randomInRange(opacity[0], opacity[1]),
-    });
-
-    const vertices = [];
-    for (const p of lines[i].points) {
-      vertices.push(p.x);
-      vertices.push(p.y);
-      vertices.push(p.z);
-    }
-    var g = new MeshLine();
-    g.setPoints(vertices);
-
-    var mesh = new Mesh(g.geometry, material);
-    mesh.g = g;
-
-    if (abort.aborted) {
-      return;
-    }
-    group.add(mesh);
-
-    meshes.push({ mesh, offset: 0, speed: 0 });
   }
 }
 
 group.scale.setScalar(0.01);
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateFlowLines(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateFlowLines);
 
 function clearScene() {
   for (const mesh of meshes) {
@@ -309,8 +341,8 @@ function clearScene() {
     mesh.mesh.material.dispose();
     group.remove(mesh.mesh);
   }
-  for (const el of group.children) {
-    group.remove(el);
+  while (group.children.length) {
+    group.remove(group.children[0]);
   }
   meshes.length = 0;
 }
@@ -319,25 +351,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.scale.set(Maf.randomInRange(0.01, 0.3));
-    params.density.set(Maf.randomInRange(0.2, 1));
-    params.twistiness.set(Maf.randomInRange(0.1, 5));
-    params.delay.set(Maf.randomInRange(0.1, 1));
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = 0.5;
-    params.opacity.set([o, 1]);
-    const v = 0.7;
-    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -350,20 +367,23 @@ function draw(startTime) {
     m.mesh.material.uniforms.uvOffset.value.x = -(time * m.speed + m.offset);
   });
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

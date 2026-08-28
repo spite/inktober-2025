@@ -149,15 +149,20 @@
         "imports": {
           "maf": "./modules/maf.js",
           "three": "./third_party/three.module.min.js",
-          "OrbitControls": "./third_party/OrbitControls.js"
+          "OrbitControls": "./third_party/OrbitControls.js",
+          "guspira": "./modules/guspira.js"
         }
       }
     </script>
     <!-- <script src="js/CCapture.all.min.js"></script> -->
+    <!-- Provides Math.seedrandom, which modules/random.js uses to build the sketches' own
+         generator. It is deliberately NOT called here any more: this used to be
+         Math.seedrandom(performance.now()), which replaced the global Math.random for the
+         whole page. Anything a module drew at import time then came from it — before any
+         sketch could seed — so those values differed on every load and the seed in the URL
+         could not reproduce the drawing. Math.random is now left alone, which also keeps
+         three.js's UUIDs out of the sketches' stream. -->
     <script src="third_party/seedrandom.js"></script>
-    <script>
-      Math.seedrandom(performance.now());
-    </script>
     <script async type="module" src="modules/inktober.js"></script>
   </body>
 </html>

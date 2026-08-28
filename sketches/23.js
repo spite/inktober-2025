@@ -1,12 +1,4 @@
-import {
-  Scene,
-  Mesh,
-  Group,
-  Vector3,
-  TextureLoader,
-  Color,
-  RepeatWrapping,
-} from "three";
+import { Scene, Mesh, Group, Vector3 } from "three";
 import {
   renderer,
   getCamera,
@@ -26,48 +18,65 @@ import { MarchingSquares } from "../modules/marching-squares.js";
 import perlin from "../third_party/perlin.js";
 import { sphericalToCartesian } from "../modules/conversions.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { seed } from "../modules/random.js";
 
 const defaults = {
   lines: 10,
   scale: 2,
-  depthRange: 0.1,
   opacity: [0.8, 1],
   brush: "brush3",
   palette: "clayForest",
   seed: 13373,
 };
 
-const params = {
-  lines: signal(defaults.lines),
-  scale: signal(defaults.scale),
-  depthRange: signal(defaults.depthRange),
-  opacity: signal(defaults.opacity),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI("Isolines II", document.querySelector("#gui-container"));
-gui.addLabel("Lines generated following isolines an a spherical perlin noise.");
-gui.addSlider("Lines", params.lines, 1, 20, 1);
-gui.addSlider("Scale", params.scale, 0.5, 2.5, 0.01);
+gui.addLabel("Lines generated following isolines on a spherical perlin noise.");
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
+rollWithin(
+  gui.addSlider("Lines", params.lines, 1, 20, 1),
+  10, 20, 1,
+);
+rollWithin(
+  gui.addSlider("Scale", params.scale, 0.5, 2.5, 0.01),
+  0.5, 2, 0.01,
+);
 
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.5], [1, 1], 0.01,
+);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -77,11 +86,11 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.screenSpacePanning = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
@@ -104,7 +113,7 @@ const latSteps = WIDTH;
 const lonSteps = HEIGHT;
 
 async function generateIsoLines(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const LINES = params.lines();
   const noiseScale = params.scale();
@@ -217,14 +226,7 @@ async function generateIsoLines(abort) {
 group.scale.setScalar(0.06);
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateIsoLines(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateIsoLines);
 
 function clearScene() {
   for (const mesh of meshes) {
@@ -232,8 +234,8 @@ function clearScene() {
     mesh.mesh.material.dispose();
     group.remove(mesh.mesh);
   }
-  for (const el of group.children) {
-    group.remove(el);
+  while (group.children.length) {
+    group.remove(group.children[0]);
   }
   meshes.length = 0;
 }
@@ -242,21 +244,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.lines.set(Maf.intRandomInRange(10, 20));
-    params.scale.set(Maf.randomInRange(0.5, 2));
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = 0.5;
-    params.opacity.set([o, 1]);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -271,20 +262,23 @@ function draw(startTime) {
 
   group.rotation.y = time * Maf.TAU;
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

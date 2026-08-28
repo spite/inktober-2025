@@ -68,6 +68,13 @@ function deserialize(data, params, defaults) {
         if (arr.every((v) => !isNaN(v))) params[key].set(arr);
         break;
       }
+      // serialize() writes booleans as "true"/"false"; without this they fell through
+      // the switch and a checkbox never survived a shared link.
+      case "boolean":
+        if (value === "true" || value === "false") {
+          params[key].set(value === "true");
+        }
+        break;
       case "string":
         params[key].set(value);
         break;
@@ -278,8 +285,6 @@ async function init() {
   //   workersPath: 'js/'
   // });
 
-  let startTime = 0;
-
   // function capture() {
   //   capturer.start();
   //   startTime = performance.now();
@@ -290,10 +295,15 @@ async function init() {
   //   e.preventDefault();
   // });
 
-  function update() {
+  // The rAF timestamp is threaded all the way to Painted's pass timer, which budgets
+  // accumulation passes from the start of the frame (see gpu-timer.js). It used to be
+  // handed `startTime`, a variable left at 0 by the disabled capture code, so the budget
+  // was measured from whenever render() happened to be reached — after everything the
+  // sketch had already done that frame.
+  function update(frameStart) {
     requestAnimationFrame(update);
     if (module.index === index) {
-      module.draw(startTime);
+      module.draw(frameStart);
       switching.classList.add("hidden");
     } else {
       switching.classList.remove("hidden");

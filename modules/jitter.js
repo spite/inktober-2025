@@ -1,15 +1,30 @@
 import { PerspectiveCamera, MathUtils } from "three";
 
-const jitterTable = [
-  [0.5625, 0.4375],
-  [0.0625, 0.9375],
-  [0.3125, 0.6875],
-  [0.6875, 0.8124],
-  [0.8125, 0.1875],
-  [0.9375, 0.5625],
-  [0.4375, 0.0625],
-  [0.1875, 0.3125],
-];
+// Sub-pixel camera offsets for the accumulation buffer, as an R2 low-discrepancy
+// sequence — Roberts' 2D generalisation of the golden ratio.
+//
+// This was an 8-entry rook pattern while the accumulator runs 121 passes, and
+// incPointer() wraps on the table length: a static scene therefore sampled the same 8
+// positions fifteen times over. Because the shader keeps a running mean, the average of
+// fifteen repeats of eight values is just the average of those eight, so every pass past
+// the eighth cost a full scene render and added nothing.
+//
+// R2 is used rather than a longer fixed pattern because it is progressive: every prefix
+// of the sequence is well distributed, so the picture is evenly sampled after a handful
+// of frames and keeps improving all the way to the end. A rook pattern is only good at
+// exactly its own length.
+//
+// 128 entries so the sequence never wraps inside one accumulation cycle (121 passes),
+// and centred on zero: sampling a whole pixel to one side is still a one-pixel box
+// filter, but its centroid sits half a pixel off and biases the accumulated image by
+// that much.
+const PLASTIC = 1.32471795724474602596;
+const A1 = 1 / PLASTIC;
+const A2 = 1 / (PLASTIC * PLASTIC);
+const jitterTable = Array.from({ length: 128 }, (_, i) => [
+  ((0.5 + A1 * (i + 1)) % 1) - 0.5,
+  ((0.5 + A2 * (i + 1)) % 1) - 0.5,
+]);
 let jitterPointer = 0;
 
 function makePerspectiveJitter(

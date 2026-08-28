@@ -1,4 +1,4 @@
-import { Scene, Mesh, Group, Vector3, Color } from "three";
+import { Scene, Mesh, Group } from "three";
 import {
   renderer,
   getCamera,
@@ -14,8 +14,10 @@ import { paletteOptions, getPalette } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import GUI from "../modules/gui.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
+import GUI, { addRandomizeParams, setActiveRandomize } from "../modules/gui.js";
+import { effectRAF } from "../modules/reactive.js";
+import { createParams } from "guspira";
+import { seed } from "../modules/random.js";
 
 const defaults = {
   rings: 72,
@@ -29,42 +31,46 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  rings: signal(defaults.rings),
-  ringLength: signal(defaults.ringLength),
-  segments: signal(defaults.segments),
-  tilt: signal(defaults.tilt),
-  spread: signal(defaults.spread),
-  lineWidth: signal(defaults.lineWidth),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the right
+// kind and hands back an object keyed exactly the same way, so inktober.js's serialize() and
+// reset() go on working against it untouched.
+//
+// No easing here. A value that travels re-runs whatever reads it on every frame of the
+// journey, and what reads these is a full rebuild of every ribbon — so a morphing reroll would
+// be a stuttering one. Easing belongs in the sketches whose parameters are uniforms.
+const params = createParams(defaults);
 
 const gui = new GUI("Annular sphere", document.querySelector("#gui-container"));
 gui.addLabel(
   "Lines generated at different heights on the surface of a sphere."
 );
-gui.addSlider("Segments", params.segments, 20, 100, 1);
+// Clicking any label rerolls just that control, within the range declared right here — which
+// is where the old randomizeParams() got its numbers from anyway.
+gui.addSection("Shape");
+gui.addSlider("Segments", params.segments, 20, 100, 1, { randomizable: false });
 gui.addSlider("Rings", params.rings, 1, 200, 1);
 gui.addSlider("Ring length", params.ringLength, 0.1, 2, 0.01);
 gui.addSlider("Tilt", params.tilt, 0, 0.2, 0.01);
 gui.addSlider("Spread", params.spread, 0, 0.2, 0.01);
 gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
 
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
 const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -83,7 +89,6 @@ controls.addEventListener("change", () => {
 camera.position.set(7.8, 3.6, 7.3).multiplyScalar(0.83);
 camera.lookAt(group.position);
 renderer.setClearColor(0, 0);
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 const circles = [];
 const geometry = [];
@@ -99,7 +104,7 @@ function generateRing() {
 }
 
 function generateLines() {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const gradient = new gradientLinear(getPalette(params.palette()));
 
@@ -150,9 +155,8 @@ function generateLines() {
 
 scene.add(group);
 
-generateRing();
-generateLines();
-
+// No eager first build: effectRAF runs its body immediately to collect dependencies, so the
+// pair below would only be torn down again by the effect's own clearScene().
 const sketchEffect = effectRAF(() => {
   clearScene();
   generateRing();
@@ -172,24 +176,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.rings.set(Maf.intRandomInRange(1, 200));
-    // params.segments.set(Maf.intRandomInRange(20, 100));
-    params.tilt.set(Maf.randomInRange(0, 0.2));
-    params.spread.set(Maf.randomInRange(0, 0.2));
-    params.ringLength.set(Maf.randomInRange(0.1, 2));
-    const v = Maf.randomInRange(0.1, 0.9);
-    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw() {
+function draw(frameStart) {
   controls.update();
 
   const t = performance.now();
@@ -204,12 +194,14 @@ function draw() {
 
   group.rotation.x = Maf.PI / 8;
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
 
   lastTime = t;
 }
 
 function start() {
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
   sketchEffect.resume();
   controls.enabled = true;
   gui.show();
@@ -217,6 +209,8 @@ function start() {
 }
 
 function stop() {
+  setActiveRandomize(null);
+  resizeHandler.pause();
   sketchEffect.pause();
   controls.enabled = false;
   gui.hide();

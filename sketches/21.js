@@ -1,4 +1,4 @@
-import { Scene, Mesh, Group, Vector3, Matrix4, Color, Vector2 } from "three";
+import { Scene, Mesh, Group, Vector3, Vector2 } from "three";
 import {
   renderer,
   getCamera,
@@ -15,21 +15,33 @@ import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF, computed, batch } from "../modules/reactive.js";
+import { computed } from "../modules/reactive.js";
 
-import GUI from "../modules/gui.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { seed } from "../modules/random.js";
 
+// `opts` carries the shape values the build captured up front. These used to read
+// params.enneperN() and friends live from inside the loop, which left the captured copies
+// looking unused — while they were in fact the only reason the effect was subscribed to
+// those three sliders at all. Passing them in makes that dependency visible.
 const surfaces = [
   {
     id: "enneper",
     name: "Enneper surface",
-    fn: (u, v, tmp) =>
-      ennerperSurface(u, v, tmp, params.enneperN(), params.enneperRange()),
+    fn: (u, v, tmp, opts) =>
+      ennerperSurface(u, v, tmp, opts.enneperN, opts.enneperRange),
   },
   {
     id: "klein",
     name: 'Klein bottle ("Figure-8" Immersion)',
-    fn: (u, v, tmp) => kleinBottle(u, v, tmp, params.kleinRadius()),
+    fn: (u, v, tmp, opts) => kleinBottle(u, v, tmp, opts.kleinRadius),
   },
   {
     id: "boys",
@@ -55,47 +67,45 @@ const defaults = {
   palette: "florian",
 };
 
-const params = {
-  lines: signal(defaults.lines),
-  segments: signal(defaults.segments),
-  surface: signal(defaults.surface),
-  enneperN: signal(defaults.enneperN),
-  enneperRange: signal(defaults.enneperRange),
-  kleinRadius: signal(defaults.kleinRadius),
-  lineSpread: signal(defaults.lineSpread),
-  lineWidth: signal(defaults.lineWidth),
-  repeatFactor: signal(defaults.repeatFactor),
-  seed: signal(defaults.seed),
-  brush: signal(defaults.brush),
-  opacity: signal(defaults.opacity),
-  palette: signal(defaults.palette),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI(
   "Minimal and Non-Orientable surfaces",
   document.querySelector("#gui-container"),
 );
 gui.addLabel("Tracing lines over different surfaces.");
-gui.addSlider("Segments per line", params.segments, 200, 500, 1);
-gui.addSlider("Lines", params.lines, 1, 600, 1);
-gui.addSelect("Surface", surfaceOptions, params.surface);
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
+gui.addSlider("Segments per line", params.segments, 200, 500, 1, {
+  randomizable: false,
+});
+rollWithin(
+  gui.addSlider("Lines", params.lines, 1, 600, 1),
+  50, 500, 1,
+);
+gui.addSelect("Surface", params.surface, surfaceOptions);
 gui.addSlider(
   "Enneper order",
   params.enneperN,
   1,
   4,
   1,
-  undefined,
-  computed(() => params.surface() !== "enneper"),
+  { disabledWhen: computed(() => params.surface() !== "enneper") },
 );
-gui.addSlider(
-  "Enneper range",
-  params.enneperRange,
-  0,
-  4,
-  0.01,
-  undefined,
-  computed(() => params.surface() !== "enneper"),
+rollWithin(
+  gui.addSlider(
+    "Enneper range",
+    params.enneperRange,
+    0,
+    4,
+    0.01,
+    { disabledWhen: computed(() => params.surface() !== "enneper") },
+  ),
+  1, 2, 0.01,
 );
 gui.addSlider(
   "Klein bottle radius",
@@ -103,27 +113,36 @@ gui.addSlider(
   1,
   3,
   0.01,
-  undefined,
-  computed(() => params.surface() !== "klein"),
+  { disabledWhen: computed(() => params.surface() !== "klein") },
 );
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
-gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+rollPair(
+  gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01),
+  [0.1, 0.1], [0.1, 0.9], 0.01,
+);
 gui.addSlider("Repeat factor", params.repeatFactor, 0.1, 2, 0.01);
 
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.5], [0.5, 1], 0.01,
+);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -133,10 +152,10 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
@@ -164,20 +183,6 @@ function ennerperSurface(u, v, target, n = 2, range = 2) {
   target.set(x, z_height, y);
 }
 
-function diniSurface(u, v, target) {
-  const U = u * 2 * Maf.TAU;
-  const V = v * 2 + 0.01;
-
-  const a = 1;
-  const b = 0.2;
-
-  const x = a * Math.cos(U) * Math.sin(V);
-  const z = a * Math.sin(U) * Math.sin(V);
-  const y = a * (Math.cos(V) + Math.log(Math.tan(V / 2))) + b * U;
-
-  target.set(x, y, z).multiplyScalar(0.5);
-}
-
 function kleinBottle(u, v, target, r = 3) {
   const U = u * Maf.TAU;
   const V = v * Maf.TAU;
@@ -193,17 +198,6 @@ function kleinBottle(u, v, target, r = 3) {
   target.set(x, (y * (r + 1)) / 2, z).multiplyScalar(1 / r);
 }
 
-function helicoid(u, v, target) {
-  const U = (u - 0.5) * 2;
-  const V = (v - 0.5) * 2 * Maf.TAU;
-
-  const x = U * Math.cos(V);
-  const z = U * Math.sin(V);
-  const y = V;
-
-  target.set(x, y, z);
-}
-
 function boysSurface(u, v, target) {
   const r = u <= 0 ? 0.0001 : u;
   const theta = v * Maf.TAU;
@@ -216,7 +210,6 @@ function boysSurface(u, v, target) {
 
   const w1 = pow(1);
   const w3 = pow(3);
-  const w4 = pow(4);
   const w5 = pow(5);
   const w6 = pow(6);
 
@@ -260,7 +253,7 @@ function boysSurface(u, v, target) {
 }
 
 async function generateShape(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const gradient = new gradientLinear(getPalette(params.palette()));
 
@@ -271,17 +264,14 @@ async function generateShape(abort) {
   const opacity = params.opacity();
   const lineWidth = params.lineWidth();
   const surface = params.surface();
-  const enneperN = params.enneperN();
-  const enneperRange = params.enneperRange();
-  const kleinRadius = params.kleinRadius();
+  const shape = {
+    enneperN: params.enneperN(),
+    enneperRange: params.enneperRange(),
+    kleinRadius: params.kleinRadius(),
+  };
   const surfaceFn = surfaces.find((s) => s.id === surface).fn;
   const repeatFactor = params.repeatFactor();
 
-  const axis = new Vector3(
-    Maf.randomInRange(-1, 1),
-    Maf.randomInRange(-1, 1),
-    Maf.randomInRange(-1, 1),
-  ).normalize();
 
   const tmp = new Vector3();
 
@@ -300,7 +290,7 @@ async function generateShape(abort) {
 
     for (let i = 0; i < POINTS; i++) {
       const v = Maf.map(0, POINTS - 1, 0, 1, i);
-      surfaceFn(u, v, tmp);
+      surfaceFn(u, v, tmp, shape);
       vertices.push(tmp.x, tmp.y, tmp.z);
     }
 
@@ -351,14 +341,7 @@ async function generateShape(abort) {
 group.scale.setScalar(0.06);
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateShape(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateShape);
 
 function clearScene() {
   for (const mesh of meshes) {
@@ -366,8 +349,8 @@ function clearScene() {
     mesh.mesh.material.dispose();
     group.remove(mesh.mesh);
   }
-  for (const el of group.children) {
-    group.remove(el);
+  while (group.children.length) {
+    group.remove(group.children[0]);
   }
   meshes.length = 0;
 }
@@ -376,29 +359,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.lines.set(Maf.intRandomInRange(50, 500));
-    // params.segments.set(Maf.intRandomInRange(200, 500));
-    params.enneperN.set(Maf.intRandomInRange(1, 4));
-    params.enneperRange.set(Maf.randomInRange(1, 2));
-    params.kleinRadius.set(Maf.randomInRange(1, 3));
-    params.lineSpread.set(Maf.randomInRange(0, 1));
-    const v = 0.1;
-    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = 0.5;
-    params.opacity.set([o, Maf.randomInRange(o, 1)]);
-    params.repeatFactor.set(Maf.randomInRange(0.1, 2));
-    params.surface.set(Maf.randomElement(surfaces).id);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -413,20 +377,23 @@ function draw(startTime) {
 
   group.rotation.y = time * Maf.TAU;
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

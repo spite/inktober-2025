@@ -1,4 +1,4 @@
-import { Scene, Mesh, Group, Vector2, Vector3, Color, Matrix4 } from "three";
+import { Scene, Mesh, Group, Vector2, Vector3, Matrix4 } from "three";
 import {
   renderer,
   getCamera,
@@ -14,8 +14,15 @@ import Maf from "maf";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
+import { effectRAF } from "../modules/reactive.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { random, seed } from "../modules/random.js";
 
 const defaults = {
   lines: 190,
@@ -32,49 +39,54 @@ const defaults = {
   palette: "mysticBliss",
 };
 
-const params = {
-  lines: signal(defaults.lines),
-  segments: signal(defaults.segments),
-  loops: signal(defaults.loops),
-  radius: signal(defaults.radius),
-  radiusSpread: signal(defaults.radiusSpread),
-  lineSpread: signal(defaults.lineSpread),
-  lineWidth: signal(defaults.lineWidth),
-  seed: signal(defaults.seed),
-  brush: signal(defaults.brush),
-  opacity: signal(defaults.opacity),
-  palette: signal(defaults.palette),
-  offset: signal(defaults.offset),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI(
   "Out of phase torus",
   document.querySelector("#gui-container"),
 );
 gui.addLabel("Tracing lines following a torus out of phase.");
-gui.addSlider("Segments per line", params.segments, 100, 500, 1);
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
+gui.addSlider("Segments per line", params.segments, 100, 500, 1, {
+  randomizable: false,
+});
 gui.addSlider("Loops", params.loops, 1, 10, 1);
 gui.addSlider("Offset", params.offset, -0.2, 0.2, 0.01);
-gui.addSlider("Lines", params.lines, 1, 400, 1);
+rollWithin(
+  gui.addSlider("Lines", params.lines, 1, 400, 1),
+  100, 400, 1,
+);
 gui.addSlider("Radius", params.radius, 1, 2, 0.1);
 gui.addSlider("Radius spread", params.radiusSpread, 0, 1, 0.01);
 gui.addSlider("Line spread", params.lineSpread, 0, 1, 0.1);
-gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+rollPair(
+  gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01),
+  [0.1, 0.1], [0.1, 0.9], 0.01,
+);
 
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
 gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -88,7 +100,6 @@ controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position.set(35, 15, -35).multiplyScalar(0.1);
 camera.lookAt(group.position);
@@ -97,7 +108,7 @@ renderer.setClearColor(0, 0);
 const meshes = [];
 
 function generateShape() {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const gradient = new gradientLinear(getPalette(params.palette()));
 
@@ -167,7 +178,7 @@ function generateShape() {
 
     mesh.scale.setScalar(5);
     let speed = Math.floor(Maf.randomInRange(1, 2));
-    if (Math.random() > 0.5) speed *= -1;
+    if (random() > 0.5) speed *= -1;
     meshes.push({ mesh, offset, speed });
   }
   painted.invalidate();
@@ -194,27 +205,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.lines.set(Maf.intRandomInRange(100, 400));
-    params.loops.set(Maf.intRandomInRange(1, 10));
-    // params.segments.set(Maf.intRandomInRange(200, 500));
-    params.radius.set(Maf.randomInRange(1, 2));
-    params.radiusSpread.set(Maf.randomInRange(0, 1));
-    params.lineSpread.set(Maf.randomInRange(0, 1));
-    const v = 0.1;
-    params.lineWidth.set([v, Maf.randomInRange(v, 0.9)]);
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = Maf.randomInRange(0.1, 1);
-    params.opacity.set([o, Maf.randomInRange(o, 1)]);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   const t = performance.now();
   controls.update();
 
@@ -230,11 +224,13 @@ function draw(startTime) {
   group.rotation.y = time * Maf.TAU;
   group.rotation.z = (time * Maf.TAU) / 16;
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
   sketchEffect.resume();
   controls.enabled = true;
   gui.show();
@@ -242,6 +238,8 @@ function start() {
 }
 
 function stop() {
+  setActiveRandomize(null);
+  resizeHandler.pause();
   sketchEffect.pause();
   controls.enabled = false;
   gui.hide();

@@ -1,3 +1,5 @@
+import { random } from "./random.js";
+
 (function () {
   // Module code from underscore.js
 
@@ -234,8 +236,10 @@
     return { lat: Math.asin(z / n), lon: Math.atan2(y, x) };
   };
 
+  // Draws from the sketches' own generator, not the global one, so that a UUID allocated
+  // by three.js mid-build cannot shift the drawing. See modules/random.js.
   Maf.randomInRange = function (min, max) {
-    return min + Math.random() * (max - min);
+    return min + random() * (max - min);
   };
 
   Maf.intRandomInRange = (min, max) => Math.floor(Maf.randomInRange(min, max));

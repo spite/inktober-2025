@@ -1,10 +1,9 @@
-import { Scene, Mesh, Group, Vector3, Vector2, Color } from "three";
+import { Scene, Mesh, Group, Vector3, Vector2 } from "three";
 import {
   renderer,
   getCamera,
   isRunning,
   onResize,
-  wait,
   brushes,
   brushOptions,
   addInfo,
@@ -16,8 +15,15 @@ import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
 import perlin from "../third_party/perlin.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { random, seed } from "../modules/random.js";
 
 const defaults = {
   width: 40,
@@ -35,49 +41,66 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  width: signal(defaults.width),
-  height: signal(defaults.height),
-  tile1Weight: signal(defaults.tile1Weight),
-  tile2Weight: signal(defaults.tile2Weight),
-  tile3Weight: signal(defaults.tile3Weight),
-  noiseScale: signal(defaults.noiseScale),
-  offset: signal(defaults.offset),
-  lineWidth: signal(defaults.lineWidth),
-  repeatFactor: signal(defaults.repeatFactor),
-  opacity: signal(defaults.opacity),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI(
   "Truchet tiles II",
   document.querySelector("#gui-container"),
 );
 gui.addLabel("Lines following a pattern built with triangular Truchet Tiles.");
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
 gui.addSlider("Width", params.width, 1, 80, 1);
 gui.addSlider("Height", params.height, 1, 80, 1);
-gui.addSlider("Tile 1 weight", params.tile1Weight, 0, 1, 0.01);
-gui.addSlider("Tile 2 weight", params.tile2Weight, 0, 1, 0.01);
-gui.addSlider("Tiel 3 weight", params.tile3Weight, 0, 1, 0.01);
-gui.addSlider("Noise scale", params.noiseScale, 0.01, 0.5, 0.01);
-gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01);
-gui.addSlider("Repeat factor", params.repeatFactor, 1, 10, 1);
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+rollWithin(
+  gui.addSlider("Tile 1 weight", params.tile1Weight, 0, 1, 0.01),
+  0.6, 1, 0.01,
+);
+rollWithin(
+  gui.addSlider("Tile 2 weight", params.tile2Weight, 0, 1, 0.01),
+  0, 0.6, 0.01,
+);
+rollWithin(
+  gui.addSlider("Tile 3 weight", params.tile3Weight, 0, 1, 0.01),
+  0.6, 1, 0.01,
+);
+rollWithin(
+  gui.addSlider("Noise scale", params.noiseScale, 0.01, 0.5, 0.01),
+  0.01, 0.3, 0.01,
+);
+rollPair(
+  gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01),
+  [0.7, 0.7], [0.7, 1], 0.01,
+);
+rollWithin(
+  gui.addSlider("Repeat factor", params.repeatFactor, 1, 10, 1),
+  1, 5, 1,
+);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.5], [1, 1], 0.01,
+);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -87,10 +110,10 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position.set(0, 0, 9.36).multiplyScalar(0.2);
 camera.lookAt(group.position);
@@ -127,12 +150,6 @@ class Tile {
 
   render() {
     const [a, b, c] = getTriangleVertices(1 / Math.sqrt(3), this.rot);
-    const borders = [
-      { x: this.x + a.x, y: this.y + a.y },
-      { x: this.x + b.x, y: this.y + b.y },
-      { x: this.x + c.x, y: this.y + c.y },
-      { x: this.x + a.x, y: this.y + a.y },
-    ];
     const p0 = { x: Maf.lerp(a.x, b.x, 1 / 3), y: Maf.lerp(a.y, b.y, 1 / 3) };
     const p1 = { x: Maf.lerp(a.x, b.x, 2 / 3), y: Maf.lerp(a.y, b.y, 2 / 3) };
 
@@ -299,18 +316,19 @@ function mergeSegments(segments) {
 
 function getWeightedOption(items, weights) {
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  let random = Math.random() * totalWeight;
+  // `remaining`, not `random`: that name is now the imported generator.
+  let remaining = random() * totalWeight;
 
   for (let i = 0; i < items.length; i++) {
-    if (random < weights[i]) {
+    if (remaining < weights[i]) {
       return items[i];
     }
-    random -= weights[i];
+    remaining -= weights[i];
   }
 }
 
-async function generateLines() {
-  Math.seedrandom(params.seed());
+async function generateLines(abort) {
+  seed(params.seed());
 
   const noiseScale = params.noiseScale();
   const map = brushes[params.brush()];
@@ -333,7 +351,6 @@ async function generateLines() {
 
   const side = 1;
   const height = side * (Math.sqrt(3) / 2);
-  const R = side / Math.sqrt(3);
   const r = height / 3;
 
   for (let y = 0; y < HEIGHT; y++) {
@@ -386,6 +403,9 @@ async function generateLines() {
 
   let i = 0;
   for (const segment of mergedSegments) {
+    if (abort.aborted) {
+      return;
+    }
     const c =
       perlin.simplex2(
         (segment[0].x * noiseScale) / WIDTH + offset,
@@ -425,14 +445,7 @@ async function generateLines() {
 group.scale.setScalar(0.001);
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateLines(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateLines);
 
 function clearScene() {
   for (const mesh of meshes) {
@@ -440,8 +453,8 @@ function clearScene() {
     mesh.mesh.material.dispose();
     group.remove(mesh.mesh);
   }
-  for (const el of group.children) {
-    group.remove(el);
+  while (group.children.length) {
+    group.remove(group.children[0]);
   }
   meshes.length = 0;
 }
@@ -451,26 +464,10 @@ function randomize() {
   params.offset.set(Maf.randomInRange(-1000, 1000));
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.noiseScale.set(Maf.randomInRange(0.01, 0.3));
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = 0.5;
-    params.opacity.set([o, 1]);
-    const v = 0.7;
-    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-    params.repeatFactor.set(Maf.intRandomInRange(1, 5));
-    params.tile1Weight.set(Maf.randomInRange(0.6, 1));
-    params.tile2Weight.set(Maf.randomInRange(0, 0.6));
-    params.tile3Weight.set(Maf.randomInRange(0.6, 1));
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -483,20 +480,23 @@ function draw(startTime) {
     m.mesh.material.uniforms.uvOffset.value.x = -(time * m.speed + m.offset);
   });
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

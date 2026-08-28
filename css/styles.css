@@ -155,10 +155,26 @@ canvas {
     position: fixed;
     top: 10px;
     right: 10px;
+    /* Bounded, and scrolling. Without a bottom the column simply grew past the window, and
+       since the panels each carry their own scroller there was nothing left to scroll the
+       stack of them — two open panels just ran off the screen. */
+    bottom: 10px;
     width: 380px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  #gui-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Panels keep their natural height inside that column rather than being squeezed to fit. */
+  #gui-container > .gui {
+    flex: 0 0 auto;
   }
 }
 
@@ -193,12 +209,28 @@ canvas {
     bottom: 10px;
     left: 10px;
     right: 10px;
+    /* Anchored to the bottom, so the bound is a max-height rather than a top. dvh, because
+       the mobile address bar makes vh taller than what you can actually see. */
+    max-height: calc(100dvh - 20px);
     display: flex;
     flex-direction: column;
     gap: 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
 
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > .gui {
+      flex: 0 0 auto;
+    }
+
+    /* Each panel still caps its own list, so one long panel cannot push the other off the
+       bottom — but the column above scrolls when both together are too tall. */
     .gui-scroller {
-      max-height: 50vh;
+      max-height: 40vh;
     }
   }
 }

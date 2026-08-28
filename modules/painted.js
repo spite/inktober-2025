@@ -10,6 +10,7 @@ import {
   GLSL3,
   Color,
   UnsignedByteType,
+  HalfFloatType,
   OrthographicCamera,
   Scene,
   Mesh,
@@ -31,6 +32,7 @@ import {
 import { effect } from "./reactive.js";
 import { registerActivePainted, paperColor, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow, shadowStrength, showShadowBuffer } from "./three-meshline.js";
 import { AdaptivePassTimer } from "./gpu-timer.js";
+import { renderer } from "./three.js";
 
 const fragmentShader = `
 precision highp float;
@@ -197,8 +199,24 @@ const paper = loader.load("./assets/Sketchbook.jpg");
 paper.wrapS = paper.wrapT = RepeatWrapping;
 // const paper = loader.load("./assets/Parchment.jpg");
 
+// The accumulation buffer's format. The shader weights each new frame by 1/samples, so
+// by sample 100 a frame contributes 1% — in 8 bits that is below the quantisation step
+// for all but the largest differences, and the picture stops converging long before the
+// passes stop. Half float removes that ceiling, which is what makes a 128-point jitter
+// sequence worth having (see jitter.js).
+//
+// Guarded: RGBA16F is only colour-renderable with one of these extensions, and falling
+// back is better than a blank canvas.
+function accumulationType() {
+  const gl = renderer.getContext();
+  const renderable =
+    gl.getExtension("EXT_color_buffer_float") ||
+    gl.getExtension("EXT_color_buffer_half_float");
+  return renderable ? HalfFloatType : UnsignedByteType;
+}
+
 class Painted {
-  constructor(params = {}) {
+  constructor() {
     this.maxAccumFrames = 120;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
@@ -232,7 +250,9 @@ class Painted {
       fragmentShader: accumFragmentShader,
       glslVersion: GLSL3,
     });
-    this.rawAccumPass = new ShaderPingPongPass(rawAccumShader);
+    this.rawAccumPass = new ShaderPingPongPass(rawAccumShader, {
+      type: accumulationType(),
+    });
 
     // Composite pass — reads the accumulated raw result, applies emboss/paper/etc.
     const shader = new RawShaderMaterial({
@@ -254,12 +274,19 @@ class Painted {
       fragmentShader: fragmentShader,
       glslVersion: GLSL3,
     });
-    this.pass = new ShaderPass(
-      shader, w, h,
-      RGBAFormat, UnsignedByteType,
-      LinearFilter, LinearFilter,
-      ClampToEdgeWrapping, ClampToEdgeWrapping
-    );
+    // ShaderPass takes (shader, options) — this used to be called with a positional
+    // (shader, w, h, format, type, minFilter, magFilter, wrapS, wrapT) list, which handed
+    // `w` over as the options object and dropped the rest. It happened to be invisible
+    // because getFBO's defaults are exactly these values; it would not have stayed
+    // invisible the first time one of them needed to change. Size comes from setSize().
+    this.pass = new ShaderPass(shader, {
+      format: RGBAFormat,
+      type: UnsignedByteType,
+      minFilter: LinearFilter,
+      magFilter: LinearFilter,
+      wrapS: ClampToEdgeWrapping,
+      wrapT: ClampToEdgeWrapping,
+    });
 
     const finalShader = new RawShaderMaterial({
       uniforms: { inputTexture: { value: null } },
@@ -267,7 +294,8 @@ class Painted {
       fragmentShader: finalFragmentShader,
       glslVersion: GLSL3,
     });
-    this.finalPass = new ShaderPass(finalShader);
+    // Renders straight to the canvas, so it needs no target of its own.
+    this.finalPass = new ShaderPass(finalShader, { toScreen: true });
 
     // embossAngle drives the 3D light — needs shadow re-accumulation.
     let angleReady = false;
@@ -301,8 +329,6 @@ class Painted {
   }
 
   invalidate() {
-    registerActivePainted(this);
-
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
     this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;
     this.rawAccumPass.shader.uniforms.samples.value = 1;
@@ -321,6 +347,11 @@ class Painted {
   }
 
   setSize(w, h) {
+    // Every setSize reallocates four full-resolution targets and throws away the
+    // accumulation. three.js's own setSize calls are already no-ops at an unchanged size,
+    // but the invalidate() below is not, so the guard belongs here rather than in them.
+    if (this.size.x === w && this.size.y === h) return;
+
     this.colorFBO.setSize(w, h);
     this.rawAccumPass.setSize(w, h);
     this.pass.setSize(w, h);
@@ -331,6 +362,17 @@ class Painted {
   }
 
   render(renderer, scene, camera, frameStart = performance.now()) {
+    // Claimed here rather than in invalidate(). Only the sketch on screen renders, so this
+    // is the one place that is always the visible instance.
+    //
+    // invalidate() is not: sketch modules are cached, so every Painted ever constructed is
+    // still live with its emboss/paper effects subscribed, and a change to one of those
+    // globals invalidated all of them. Each call re-registered, and the last effect to run
+    // won -- module load order, not what you were looking at. From then on the meshline
+    // shadow params drove some hidden sketch's accumulation and left the visible one
+    // alone.
+    registerActivePainted(this);
+
     const needsAccum = this.frames <= this.maxAccumFrames;
     if (!needsAccum && !this.compositeNeedsUpdate) {
       this._drawShadowPreview(renderer, scene);

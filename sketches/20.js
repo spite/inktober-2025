@@ -3,7 +3,6 @@ import {
   Mesh,
   Group,
   Vector3,
-  Color,
   MeshBasicMaterial,
   BufferGeometry,
 } from "three";
@@ -36,8 +35,15 @@ import {
   loadDodecahedron,
   loadIcosahedron,
 } from "../modules/models.js";
-import GUI from "../modules/gui.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
+import GUI, {
+  addRandomizeParams,
+  rollAscending,
+  rollPair,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { random, seed } from "../modules/random.js";
 
 // Add the extension functions
 BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -60,33 +66,48 @@ const geometries = [
     scale: 1,
   },
 ];
-await Promise.all(
-  geometries.map(async (g) => {
-    return new Promise(async (resolve, reject) => {
-      const geometry = await g.loader();
-      geometry.scale(g.scale, g.scale, g.scale);
-      geometry.computeBoundsTree();
-      const mesh = new Mesh(
-        geometry,
-        new MeshBasicMaterial({ color: 0xf6f2e9 }),
-      );
-      const sampler = new MeshSurfaceSampler(mesh).build();
-      g.geometry = geometry;
-      g.sampler = sampler;
-      resolve();
-    });
-  }),
-);
-
 const geometryOptions = geometries.map((g) => [g.id, g.name]);
+
+// Fetched, parsed, given a BVH and a surface sampler on demand — and only the model the
+// sketch is actually drawing. All four used to be built at module scope behind a
+// top-level await, so opening this sketch paid for Suzanne, the bunny and two polyhedra
+// (one a 1.4MB OBJ) before the import resolved, to then use one of them.
+//
+// The promise is cached rather than the result, so two rebuilds racing on the same model
+// share a single load. That wrapper was also where the old code went wrong: its executor
+// was `async`, which meant a throw inside it — a 404, a malformed OBJ — settled nothing
+// and rejected nothing. The module simply never finished evaluating and the sketch hung
+// on "Switching…" with an empty console. An async function's own promise rejects properly,
+// so the failure now reaches loadModule()'s catch in inktober.js.
+function loadModel(entry) {
+  if (!entry.pending) {
+    entry.pending = (async () => {
+      const geometry = await entry.loader();
+      geometry.scale(entry.scale, entry.scale, entry.scale);
+      geometry.computeBoundsTree();
+      const mesh = new Mesh(geometry, new MeshBasicMaterial({ color: 0xf6f2e9 }));
+      entry.geometry = geometry;
+      // Sampled points come off the sketches' generator, not Math.random, so they are
+      // part of the seed. See modules/random.js.
+      entry.sampler = new MeshSurfaceSampler(mesh)
+        .setRandomGenerator(random)
+        .build();
+    })();
+    // A failure is not cached as a permanent one: clear it so selecting the model again
+    // retries. This also marks the promise handled, so the rejection the caller re-throws
+    // is the only one reported.
+    entry.pending.catch(() => {
+      entry.pending = null;
+    });
+  }
+  return entry.pending;
+}
 
 const defaults = {
   lines: 2000,
   charges: 20,
   segments: 20,
   geometry: "suzanne",
-  chargeRange: 0.01,
-  depthRange: 0.1,
   lineWidth: [0.1, 0.9],
   opacity: [0.8, 1],
   brush: "brush4",
@@ -94,19 +115,10 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  lines: signal(defaults.lines),
-  segments: signal(defaults.segments),
-  geometry: signal(defaults.geometry),
-  charges: signal(defaults.charges),
-  chargeRange: signal(defaults.chargeRange),
-  depthRange: signal(defaults.depthRange),
-  lineWidth: signal(defaults.lineWidth),
-  opacity: signal(defaults.opacity),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI(
   "Electric fields III",
@@ -115,28 +127,39 @@ const gui = new GUI(
 gui.addLabel(
   "Lines generated following an electric field over the surface of SDFs generated from models.",
 );
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
 gui.addSlider("Lines", params.lines, 1, 2000, 1);
 gui.addSlider("Segments", params.segments, 10, 200, 1);
-gui.addSelect("Geometry", geometryOptions, params.geometry);
+gui.addSelect("Geometry", params.geometry, geometryOptions);
 gui.addSlider("Charges", params.charges, 2, 50, 1);
-gui.addSlider("Depth range", params.depthRange, 0, 0.2, 0.01);
-// gui.addSlider("Charge range", params.chargeRange, 0.01, 10, 0.01);
-gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01);
+rollAscending(
+  gui.addRangeSlider("Line width range", params.lineWidth, 0.1, 0.9, 0.01),
+  [0.5, 0.9], 1, 0.01,
+);
 
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.9], [0.9, 1], 0.01,
+);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -146,10 +169,10 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position
   .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
@@ -160,16 +183,30 @@ renderer.setClearColor(0, 0);
 const meshes = [];
 
 async function generateShape(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
+  // Every parameter is read here, in one block, because of the await further down: past
+  // that point we are outside the effect and a read would no longer subscribe the rebuild
+  // to its control. lineWidth, opacity, brush and palette used to be read below the
+  // sampling, which is fine only while nothing above them yields.
   const N = params.segments();
   const LINES = params.lines();
+  const chargeCount = params.charges();
+  const lineWidth = params.lineWidth();
+  const opacity = params.opacity();
+  const map = brushes[params.brush()];
+  const gradient = new gradientLinear(getPalette(params.palette()));
+  const model = geometries.find((g) => g.id === params.geometry());
+
+  await loadModel(model);
+  if (abort.aborted) {
+    return;
+  }
 
   const position = new Vector3();
-  const geometry = geometries.find((g) => g.id === params.geometry());
-  const sampler = geometry.sampler;
+  const sampler = model.sampler;
 
-  const charges = init(params.charges(), 1, 1, 1, 1);
+  const charges = init(chargeCount, 1, 1, 1, 1);
   charges.charges.forEach((p, i) => {
     sampler.sample(position);
     p.x = position.x;
@@ -184,14 +221,6 @@ async function generateShape(abort) {
     points.push(position.clone());
   }
 
-  const lineWidth = params.lineWidth();
-  const opacity = params.opacity();
-
-  const geo = new Float32Array(N * 3);
-
-  const map = brushes[params.brush()];
-  const gradient = new gradientLinear(getPalette(params.palette()));
-
   for (let j = 0; j < LINES; j++) {
     if (abort.aborted) {
       return;
@@ -201,9 +230,9 @@ async function generateShape(abort) {
     }
     painted.invalidate();
 
-    var g = new MeshLine();
-    g.setPoints(geo);
-
+    // The material is built before the vertices purely to keep the order of the random
+    // draws — colour, width, opacity, then offset, then speed — exactly as it was, so a
+    // given seed still produces the same drawing.
     const material = new MeshLineMaterial({
       map,
       useMap: true,
@@ -212,18 +241,8 @@ async function generateShape(abort) {
       opacity: Maf.randomInRange(opacity[0], opacity[1]),
     });
 
-    var mesh = new Mesh(g.geometry, material);
-    mesh.geo = geo;
-    mesh.g = g;
-
-    if (abort.aborted) {
-      return;
-    }
-    group.add(mesh);
-
     const offset = Maf.randomInRange(-1, 0);
     const vertices = new Float32Array(N * 3);
-    const r = 0.1;
 
     let p = points[j].clone();
     const s = 0.02;
@@ -235,7 +254,7 @@ async function generateShape(abort) {
 
       p.add(t);
 
-      geometry.geometry.boundsTree.closestPointToPoint(p, tmp);
+      model.geometry.boundsTree.closestPointToPoint(p, tmp);
 
       p.copy(tmp.point);
       tmp.copy(p);
@@ -243,11 +262,20 @@ async function generateShape(abort) {
       vertices[i * 3 + 1] = p.y;
       vertices[i * 3 + 2] = p.z;
     }
-    mesh.material.uniforms.dashArray.value.set(
-      1,
-      Math.round(Maf.randomInRange(1, 2)),
-    );
-    mesh.g.setPoints(vertices, (p) => Maf.parabola(p, 0.5));
+    // Built once, from the finished vertices. This used to create the MeshLine up front
+    // and fill it with a shared zero-filled buffer first, so every line paid for two full
+    // geometry rebuilds — 2000 of them wasted per generation.
+    const g = new MeshLine();
+    g.setPoints(vertices, (p) => Maf.parabola(p, 0.5));
+
+    const mesh = new Mesh(g.geometry, material);
+    mesh.g = g;
+
+    if (abort.aborted) {
+      return;
+    }
+    group.add(mesh);
+
     const speed = 1 * Math.round(Maf.randomInRange(1, 3));
     meshes.push({ mesh, offset, speed });
   }
@@ -256,14 +284,7 @@ async function generateShape(abort) {
 group.scale.set(0.1, 0.1, 0.1);
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateShape(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateShape);
 
 function clearScene() {
   for (const mesh of meshes) {
@@ -278,25 +299,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.charges.set(Maf.intRandomInRange(2, 50));
-    params.chargeRange.set(Maf.randomInRange(0.01, 10));
-    const v = Maf.randomInRange(0.5, 0.9);
-    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = Maf.randomInRange(0.5, 0.9);
-    params.opacity.set([o, Maf.randomInRange(0.9, 1)]);
-    params.depthRange.set(Maf.randomInRange(0.1, 0.2));
-    params.geometry.set(Maf.randomElement(geometryOptions)[0]);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -314,20 +320,23 @@ function draw(startTime) {
 
   group.rotation.y = time * Maf.TAU;
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

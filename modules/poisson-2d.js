@@ -1,5 +1,6 @@
 import Maf from "maf";
 import { Vector2 } from "three";
+import { random } from "./random.js";
 
 class Poisson2D {
   constructor(width = 512, height = 512, r = 4, k = 30) {
@@ -16,8 +17,8 @@ class Poisson2D {
       this.grid[i] = null;
     }
 
-    const x = Math.random() * width;
-    const y = Math.random() * height;
+    const x = random() * width;
+    const y = random() * height;
     const cell = this.cellIndex(x, y);
     const p = new Vector2(x, y);
     this.grid[cell.index] = p;
@@ -40,7 +41,7 @@ class Poisson2D {
   calculatePoint() {
     //console.log(this.activeList.length);
     if (this.activeList.length > 0) {
-      const randIndex = Math.floor(Math.random() * this.activeList.length);
+      const randIndex = Math.floor(random() * this.activeList.length);
       const pos = this.activeList[randIndex];
 
       let found = false;

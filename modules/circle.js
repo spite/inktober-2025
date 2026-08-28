@@ -1,4 +1,5 @@
 import { Vector3 } from "three";
+import { random } from "./random.js";
 
 export class Circle {
   constructor(options, splitFrequency) {
@@ -19,7 +20,7 @@ export class Circle {
     this.stoppedNegative = false;
     this.points = [];
 
-    this.speed = 0.2 + Math.random() * 0.3;
+    this.speed = 0.2 + random() * 0.3;
     this.lastSpawnProgress = 0;
     this.lastSpawnProgressNegative = 0;
 
@@ -34,7 +35,7 @@ export class Circle {
     const t = Math.min(1, freq / 100);
     const min = 0.2 * (1 - t) + 0.005 * t;
     const max = 0.5 * (1 - t) + 0.02 * t;
-    let val = min + Math.random() * (max - min);
+    let val = min + random() * (max - min);
     if (freq > 100) {
       const t2 = (freq - 100) / 100;
       val *= 1 - t2 * 0.5;
@@ -227,15 +228,17 @@ export class Circle {
     return t < 1e-6 ? [i1] : [i1, i2];
   }
 
-  generatePoints() {
+  // `segments` fixes the sample count instead of scaling it with the arc's current length.
+  // A caller redrawing the arc while it grows wants a constant vertex count: MeshLine
+  // refreshes its attribute buffers in place when the count is unchanged, and reallocates
+  // all seven of them when it is not. Omit it for the adaptive count.
+  generatePoints(segments) {
     this.rendered = true;
     const startAngle = this.progressNegative * Math.PI * 2;
     const endAngle = this.progress * Math.PI * 2;
     const totalAngle = endAngle - startAngle;
-    const numSegments = Math.max(
-      2,
-      Math.floor((256 * totalAngle) / (Math.PI * 2))
-    );
+    const numSegments =
+      segments ?? Math.max(2, Math.floor((256 * totalAngle) / (Math.PI * 2)));
     const newPoints = [];
     for (let i = 0; i <= numSegments; i++) {
       const angle = startAngle + (i / numSegments) * totalAngle;
@@ -265,22 +268,22 @@ export class Circle {
       .addScaledVector(this.v, this.radius * Math.sin(angle));
 
     const axis = currentPos.clone().normalize();
-    const numBranches = Math.random() > 0.7 ? 2 : 1;
+    const numBranches = random() > 0.7 ? 2 : 1;
 
     for (let i = 0; i < numBranches; i++) {
       const side = i === 0 ? 1 : -1;
       const baseAngleRad =
-        (side * 90 + 0.1 + (Math.random() - 0.5) * 2 * branchAngleRange) *
+        (side * 90 + 0.1 + (random() - 0.5) * 2 * branchAngleRange) *
         (Math.PI / 180);
       const tempNormal = this.normal.clone().applyAxisAngle(axis, baseAngleRad);
       const T = new Vector3().crossVectors(tempNormal, currentPos).normalize();
-      const r = minRadius + Math.random() * (maxRadius - minRadius);
+      const r = minRadius + random() * (maxRadius - minRadius);
       const d = Math.sqrt(Math.max(0, 1 - r * r));
       const B = new Vector3().crossVectors(currentPos, T).normalize();
-      const sign = Math.random() > 0.5 ? 1 : -1;
+      const sign = random() > 0.5 ? 1 : -1;
       const newNormal = new Vector3()
         .copy(currentPos)
-        .multiplyScalar(d * (Math.random() > 0.5 ? 1 : -1))
+        .multiplyScalar(d * (random() > 0.5 ? 1 : -1))
         .add(B.clone().multiplyScalar(r * sign))
         .normalize();
 

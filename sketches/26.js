@@ -1,4 +1,4 @@
-import { Scene, Mesh, Group, Vector2, Color } from "three";
+import { Scene, Mesh, Group, Vector2 } from "three";
 import {
   renderer,
   getCamera,
@@ -18,8 +18,15 @@ import perlin from "../third_party/perlin.js";
 import { Poisson2D } from "../modules/poisson-2d.js";
 import { Grid } from "../modules/grid-2d.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
+import GUI, {
+  addRandomizeParams,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { seed } from "../modules/random.js";
 
 const defaults = {
   segments: 100,
@@ -34,44 +41,58 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  segments: signal(defaults.segments),
-  scale: signal(defaults.scale),
-  density: signal(defaults.density),
-  twistiness: signal(defaults.twistiness),
-  delay: signal(defaults.delay),
-  lineWidth: signal(defaults.lineWidth),
-  opacity: signal(defaults.opacity),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI(
   "Flow field lines I",
   document.querySelector("#gui-container"),
 );
 gui.addLabel("Lines following a flow field of perlin noise.");
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+gui.addSection("Shape");
 gui.addSlider("Max segments", params.segments, 10, 500, 1);
-gui.addSlider("Noise scale", params.scale, 0.01, 0.5, 0.01);
+rollWithin(
+  gui.addSlider("Noise scale", params.scale, 0.01, 0.5, 0.01),
+  0.01, 0.3, 0.01,
+);
 gui.addSlider("Line density", params.density, 0.2, 1, 0.01);
-gui.addSlider("Line twistiness", params.twistiness, 0.01, 5, 0.01);
-gui.addSlider("Growth delay", params.delay, 0, 1, 0.01);
-gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01);
-gui.addSeparator();
-gui.addSelect("Brush", brushOptions, params.brush);
-gui.addSelect("Palette", paletteOptions, params.palette);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01);
+rollWithin(
+  gui.addSlider("Line twistiness", params.twistiness, 0.01, 5, 0.01),
+  0.1, 5, 0.01,
+);
+rollWithin(
+  gui.addSlider("Growth delay", params.delay, 0, 1, 0.01),
+  0.1, 1, 0.01,
+);
+rollPair(
+  gui.addRangeSlider("Line width", params.lineWidth, 0.1, 1, 0.01),
+  [0.7, 0.7], [0.7, 1], 0.01,
+);
+gui.addSection("Ink");
+gui.addSelect("Brush", params.brush, brushOptions);
+gui.addSelect("Palette", params.palette, paletteOptions);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.01),
+  [0.5, 0.5], [1, 1], 0.01,
+);
 
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted({ minLevel: -0.2 });
+const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -81,11 +102,11 @@ const camera = getCamera();
 const scene = new Scene();
 const group = new Group();
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
 controls.screenSpacePanning = true;
 controls.addEventListener("change", () => {
   painted.invalidate();
 });
-painted.backgroundColor.set(new Color(0xf6f2e9));
 
 camera.position.set(0, 0, 9.36).multiplyScalar(0.05);
 camera.lookAt(group.position);
@@ -94,44 +115,6 @@ renderer.setClearColor(0, 0);
 const SCALE = 1;
 const WIDTH = 20 / SCALE;
 const HEIGHT = 20 / SCALE;
-
-function fbm(x, y, scale, octaves, lacunarity, gain) {
-  scale = scale || 1;
-  octaves = octaves || 1;
-  lacunarity = lacunarity || 2;
-  gain = gain || 0.5;
-
-  var total = 0;
-  var amplitude = 1;
-  var frequency = 1;
-
-  for (var i = 0; i < octaves; i++) {
-    var v =
-      perlin.simplex2((x / scale) * frequency, (y / scale) * frequency) *
-      amplitude;
-    total = total + v;
-    frequency = frequency * lacunarity;
-    amplitude = amplitude * gain;
-  }
-
-  return total;
-}
-
-function pattern(x, y, scale, octaves, lacunarity, gain) {
-  var q = [
-    fbm(x, y, scale, octaves, lacunarity, gain),
-    fbm(x + 5.2, y + 1.3, scale, octaves, lacunarity, gain),
-  ];
-
-  return fbm(
-    x + 80.0 * q[0],
-    y + 80.0 * q[1],
-    scale,
-    octaves,
-    lacunarity,
-    gain,
-  );
-}
 
 const meshes = [];
 const grid = new Grid(1);
@@ -158,7 +141,7 @@ function intersects(p, line) {
 }
 
 async function generateFlowLines(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const SEGMENTS = params.segments();
   const delay = params.delay() * 5;
@@ -198,6 +181,7 @@ async function generateFlowLines(abort) {
   );
   const scale = params.scale();
 
+
   while (lines.some((l) => l.active === true)) {
     if (abort.aborted) {
       return;
@@ -212,18 +196,17 @@ async function generateFlowLines(abort) {
       lines[i].segment++;
 
       if (segment === 0) {
-        let skip = true;
-        for (let k = 0; k < 10; k++) {
-          const pp = points[i];
-          if (!intersects(pp, i)) {
-            lines[i].points[0] = pp;
-            grid.add(pp, { point: pp, line: i });
-            skip = false;
-            continue;
-          }
-        }
-        if (skip) {
+        // One attempt, not ten. `pp` is the same point on every pass and intersects()
+        // ignores neighbours belonging to this same line, so once the point had been
+        // added the remaining nine retries all trivially succeeded and added it to the
+        // grid again — nine phantom neighbours sitting exactly on the line's own start,
+        // crowding out every line that came near it afterwards.
+        const pp = points[i];
+        if (intersects(pp, i)) {
           lines[i].active = false;
+        } else {
+          lines[i].points[0] = pp;
+          grid.add(pp, { point: pp, line: i });
         }
       }
 
@@ -303,14 +286,7 @@ async function generateFlowLines(abort) {
 group.scale.setScalar(0.01);
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateFlowLines(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateFlowLines);
 
 function clearScene() {
   for (const mesh of meshes) {
@@ -318,8 +294,8 @@ function clearScene() {
     mesh.mesh.material.dispose();
     group.remove(mesh.mesh);
   }
-  for (const el of group.children) {
-    group.remove(el);
+  while (group.children.length) {
+    group.remove(group.children[0]);
   }
   meshes.length = 0;
 }
@@ -328,25 +304,10 @@ function randomize() {
   params.seed.set(performance.now());
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.scale.set(Maf.randomInRange(0.01, 0.3));
-    params.density.set(Maf.randomInRange(0.2, 1));
-    params.twistiness.set(Maf.randomInRange(0.1, 5));
-    params.delay.set(Maf.randomInRange(0.1, 1));
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const o = 0.5;
-    params.opacity.set([o, 1]);
-    const v = 0.7;
-    params.lineWidth.set([v, Maf.randomInRange(v, 1)]);
-  });
-}
-
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -359,20 +320,23 @@ function draw(startTime) {
     m.mesh.material.uniforms.uvOffset.value.x = -(time * m.speed + m.offset);
   });
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }
