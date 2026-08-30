@@ -5,4 +5,4 @@ const loopDuration = 1;
 
 function draw() {}
 
-export { draw, loopDuration, canvas };
+export { draw, loopDuration};

@@ -14,27 +14,14 @@
 // created by the other. ./reactive.js therefore re-exports from here too.
 export { GUI as default, Controller, Section, Tab } from "guspira";
 
-import { randomInRange, bindKey } from "guspira";
+import { randomInRange } from "guspira";
 
-// R rerolls the panel — but only the panel you are looking at.
+// R is bound once, in inktober.js, and runs the sketch's randomize(). It used to be bound
+// here as well, so a single press fired both — the toolbar button rerolled the Shape section
+// and the seed, while R additionally rerolled the whole panel including brush and palette.
+// Two affordances that looked like one, doing different things.
 //
-// guspira's addRandomizeButton binds the key on `window` and unbinds it in gui.destroy().
-// These panels are never destroyed: a sketch module is cached, so the panel it built on
-// your first visit outlives every later one, and stop() only hides it. Visiting five
-// sketches therefore left five live R handlers, and one press rerolled all five — the four
-// you weren't looking at went dirty and rebuilt with parameters you never chose the next
-// time you opened them.
-//
-// One handler lives here instead, and the active sketch says who it belongs to. Sketches
-// build their button with addRandomizeParams() below (which binds no key of its own) and
-// hand the same action to setActiveRandomize() from start(), clearing it in stop().
-let activeRandomize = null;
-bindKey("KeyR", () => activeRandomize?.());
-
-export function setActiveRandomize(fn = null) {
-  activeRandomize = fn;
-}
-
+// The panel's own "Randomize params" button is unchanged; it simply has no keyboard shortcut.
 // addRandomizeButton without the window-wide key binding. Returns the action so start()
 // can register it as the active one.
 export function addRandomizeParams(gui, label, onDone = () => {}) {

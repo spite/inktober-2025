@@ -14,7 +14,7 @@ import {
 } from "../modules/three.js";
 import {
   camera,
-  canvas,
+  clearGroup,
   controls,
   hide,
   painted,
@@ -33,7 +33,6 @@ import GUI, {
   randomizeSection,
   rollPair,
   rollWithin,
-  setActiveRandomize,
 } from "../modules/gui.js";
 import { createParams } from "guspira";
 import { createRebuilder } from "../modules/rebuilder.js";
@@ -222,15 +221,7 @@ group.scale.setScalar(0.06);
 const rebuild = createRebuilder(clearScene, generateIsoLines);
 
 function clearScene() {
-  for (const mesh of meshes) {
-    mesh.mesh.geometry.dispose();
-    mesh.mesh.material.dispose();
-    group.remove(mesh.mesh);
-  }
-  while (group.children.length) {
-    group.remove(group.children[0]);
-  }
-  meshes.length = 0;
+  clearGroup(group, meshes);
 }
 
 function randomize() {
@@ -262,7 +253,6 @@ function draw(frameStart) {
 
 function start() {
   show(group, cameraPose);
-  setActiveRandomize(randomizeParams);
   rebuild.start();
   gui.show();
   painted.invalidate();
@@ -270,10 +260,9 @@ function start() {
 
 function stop() {
   hide();
-  setActiveRandomize(null);
   rebuild.stop();
   gui.hide();
 }
 
 const index = 24;
-export { index, start, stop, draw, randomize, params, defaults, canvas };
+export { index, start, stop, draw, randomize, params, defaults};

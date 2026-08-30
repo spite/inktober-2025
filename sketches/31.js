@@ -13,7 +13,6 @@ import {
 } from "../modules/three.js";
 import {
   camera,
-  canvas,
   controls,
   hide,
   painted,
@@ -29,7 +28,6 @@ import GUI, {
   randomizeSection,
   rollPair,
   rollWithin,
-  setActiveRandomize,
 } from "../modules/gui.js";
 import { createParams } from "guspira";
 import { createRebuilder } from "../modules/rebuilder.js";
@@ -390,7 +388,6 @@ function draw(frameStart) {
 
 function start() {
   show(group, cameraPose);
-  setActiveRandomize(randomizeParams);
   rebuild.start();
   gui.show();
   painted.invalidate();
@@ -398,10 +395,9 @@ function start() {
 
 function stop() {
   hide();
-  setActiveRandomize(null);
   rebuild.stop();
   gui.hide();
 }
 
 const index = 31;
-export { index, start, stop, draw, randomize, params, defaults, canvas };
+export { index, start, stop, draw, randomize, params, defaults};

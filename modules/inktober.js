@@ -1,4 +1,10 @@
 import { effectRAF } from "./reactive.js";
+import { renderer } from "./three.js";
+
+// One canvas for the whole app, added once. Each sketch used to export its own and this file
+// removed and re-added it on every navigation — which, since the stage took ownership, was
+// removing and re-adding the same element.
+document.body.appendChild(renderer.domElement);
 
 let module;
 let index;
@@ -196,8 +202,8 @@ document.getElementById("downloadButton").addEventListener("click", (e) => {
 });
 
 function saveCanvas() {
-  if (module.canvas) {
-    module.canvas.toBlob((blob) => {
+  {
+    renderer.domElement.toBlob((blob) => {
       const url = URL.createObjectURL(blob);
 
       const downloadBtn = document.createElement("a");
@@ -222,7 +228,6 @@ if (isNaN(index) || index === "" || index === undefined) {
 
 async function loadModule() {
   const loaded = await import(`../sketches/${index}.js`);
-  document.body.appendChild(loaded.canvas);
   if (loaded.start) {
     loaded.start();
   }
@@ -263,18 +268,12 @@ async function init() {
     }
     const thisGeneration = ++loadGeneration;
     serializeEffect.pause();
-    try {
-      document.body.removeChild(module.canvas);
-    } catch (e) {}
     if (module.stop) {
       module.stop();
     }
     try {
       const loaded = await loadModule();
       if (thisGeneration !== loadGeneration) {
-        try {
-          document.body.removeChild(loaded.canvas);
-        } catch (e) {}
         if (loaded.stop) {
           loaded.stop();
         }

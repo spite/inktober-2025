@@ -12,7 +12,7 @@ import {
 } from "../modules/three.js";
 import {
   camera,
-  canvas,
+  clearGroup,
   controls,
   hide,
   painted,
@@ -24,8 +24,14 @@ import Maf from "maf";
 import { gradientLinear } from "../modules/gradient.js";
 
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI, { randomizeSection } from "../modules/gui.js";
+import { effectRAF } from "../modules/reactive.js";
+import GUI, {
+  addRandomizeParams,
+  rollAscending,
+  rollWithin,
+  randomizeSection,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
 import { seed } from "../modules/random.js";
 
 const defaults = {
@@ -76,43 +82,38 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  knotP: signal(defaults.knotP),
-  knotQ: signal(defaults.knotQ),
-  sizeRange: signal(defaults.sizeRange),
-  arc: signal(defaults.arc),
-  detail: signal(defaults.detail),
-  ratio: signal(defaults.ratio),
-  spread: signal(defaults.spread),
-  taper: signal(defaults.taper),
-  colorNoise: signal(defaults.colorNoise),
-  lines: signal(defaults.lines),
-  lineWidth: signal(defaults.lineWidth),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed the same way, so serialize() and reset() go on working untouched.
+const params = createParams(defaults);
 
 const gui = new GUI("Torus knot", document.querySelector("#gui-container"));
 const shapeSection = gui.addSection("Shape");
-gui.addSlider("Winding P", params.knotP, 1, 12, 1);
-gui.addSlider("Winding Q", params.knotQ, 0, 12, 1);
-gui.addSlider("Tube ratio", params.ratio, 0.5, 4, 0.05);
-gui.addRangeSlider("Size range", params.sizeRange, 0.05, 0.3, 0.005);
-gui.addSlider("Arc length", params.arc, 0.02, 1, 0.01);
+rollWithin(gui.addSlider("Winding P", params.knotP, 1, 12, 1), 1, 9, 1);
+rollWithin(gui.addSlider("Winding Q", params.knotQ, 0, 12, 1), 0, 9, 1);
+rollWithin(gui.addSlider("Tube ratio", params.ratio, 0.5, 4, 0.05), 1, 3.5, 0.05);
+rollAscending(
+  gui.addRangeSlider("Size range", params.sizeRange, 0.05, 0.3, 0.005),
+  [0.07, 0.2], 0.28, 0.005,
+);
+rollWithin(gui.addSlider("Arc length", params.arc, 0.02, 1, 0.01), 0.05, 0.6, 0.01);
 // A quality knob, so it stays out of the reroll — the same reason Segments is held back in
 // sketches 1, 2, 3 and 17.
 gui.addSlider("Detail", params.detail, 40, 600, 10, { randomizable: false });
-gui.addSlider("Scatter", params.spread, 0, 2.5, 0.05);
-gui.addSlider("Lines", params.lines, 1, 200, 1);
+rollWithin(gui.addSlider("Scatter", params.spread, 0, 2.5, 0.05), 0, 1.5, 0.05);
+rollWithin(gui.addSlider("Lines", params.lines, 1, 200, 1), 10, 120, 1);
 gui.addSection("Ink");
-gui.addRangeSlider("Line width", params.lineWidth, 0.01, 0.5, 0.01);
-gui.addSlider("Taper", params.taper, 0, 1.5, 0.05);
-gui.addSlider("Colour scatter", params.colorNoise, 0, 1, 0.01);
+rollAscending(
+  gui.addRangeSlider("Line width", params.lineWidth, 0.01, 0.5, 0.01),
+  [0.02, 0.25], 0.5, 0.01,
+);
+rollWithin(gui.addSlider("Taper", params.taper, 0, 1.5, 0.05), 0.1, 1, 0.05);
+rollWithin(gui.addSlider("Colour scatter", params.colorNoise, 0, 1, 0.01), 0, 0.6, 0.01);
 gui.addSelect("Brush", params.brush, brushOptions);
 gui.addSelect("Palette", params.palette, paletteOptions);
 gui.addSection("Params");
-gui.addButton("Randomize params", randomizeParams);
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 addInfo(gui);
 
@@ -155,12 +156,7 @@ const cameraPose = new Vector3(5, -2.5, -26);
 
 
 function clearScene() {
-  for (const { mesh } of meshes) {
-    mesh.geometry.dispose();
-    mesh.material.dispose();
-    group.remove(mesh);
-  }
-  meshes.length = 0;
+  clearGroup(group, meshes);
 }
 
 const sketchEffect = effectRAF(() => {
@@ -260,34 +256,6 @@ function draw(startTime) {
   lastTime = t;
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.knotP.set(Maf.intRandomInRange(1, 9));
-    params.knotQ.set(Maf.intRandomInRange(0, 9));
-    const r = Maf.randomInRange(0.07, 0.2);
-    params.sizeRange.set([r, Maf.randomInRange(r, 0.28)]);
-    params.arc.set(Maf.randomInRange(0.05, 0.6));
-    params.spread.set(Maf.randomInRange(0, 1.5));
-    params.ratio.set(Maf.randomInRange(1, 3.5));
-    params.taper.set(Maf.randomInRange(0.1, 1));
-    params.colorNoise.set(Maf.randomInRange(0, 0.6));
-    params.lines.set(Maf.intRandomInRange(10, 120));
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const wMin = Maf.randomInRange(0.02, 0.25);
-    params.lineWidth.set([wMin, Maf.randomInRange(wMin, 0.5)]);
-    params.seed.set(performance.now());
-  });
-}
-
-function reset() {
-  batch(() => {
-    for (const [k, v] of Object.entries(defaults)) {
-      params[k].set(v);
-    }
-  });
-}
-
 function randomize() {
   randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
@@ -307,4 +275,4 @@ function stop() {
 }
 
 const index = 32;
-export { index, start, stop, draw, randomize, params, defaults, canvas };
+export { index, start, stop, draw, randomize, params, defaults};

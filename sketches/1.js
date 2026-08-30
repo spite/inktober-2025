@@ -12,7 +12,6 @@ import {
 } from "../modules/three.js";
 import {
   camera,
-  canvas,
   controls,
   hide,
   painted,
@@ -26,7 +25,6 @@ import { gradientLinear } from "../modules/gradient.js";
 import GUI, {
   addRandomizeParams,
   randomizeSection,
-  setActiveRandomize,
 } from "../modules/gui.js";
 import { effectRAF } from "../modules/reactive.js";
 import { createParams } from "guspira";
@@ -201,7 +199,6 @@ function draw(frameStart) {
 
 function start() {
   show(group, cameraPose);
-  setActiveRandomize(randomizeParams);
   sketchEffect.resume();
   gui.show();
   painted.invalidate();
@@ -209,10 +206,9 @@ function start() {
 
 function stop() {
   hide();
-  setActiveRandomize(null);
   sketchEffect.pause();
   gui.hide();
 }
 
 const index = 1;
-export { index, start, stop, draw, randomize, params, defaults, canvas };
+export { index, start, stop, draw, randomize, params, defaults};

@@ -13,7 +13,7 @@ import {
 } from "../modules/three.js";
 import {
   camera,
-  canvas,
+  clearGroup,
   controls,
   hide,
   painted,
@@ -30,7 +30,6 @@ import GUI, {
   randomizeSection,
   rollPair,
   rollWithin,
-  setActiveRandomize,
 } from "../modules/gui.js";
 import { createParams } from "guspira";
 import { random, seed } from "../modules/random.js";
@@ -201,12 +200,7 @@ const sketchEffect = effectRAF(() => {
 });
 
 function clearScene() {
-  for (const mesh of meshes) {
-    mesh.mesh.geometry.dispose();
-    mesh.mesh.material.dispose();
-    group.remove(mesh.mesh);
-  }
-  meshes.length = 0;
+  clearGroup(group, meshes);
 }
 
 function randomize() {
@@ -241,7 +235,6 @@ function draw(frameStart) {
 
 function start() {
   show(group, cameraPose);
-  setActiveRandomize(randomizeParams);
   sketchEffect.resume();
   gui.show();
   painted.invalidate();
@@ -249,10 +242,9 @@ function start() {
 
 function stop() {
   hide();
-  setActiveRandomize(null);
   sketchEffect.pause();
   gui.hide();
 }
 
 const index = 5;
-export { index, start, stop, draw, randomize, params, defaults, canvas };
+export { index, start, stop, draw, randomize, params, defaults};

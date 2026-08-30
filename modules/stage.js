@@ -65,6 +65,22 @@ export function show(group, pose, { screenSpacePanning = false } = {}) {
   painted.invalidate();
 }
 
+// Empties a sketch's group and releases what it built. Every sketch carried its own copy of
+// this, in three barely-different spellings — the only real variation was whether it also swept
+// group.children afterwards, so this always does.
+//
+// The material.dispose() matters and is not just tidiness: MeshLineMaterial.dispose also frees
+// the customDepthMaterial that onBeforeRender attaches to each mesh, which nothing else owns.
+export function clearGroup(group, meshes = []) {
+  for (const entry of meshes) {
+    const mesh = entry.mesh ?? entry;
+    mesh.geometry?.dispose();
+    mesh.material?.dispose();
+  }
+  while (group.children.length) group.remove(group.children[0]);
+  meshes.length = 0;
+}
+
 export function hide() {
   if (_current) scene.remove(_current);
   _current = null;

@@ -1,4 +1,4 @@
-import { WebGLRenderer, PerspectiveCamera, OrthographicCamera, PCFSoftShadowMap } from "three";
+import { WebGLRenderer, PerspectiveCamera, PCFSoftShadowMap } from "three";
 import { TextureLoader } from "three";
 const loader = new TextureLoader();
 loader.setPath("./assets/");
@@ -53,12 +53,6 @@ function getCamera(fov) {
   return camera;
 }
 
-function getOrthoCamera(w, h) {
-  const camera = new OrthographicCamera(-w, w, h, -h, -100, 100);
-  cameras.push(camera);
-  return camera;
-}
-
 window.addEventListener("resize", () => {
   resize();
 });
@@ -91,10 +85,6 @@ function resize() {
       } else {
         camera.fov = initialFov;
       }
-      camera.updateProjectionMatrix();
-    }
-    if (camera instanceof OrthographicCamera) {
-      camera.aspect = w / h;
       camera.updateProjectionMatrix();
     }
   }
@@ -139,8 +129,8 @@ function addInfo(gui) {
   gui.addText(`<p>
             Click and drag to rotate. Right click and drag to pan. Mousewheel to
             zoom. Click <b>Pause</b> of press <b>Space</b> to toggle animation. Click <b>Randomize</b> or
-            press <b>R</b> to randomize.<br/><br/>
-            In the params panel, click <b>Randomize params</b> or press <b>R</b> to find new shapes.<br/><br/>
+            press <b>R</b> to find a new shape.<br/><br/>
+            In the params panel, click <b>Randomize params</b> to reroll everything, ink included.<br/><br/>
             Click <b>Save</b> or press <b>S</b> to download an image. Press
             <b>Tab</b> to toggle the UI, and <b>A</b> to show the advanced rendering
             controls.<br/><br/>
@@ -154,7 +144,6 @@ export {
   brushOptions,
   getCamera,
   wait,
-  getOrthoCamera,
   isRunning,
   onResize,
   waitForRender,
