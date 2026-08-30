@@ -40,6 +40,10 @@ const sketches = [
 
 function serialize() {
   const params = module.params;
+  // Older sketches predate the params contract and export none at all. Object.keys(null)
+  // throws, and this runs from an effect the moment a sketch loads, so one of them took
+  // the whole page down on arrival rather than merely having nothing to serialize.
+  if (!params) return;
   const fields = [];
   for (const key of Object.keys(params)) {
     fields.push([key, params[key]()]);
@@ -244,6 +248,17 @@ async function init() {
 
   async function reload() {
     if (index === module.index) {
+      // Same sketch, but the hash still moved: serialize() writes a fresh entry on every
+      // parameter change, so the browser's Back button walks through that history without
+      // ever leaving the sketch, and a pasted link can differ from what is on screen only
+      // in its params. Returning early here without applying them left the URL saying one
+      // thing and the drawing showing another.
+      //
+      // No reload is needed for that — the module is already the right one, and the params
+      // are signals, so setting them is what a rebuild keys off anyway.
+      if (params && module.defaults && module.params) {
+        deserialize(params, module.params, module.defaults);
+      }
       return;
     }
     const thisGeneration = ++loadGeneration;

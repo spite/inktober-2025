@@ -21,6 +21,7 @@ import { SphubeSDF } from "../modules/sphube.js";
 
 import GUI, {
   addRandomizeParams,
+  randomizeSection,
   rollPair,
   rollWithin,
   setActiveRandomize,
@@ -53,7 +54,7 @@ const gui = new GUI(
 gui.addLabel("Tracing lines over a sphube.");
 // Clicking any label rerolls just that control, over the range declared right here —
 // which is where the old randomizeParams() got its numbers from.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 gui.addSlider("Segments per line", params.segments, 50, 500, 1, {
   randomizable: false,
 });
@@ -230,6 +231,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
 }
 

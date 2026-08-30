@@ -108,3 +108,25 @@ export function rollPair(controller, [aMin, aMax], [bMin, bMax], step = 0) {
 
   return controller;
 }
+
+// Rerolls just the controls in the given section(s) — what the toolbar's Randomize button
+// reaches for. gui.randomizeAll() covers the whole panel, which is right for the panel's own
+// "Randomize params" button and wrong here: rerolling the ink alongside the form means the
+// palette and brush jump every time you ask for a new shape.
+//
+// Sections are ordinary entries in gui._controllers and every row a section owns lives inside
+// its .body, so membership is a DOM containment test rather than an index range — which keeps
+// working if a section is added to later through gui.into().
+//
+// Skips the same rows randomizeAll() does: those with no randomize (labels, buttons, and the
+// controls declared `randomizable: false`) and those currently disabled by a disabledWhen.
+export function randomizeSection(gui, ...sections) {
+  // randomizeAll() and the label-click path both fire this first; a reroll that skipped it
+  // would silently bypass any onBeforeRandomize a panel had registered.
+  gui._beforeRandomize();
+  for (const c of gui._controllers) {
+    if (!c.randomize || c.row.classList.contains("disabled")) continue;
+    if (!sections.some((s) => s.body.contains(c.row))) continue;
+    c.randomize();
+  }
+}

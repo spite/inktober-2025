@@ -20,6 +20,7 @@ import { sphericalToCartesian } from "../modules/conversions.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import GUI, {
   addRandomizeParams,
+  randomizeSection,
   rollPair,
   rollWithin,
   setActiveRandomize,
@@ -46,7 +47,7 @@ const gui = new GUI("Isolines II", document.querySelector("#gui-container"));
 gui.addLabel("Lines generated following isolines on a spherical perlin noise.");
 // Clicking any label rerolls just that control, over the range declared right here —
 // which is where the old randomizeParams() got its numbers from.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 rollWithin(
   gui.addSlider("Lines", params.lines, 1, 20, 1),
   10, 20, 1,
@@ -241,6 +242,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
 }
 

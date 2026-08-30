@@ -17,6 +17,7 @@ import perlin from "../third_party/perlin.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import GUI, {
   addRandomizeParams,
+  randomizeSection,
   rollPair,
   rollWithin,
   setActiveRandomize,
@@ -53,7 +54,7 @@ const gui = new GUI(
 gui.addLabel("Lines following a pattern built with triangular Truchet Tiles.");
 // Clicking any label rerolls just that control, over the range declared right here —
 // which is where the old randomizeParams() got its numbers from.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 gui.addSlider("Width", params.width, 1, 80, 1);
 gui.addSlider("Height", params.height, 1, 80, 1);
 rollWithin(
@@ -460,6 +461,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
   params.offset.set(Maf.randomInRange(-1000, 1000));
 }

@@ -19,6 +19,7 @@ import { Poisson2D } from "../modules/poisson-2d.js";
 import { init } from "../modules/dipoles-2d.js";
 import GUI, {
   addRandomizeParams,
+  randomizeSection,
   rollPair,
   setActiveRandomize,
 } from "../modules/gui.js";
@@ -49,7 +50,7 @@ const gui = new GUI(
 gui.addLabel("Lines generated following an electric field.");
 // Clicking any label rerolls just that control, over the range declared right here —
 // which is where the old randomizeParams() got its numbers from.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 gui.addSlider("Charges", params.charges, 2, 50, 1);
 gui.addSlider("Charge range", params.chargeRange, 1, 200, 0.1);
 gui.addRangeSlider("Line length", params.lineLength, 1, 100, 1);
@@ -195,6 +196,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
 }
 

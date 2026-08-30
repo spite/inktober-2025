@@ -21,6 +21,7 @@ import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { batch } from "../modules/reactive.js";
 import GUI, {
   addRandomizeParams,
+  randomizeSection,
   rollPair,
   rollWithin,
   setActiveRandomize,
@@ -64,7 +65,7 @@ const gui = new GUI("Isolines IV", document.querySelector("#gui-container"));
 gui.addLabel("Lines generated following the surface of a supershape.");
 // Clicking any label rerolls just that control, over the range declared right here —
 // which is where the old randomizeParams() got its numbers from.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 rollWithin(
   gui.addSlider("Lines", params.lines, 10, 300, 1),
   100, 200, 1,
@@ -380,6 +381,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
 }
 

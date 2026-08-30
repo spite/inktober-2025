@@ -14,7 +14,11 @@ import { paletteOptions, getPalette } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
 import { OrbitControls } from "OrbitControls";
 import { Painted } from "../modules/painted.js";
-import GUI, { addRandomizeParams, setActiveRandomize } from "../modules/gui.js";
+import GUI, {
+  addRandomizeParams,
+  randomizeSection,
+  setActiveRandomize,
+} from "../modules/gui.js";
 import { effectRAF } from "../modules/reactive.js";
 import { createParams } from "guspira";
 import { seed } from "../modules/random.js";
@@ -46,7 +50,7 @@ gui.addLabel(
 );
 // Clicking any label rerolls just that control, within the range declared right here — which
 // is where the old randomizeParams() got its numbers from anyway.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 gui.addSlider("Segments", params.segments, 20, 100, 1, { randomizable: false });
 gui.addSlider("Rings", params.rings, 1, 200, 1);
 gui.addSlider("Ring length", params.ringLength, 0.1, 2, 0.01);
@@ -173,6 +177,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
 }
 

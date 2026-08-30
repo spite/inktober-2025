@@ -16,8 +16,17 @@ import { OrbitControls } from "OrbitControls";
 import { HopfFibration } from "../modules/hopf-fibration.js";
 import { Painted } from "../modules/painted.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
-import { signal, effectRAF, batch } from "../modules/reactive.js";
-import GUI from "../modules/gui.js";
+import GUI, {
+  addRandomizeParams,
+  randomizeSection,
+  rollAscending,
+  rollPair,
+  rollWithin,
+  setActiveRandomize,
+} from "../modules/gui.js";
+import { createParams } from "guspira";
+import { createRebuilder } from "../modules/rebuilder.js";
+import { random, seed } from "../modules/random.js";
 
 const defaults = {
   // Fiber structure
@@ -43,56 +52,86 @@ const defaults = {
   seed: 13373,
 };
 
-const params = {
-  bands: signal(defaults.bands),
-  linesPerBand: signal(defaults.linesPerBand),
-  innerRadius: signal(defaults.innerRadius),
-  outerRadius: signal(defaults.outerRadius),
-  startZ: signal(defaults.startZ),
-  steps: signal(defaults.steps),
-  stepSize: signal(defaults.stepSize),
-  tilt: signal(defaults.tilt),
-  twist: signal(defaults.twist),
-  lineWidth: signal(defaults.lineWidth),
-  lineRepeat: signal(defaults.lineRepeat),
-  dashRatio: signal(defaults.dashRatio),
-  opacity: signal(defaults.opacity),
-  brush: signal(defaults.brush),
-  palette: signal(defaults.palette),
-  seed: signal(defaults.seed),
-};
+// The defaults above are the schema: createParams turns each one into a signal of the
+// right kind, keyed exactly the same way, so inktober.js's serialize() and reset() go on
+// working against it untouched.
+const params = createParams(defaults);
 
 const gui = new GUI("Hopf fibration", document.querySelector("#gui-container"));
 gui.addLabel(
   "Each concentric ring of start points traces one toroidal family of fibers. " +
   "Tilt and Twist rotate the fibration, revealing different cross-sections."
 );
-gui.addSlider("Bands", params.bands, 1, 12, 1);
-gui.addSlider("Lines / band", params.linesPerBand, 3, 60, 1);
-gui.addSlider("Inner radius", params.innerRadius, 0.1, 3, 0.05);
-gui.addSlider("Outer radius", params.outerRadius, 0.2, 6, 0.1);
-gui.addSlider("Start Z", params.startZ, -2, 2, 0.05);
-gui.addSeparator();
-gui.addSlider("Steps", params.steps, 50, 800, 10);
-gui.addSlider("Step size", params.stepSize, 0.005, 0.15, 0.005);
-gui.addSeparator();
-gui.addSlider("Tilt", params.tilt, -Math.PI, Math.PI, 0.01);
-gui.addSlider("Twist", params.twist, -Math.PI, Math.PI, 0.01);
-gui.addSeparator();
-gui.addRangeSlider("Line width", params.lineWidth, 0.001, 0.3, 0.001);
-gui.addRangeSlider("Line repeat", params.lineRepeat, 1, 80, 1);
-gui.addSlider("Dash ratio", params.dashRatio, 0.05, 0.95, 0.05);
+// Clicking any label rerolls just that control, over the range declared right here —
+// which is where the old randomizeParams() got its numbers from.
+const fibersSection = gui.addSection("Fibers");
+rollWithin(gui.addSlider("Bands", params.bands, 1, 12, 1), 3, 10, 1);
+rollWithin(
+  gui.addSlider("Lines / band", params.linesPerBand, 3, 60, 1),
+  8, 40, 1,
+);
+rollWithin(
+  gui.addSlider("Inner radius", params.innerRadius, 0.1, 3, 0.05),
+  0.2, 1.5, 0.05,
+);
+rollWithin(
+  gui.addSlider("Outer radius", params.outerRadius, 0.2, 6, 0.1),
+  1.5, 5, 0.1,
+);
+rollWithin(
+  gui.addSlider("Start Z", params.startZ, -2, 2, 0.05),
+  -1.5, 1.5, 0.05,
+);
+
+const integrationSection = gui.addSection("Integration");
+rollWithin(gui.addSlider("Steps", params.steps, 50, 800, 10), 150, 600, 10);
+rollWithin(
+  gui.addSlider("Step size", params.stepSize, 0.005, 0.15, 0.005),
+  0.02, 0.1, 0.005,
+);
+
+const orientationSection = gui.addSection("Orientation");
+rollWithin(
+  gui.addSlider("Tilt", params.tilt, -Math.PI, Math.PI, 0.01),
+  -Math.PI, Math.PI, 0.01,
+);
+rollWithin(
+  gui.addSlider("Twist", params.twist, -Math.PI, Math.PI, 0.01),
+  -Math.PI, Math.PI, 0.01,
+);
+
+gui.addSection("Ink");
+rollAscending(
+  gui.addRangeSlider("Line width", params.lineWidth, 0.001, 0.3, 0.001),
+  [0.01, 0.05], 0.2, 0.001,
+);
+rollAscending(
+  gui.addRangeSlider("Line repeat", params.lineRepeat, 1, 80, 1),
+  [1, 20], 60, 1,
+);
+rollWithin(
+  gui.addSlider("Dash ratio", params.dashRatio, 0.05, 0.95, 0.05),
+  0.1, 0.9, 0.05,
+);
 gui.addSelect("Brush", params.brush, brushOptions);
 gui.addSelect("Palette", params.palette, paletteOptions);
-gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.05);
-gui.addSeparator();
-gui.addButton("Randomize params", randomizeParams);
+rollPair(
+  gui.addRangeSlider("Opacity", params.opacity, 0.1, 1, 0.05),
+  [0.4, 0.7], [1, 1], 0.05,
+);
+
+gui.addSection("Params");
+const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
+  serialize(),
+);
 gui.addButton("Reset params", reset);
 addInfo(gui);
 
 const painted = new Painted();
 
-onResize((w, h) => {
+// Paused while another sketch is on screen, resumed in start(). The module is cached, so
+// without this every sketch ever visited resizes its Painted on every window resize.
+const resizeHandler = onResize((w, h) => {
   const dPR = renderer.getPixelRatio();
   painted.setSize(w * dPR, h * dPR);
 });
@@ -116,11 +155,14 @@ function clearScene() {
     mesh.material.dispose();
     group.remove(mesh);
   }
+  while (group.children.length) {
+    group.remove(group.children[0]);
+  }
   meshes.length = 0;
 }
 
 async function generateLines(abort) {
-  Math.seedrandom(params.seed());
+  seed(params.seed());
 
   const gradient = new gradientLinear(getPalette(params.palette()));
   const map = brushes[params.brush()];
@@ -196,7 +238,9 @@ async function generateLines(abort) {
       group.add(mesh);
       meshes.push({
         mesh,
-        flowSpeed: Maf.randomInRange(0.3, 1.0) * (Math.random() > 0.5 ? 1 : -1),
+        // random(), not Math.random(): the flow direction belongs to the seed like
+        // everything else here. See modules/random.js.
+        flowSpeed: Maf.randomInRange(0.3, 1.0) * (random() > 0.5 ? 1 : -1),
       });
 
       painted.invalidate();
@@ -206,19 +250,12 @@ async function generateLines(abort) {
 
 scene.add(group);
 
-let abortController = new AbortController();
-
-const sketchEffect = effectRAF(() => {
-  abortController.abort();
-  clearScene();
-  abortController = new AbortController();
-  generateLines(abortController.signal);
-});
+const rebuild = createRebuilder(clearScene, generateLines);
 
 let lastTime = performance.now();
 let time = 0;
 
-function draw(startTime) {
+function draw(frameStart) {
   controls.update();
   const t = performance.now();
 
@@ -232,56 +269,30 @@ function draw(startTime) {
     painted.invalidate();
   }
 
-  painted.render(renderer, scene, camera);
+  painted.render(renderer, scene, camera, frameStart);
   lastTime = t;
 }
 
-function randomizeParams() {
-  batch(() => {
-    params.bands.set(Maf.intRandomInRange(3, 10));
-    params.linesPerBand.set(Maf.intRandomInRange(8, 40));
-    params.innerRadius.set(parseFloat(Maf.randomInRange(0.2, 1.5).toFixed(2)));
-    params.outerRadius.set(parseFloat(Maf.randomInRange(1.5, 5.0).toFixed(2)));
-    params.startZ.set(parseFloat(Maf.randomInRange(-1.5, 1.5).toFixed(2)));
-    params.steps.set(Maf.intRandomInRange(150, 600));
-    params.stepSize.set(parseFloat(Maf.randomInRange(0.02, 0.1).toFixed(3)));
-    params.tilt.set(parseFloat(Maf.randomInRange(-Math.PI, Math.PI).toFixed(2)));
-    params.twist.set(parseFloat(Maf.randomInRange(-Math.PI, Math.PI).toFixed(2)));
-    params.brush.set(Maf.randomElement(brushOptions)[0]);
-    params.palette.set(Maf.randomElement(paletteOptions)[0]);
-    const lwMin = Maf.randomInRange(0.01, 0.05);
-    params.lineWidth.set([lwMin, Maf.randomInRange(lwMin, 0.2)]);
-    const lrMin = Maf.intRandomInRange(1, 20);
-    params.lineRepeat.set([lrMin, Maf.intRandomInRange(lrMin, 60)]);
-    params.dashRatio.set(parseFloat(Maf.randomInRange(0.1, 0.9).toFixed(2)));
-    const opMin = Maf.randomInRange(0.4, 0.7);
-    params.opacity.set([opMin, 1.0]);
-    params.seed.set(performance.now());
-  });
-}
-
-function reset() {
-  batch(() => {
-    for (const [k, v] of Object.entries(defaults)) {
-      params[k].set(v);
-    }
-  });
-}
-
 function randomize() {
+  // Three sections, because this sketch's form is spread across them. Ink and Params are
+  // deliberately not passed.
+  randomizeSection(gui, fibersSection, integrationSection, orientationSection);
   params.seed.set(performance.now());
 }
 
 function start() {
-  sketchEffect.resume();
+  setActiveRandomize(randomizeParams);
+  resizeHandler.resume();
+  rebuild.start();
   controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
-  sketchEffect.pause();
-  abortController.abort();
+  setActiveRandomize(null);
+  resizeHandler.pause();
+  rebuild.stop();
   controls.enabled = false;
   gui.hide();
 }

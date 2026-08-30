@@ -18,6 +18,7 @@ import { MarchingSquares } from "../modules/marching-squares.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import GUI, {
   addRandomizeParams,
+  randomizeSection,
   rollAscending,
   rollPair,
   rollWithin,
@@ -48,7 +49,7 @@ const gui = new GUI("Metaballs", document.querySelector("#gui-container"));
 gui.addLabel("Lines generated following isolines defined by metaballs.");
 // Clicking any label rerolls just that control, over the range declared right here —
 // which is where the old randomizeParams() got its numbers from.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 rollWithin(
   gui.addSlider("Lines", params.lines, 10, 500, 1),
   100, 300, 1,
@@ -297,6 +298,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
 }
 

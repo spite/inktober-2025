@@ -62,4 +62,19 @@ const presets = [
   },
 ];
 
-export { superShape3D, presets };
+// The 2D super formula on its own, taking its coefficients as one object. superShape3D
+// unpacks them itself for the 3D field; the sketches that draw a supershape outline want
+// the plain radius, and imported this name long before it existed here.
+function calculateRadius(phi, params) {
+  return superFormula(
+    phi,
+    params.a,
+    params.b,
+    params.m,
+    params.n1,
+    params.n2,
+    params.n3,
+  );
+}
+
+export { superShape3D, calculateRadius, presets };

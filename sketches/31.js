@@ -17,6 +17,7 @@ import { Painted } from "../modules/painted.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import GUI, {
   addRandomizeParams,
+  randomizeSection,
   rollPair,
   rollWithin,
   setActiveRandomize,
@@ -53,7 +54,7 @@ gui.addLabel(
 );
 // Clicking any label rerolls just that control, over the range declared right here —
 // which is where the old randomizeParams() got its numbers from.
-gui.addSection("Shape");
+const shapeSection = gui.addSection("Shape");
 rollWithin(
   gui.addSlider("Initial lines", params.lines, 10, 500, 1),
   10, 300, 1,
@@ -341,6 +342,7 @@ function clearScene() {
 }
 
 function randomize() {
+  randomizeSection(gui, shapeSection);
   params.seed.set(performance.now());
 }
 
@@ -377,7 +379,13 @@ function draw(frameStart) {
       // invalidate stops too and Painted is finally allowed to accumulate. Holding it
       // open every frame, as this did before, pinned the render at its first noisy
       // sample and the drawing never resolved.
-      if (growing === 0) settled = true;
+      // `circles.length` matters: tick() returns 0 both for "every arc has finished" and
+      // for "there is nothing here yet", and generateLines empties circles before the
+      // await it yields on. A draw landing in that window used to read the empty set as
+      // finished and latch settled for good, so the arcs never grew and the sketch stayed
+      // on blank paper. It only looked fine because arriving with params in the URL
+      // triggers a second rebuild whose timing happens to miss the window.
+      if (growing === 0 && circles.length > 0) settled = true;
       painted.invalidate();
     }
   }
