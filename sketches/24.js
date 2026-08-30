@@ -1,19 +1,29 @@
-import { Scene, Mesh, Group, Vector2, Vector3 } from "three";
+import {
+  Group,
+  Mesh,
+  Vector2,
+  Vector3,
+} from "three";
 import {
   renderer,
-  getCamera,
   isRunning,
-  onResize,
   brushOptions,
   brushes,
   wait,
   addInfo,
 } from "../modules/three.js";
+import {
+  camera,
+  canvas,
+  controls,
+  hide,
+  painted,
+  scene,
+  show,
+} from "../modules/stage.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { gradientLinear } from "../modules/gradient.js";
-import { OrbitControls } from "OrbitControls";
-import { Painted } from "../modules/painted.js";
 import { MarchingSquares } from "../modules/marching-squares.js";
 import perlin from "../third_party/perlin.js";
 import { sphericalToCartesian } from "../modules/conversions.js";
@@ -77,30 +87,15 @@ gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted();
 
 // Paused while another sketch is on screen, resumed in start(). The module is cached, so
 // without this every sketch ever visited resizes its Painted on every window resize.
-const resizeHandler = onResize((w, h) => {
-  const dPR = renderer.getPixelRatio();
-  painted.setSize(w * dPR, h * dPR);
-});
 
-const canvas = renderer.domElement;
-const camera = getCamera();
-const scene = new Scene();
 const group = new Group();
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.addEventListener("change", () => {
-  painted.invalidate();
-});
 
-camera.position
-  .set(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808)
-  .multiplyScalar(1.2);
-camera.lookAt(group.position);
-renderer.setClearColor(0, 0);
+// The pose this sketch is composed to be seen from; stage.show() frames it on every visit.
+const cameraPose = new Vector3(-0.38997204674241887, -0.1646326072361011, 0.3548472598819808).multiplyScalar(1.2);
+
 
 const SCALE = 1;
 const WIDTH = 300 / SCALE;
@@ -223,7 +218,6 @@ async function generateIsoLines(abort) {
 }
 
 group.scale.setScalar(0.06);
-scene.add(group);
 
 const rebuild = createRebuilder(clearScene, generateIsoLines);
 
@@ -267,19 +261,17 @@ function draw(frameStart) {
 }
 
 function start() {
+  show(group, cameraPose);
   setActiveRandomize(randomizeParams);
-  resizeHandler.resume();
   rebuild.start();
-  controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
+  hide();
   setActiveRandomize(null);
-  resizeHandler.pause();
   rebuild.stop();
-  controls.enabled = false;
   gui.hide();
 }
 

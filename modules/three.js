@@ -30,21 +30,11 @@ function getWebGLRenderer() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   return renderer;
 }
-// Resize handlers, one per sketch, registered at sketch module scope.
-//
-// A sketch module is cached, so its handler outlives every visit: after touring the
-// gallery, resize() was calling painted.setSize() — and so a reallocation of four
-// full-resolution render targets plus an invalidate() — on all thirty-one Painted
-// instances, on every sketch load and every window resize. Only one of them is on screen.
-//
-// So a handler is paused while its sketch is not the visible one, and remembers the size
-// it last ran with. resume() replays the resize it slept through, once, if the window
-// changed in the meantime — which is also what keeps three-meshline's _activePainted
-// pointing at the sketch you are actually looking at, since only the active handler now
-// calls invalidate().
+// A plain list. Handlers used to be pausable, because every sketch registered one and
+// module caching kept all 31 alive: a window resize then reallocated the render targets of
+// every sketch ever visited, so each had to be put to sleep while it was off screen. The
+// stage owns the only Painted now, so there is one handler and nothing to pause.
 const resizeHandlers = [];
-let lastWidth = -1;
-let lastHeight = -1;
 
 const renderer = getWebGLRenderer();
 renderer.shadowMap.enabled = true;
@@ -73,52 +63,19 @@ window.addEventListener("resize", () => {
   resize();
 });
 
-function runResizeHandler(handler, w, h) {
-  handler.width = w;
-  handler.height = h;
-  handler.fn(w, h);
-}
-
-// Returns a handle; sketches pause it in stop() and resume it in start().
 function onResize(fn) {
-  const handler = {
-    fn,
-    active: true,
-    // Deliberately unreachable values: a handler that has never run must run on its
-    // first resume() even if the window has not moved since.
-    width: -1,
-    height: -1,
-    pause() {
-      handler.active = false;
-    },
-    resume() {
-      handler.active = true;
-      if (handler.width !== lastWidth || handler.height !== lastHeight) {
-        runResizeHandler(handler, lastWidth, lastHeight);
-      }
-    },
-  };
-  resizeHandlers.push(handler);
-  // The handler is registered active and has never run, so this first call is what gives
-  // it its initial size.
+  resizeHandlers.push(fn);
+  // Gives the new handler its initial size.
   resize();
-  return handler;
 }
 
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  lastWidth = w;
-  lastHeight = h;
   renderer.setSize(w, h);
 
-  for (const handler of resizeHandlers) {
-    if (handler.active) runResizeHandler(handler, w, h);
-  }
+  for (const fn of resizeHandlers) fn(w, h);
 
-  // Cameras are updated whether or not their sketch is visible. It is a handful of
-  // arithmetic each, not a buffer reallocation, and it means a sketch resumed after a
-  // resize already has the right aspect rather than waiting a frame for one.
   for (const camera of cameras) {
     if (camera instanceof PerspectiveCamera) {
       camera.aspect = w / h;

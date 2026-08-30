@@ -1,19 +1,28 @@
-import { Scene, Mesh, Group, Vector3 } from "three";
+import {
+  Group,
+  Mesh,
+  Vector3,
+} from "three";
 import {
   renderer,
-  getCamera,
   isRunning,
-  onResize,
   brushOptions,
   brushes,
   addInfo,
 } from "../modules/three.js";
+import {
+  camera,
+  canvas,
+  controls,
+  hide,
+  painted,
+  scene,
+  show,
+} from "../modules/stage.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { gradientLinear } from "../modules/gradient.js";
-import { OrbitControls } from "OrbitControls";
 
-import { Painted } from "../modules/painted.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { signal, effectRAF, batch } from "../modules/reactive.js";
 import GUI, { randomizeSection } from "../modules/gui.js";
@@ -107,12 +116,7 @@ gui.addButton("Randomize params", randomizeParams);
 gui.addButton("Reset params", reset);
 addInfo(gui);
 
-const painted = new Painted();
 
-onResize((w, h) => {
-  const dPR = renderer.getPixelRatio();
-  painted.setSize(w * dPR, h * dPR);
-});
 
 // CurveExtras' TorusKnot, with its hardcoded major/minor ratio opened up as an argument and
 // a reusable target so draw() stops allocating a Vector3 per point per frame. Identical to
@@ -144,16 +148,11 @@ const _point = new Vector3();
 const MAX_POINTS = 600;
 const meshes = [];
 
-const canvas = renderer.domElement;
-const camera = getCamera();
-const scene = new Scene();
 const group = new Group();
-const controls = new OrbitControls(camera, canvas);
-controls.addEventListener("change", () => painted.invalidate());
 
-camera.position.set(5, -2.5, -26);
-camera.lookAt(group.position);
-renderer.setClearColor(0, 0);
+// The pose this sketch is composed to be seen from; stage.show() frames it on every visit.
+const cameraPose = new Vector3(5, -2.5, -26);
+
 
 function clearScene() {
   for (const { mesh } of meshes) {
@@ -230,7 +229,6 @@ const sketchEffect = effectRAF(() => {
 });
 
 group.scale.setScalar(0.75);
-scene.add(group);
 
 let lastTime = performance.now();
 let time = 0;
@@ -296,15 +294,15 @@ function randomize() {
 }
 
 function start() {
+  show(group, cameraPose);
   sketchEffect.resume();
-  controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
+  hide();
   sketchEffect.pause();
-  controls.enabled = false;
   gui.hide();
 }
 

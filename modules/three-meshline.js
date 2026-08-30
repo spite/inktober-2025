@@ -1208,6 +1208,17 @@ function _applyShadowRadius(scene, light, r) {
   scene.userData.__meshlineShadowFrustumR = r;
 }
 
+// Drops the frozen frustum radius so the next frame fits it again from the current camera.
+//
+// fitShadowCamera deliberately computes r once and then leaves it alone — it must not drift
+// while a drawing is on screen. That was safe while every sketch owned its own scene. With
+// one scene shared across all of them it is not: the sketches' camera distances run from
+// about 3.6 to 26.6, so whichever loaded first would otherwise impose its frustum on every
+// sketch after it, and their shadows would be cast from a box the wrong size.
+export function refitShadowCamera(scene) {
+  scene.userData.__meshlineShadowFrustumR = null;
+}
+
 // Call before the first render to override the auto-computed frustum radius.
 // r is the half-width of the square shadow frustum in world units.
 export function setShadowRadius(scene, r) {

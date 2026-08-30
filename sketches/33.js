@@ -1,20 +1,30 @@
-import { Scene, Mesh, Group, Vector3, Vector2 } from "three";
+import {
+  Group,
+  Mesh,
+  Vector2,
+  Vector3,
+} from "three";
 import {
   renderer,
-  getCamera,
   isRunning,
-  onResize,
   brushOptions,
   brushes,
   wait,
   addInfo,
 } from "../modules/three.js";
+import {
+  camera,
+  canvas,
+  controls,
+  hide,
+  painted,
+  scene,
+  show,
+} from "../modules/stage.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { gradientLinear } from "../modules/gradient.js";
-import { OrbitControls } from "OrbitControls";
 import { HopfFibration } from "../modules/hopf-fibration.js";
-import { Painted } from "../modules/painted.js";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import GUI, {
   addRandomizeParams,
@@ -127,25 +137,15 @@ const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
 gui.addButton("Reset params", reset);
 addInfo(gui);
 
-const painted = new Painted();
 
 // Paused while another sketch is on screen, resumed in start(). The module is cached, so
 // without this every sketch ever visited resizes its Painted on every window resize.
-const resizeHandler = onResize((w, h) => {
-  const dPR = renderer.getPixelRatio();
-  painted.setSize(w * dPR, h * dPR);
-});
 
-const canvas = renderer.domElement;
-const camera = getCamera();
-const scene = new Scene();
 const group = new Group();
-const controls = new OrbitControls(camera, canvas);
-controls.addEventListener("change", () => painted.invalidate());
 
-camera.position.set(0, 0, 8);
-camera.lookAt(group.position);
-renderer.setClearColor(0, 0);
+// The pose this sketch is composed to be seen from; stage.show() frames it on every visit.
+const cameraPose = new Vector3(0, 0, 8);
+
 
 const meshes = [];
 
@@ -248,7 +248,6 @@ async function generateLines(abort) {
   }
 }
 
-scene.add(group);
 
 const rebuild = createRebuilder(clearScene, generateLines);
 
@@ -281,19 +280,17 @@ function randomize() {
 }
 
 function start() {
+  show(group, cameraPose);
   setActiveRandomize(randomizeParams);
-  resizeHandler.resume();
   rebuild.start();
-  controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
+  hide();
   setActiveRandomize(null);
-  resizeHandler.pause();
   rebuild.stop();
-  controls.enabled = false;
   gui.hide();
 }
 

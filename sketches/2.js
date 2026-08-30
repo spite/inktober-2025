@@ -1,20 +1,30 @@
-import { Scene, Mesh, Group, Vector2 } from "three";
+import {
+  Group,
+  Mesh,
+  Vector2,
+  Vector3,
+} from "three";
 import {
   renderer,
-  getCamera,
   isRunning,
-  onResize,
   brushes,
   brushOptions,
   addInfo,
 } from "../modules/three.js";
+import {
+  camera,
+  canvas,
+  controls,
+  hide,
+  painted,
+  scene,
+  show,
+} from "../modules/stage.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { gradientLinear } from "../modules/gradient.js";
-import { OrbitControls } from "OrbitControls";
 import { KnotCurve } from "../third_party/CurveExtras.js";
-import { Painted } from "../modules/painted.js";
 import { effectRAF } from "../modules/reactive.js";
 import GUI, {
   addRandomizeParams,
@@ -67,32 +77,19 @@ gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-const painted = new Painted();
 
 // Paused while another sketch is on screen, resumed in start(). The module is cached, so
 // without this every sketch ever visited resizes its Painted on every window resize.
-const resizeHandler = onResize((w, h) => {
-  const dPR = renderer.getPixelRatio();
-  painted.setSize(w * dPR, h * dPR);
-});
 
 const curve = new KnotCurve();
 
-const canvas = renderer.domElement;
-const camera = getCamera();
-const scene = new Scene();
 const group = new Group();
 
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
+// The pose this sketch is composed to be seen from; stage.show() frames it on every visit.
+const cameraPose = new Vector3(5, -2.5, -26).multiplyScalar(1);
 
-controls.addEventListener("change", () => {
-  painted.invalidate();
-});
 
-camera.position.set(5, -2.5, -26).multiplyScalar(1);
-camera.lookAt(group.position);
-renderer.setClearColor(0, 0);
+
 
 const resolution = new Vector2(canvas.width, canvas.height);
 
@@ -174,7 +171,6 @@ function generateShape() {
 
 group.scale.setScalar(0.5);
 group.position.y = -4;
-scene.add(group);
 
 const sketchEffect = effectRAF(() => {
   clearScene();
@@ -221,19 +217,17 @@ function draw(frameStart) {
 }
 
 function start() {
+  show(group, cameraPose);
   setActiveRandomize(randomizeParams);
-  resizeHandler.resume();
   sketchEffect.resume();
-  controls.enabled = true;
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
+  hide();
   setActiveRandomize(null);
-  resizeHandler.pause();
   sketchEffect.pause();
-  controls.enabled = false;
   gui.hide();
 }
 
