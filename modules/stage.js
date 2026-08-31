@@ -88,10 +88,3 @@ export function hide() {
   _current = null;
   controls.enabled = false;
 }
-
-// Damping means the controls keep easing after the pointer stops, so this runs every frame
-// rather than only on interaction.
-export function render(frameStart) {
-  controls.update();
-  painted.render(renderer, scene, camera, frameStart);
-}

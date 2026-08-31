@@ -759,7 +759,6 @@ ShaderChunk["meshline_frag"] = `
   uniform sampler2D alphaMap;
   uniform bool useMap;
   uniform bool useAlphaMap;
-  uniform bool useNormalMap;
   uniform bool useDash;
   uniform vec2 dashArray;
   uniform float dashOffset;
@@ -774,7 +773,6 @@ ShaderChunk["meshline_frag"] = `
   uniform float opacity;
   uniform float time;
   uniform float frameIndex;
-  uniform sampler2D normalMap;
   uniform float shadingIntensity;
   uniform bool shadingOnly;
   uniform float shadingDarkLum;
@@ -939,8 +937,6 @@ class MeshLineMaterial extends ShaderMaterial {
         useMap: { value: false },
         alphaMap: { value: null },
         useAlphaMap: { value: false },
-        normalMap: { value: null },
-        useNormalMap: { value: false },
         color: { value: new Color(0xffffff) },
         opacity: { value: 1 },
         resolution: { value: new Vector2(1, 1) },
@@ -1019,24 +1015,6 @@ class MeshLineMaterial extends ShaderMaterial {
         },
         set: function (value) {
           this.uniforms.useAlphaMap.value = value;
-        },
-      },
-      normalMap: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.normalMap.value;
-        },
-        set: function (value) {
-          this.uniforms.normalMap.value = value;
-        },
-      },
-      useNormalMap: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.useNormalMap.value;
-        },
-        set: function (value) {
-          this.uniforms.useNormalMap.value = value;
         },
       },
       color: {
