@@ -38,6 +38,24 @@ export class AdaptivePassTimer {
   get msPerPass()    { return this._msPerPass; }
   get mode()         { return !this._ready ? 'unknown' : this._useCpu ? 'cpu' : 'gpu'; }
 
+  // Forgets what it learned about cost per pass. Call when the thing being drawn changes
+  // enough that the old measurement is not a guide to the new one.
+  //
+  // There is one timer now — the stage owns a single Painted — where there used to be one per
+  // sketch, each calibrated to its own drawing. Without this, the budget carried over: leave a
+  // cheap sketch, where targetPasses has climbed towards its cap of 64, switch to an expensive
+  // one, and the first frames each run 64 passes of a far heavier scene. The EWMA weights a new
+  // measurement at 30%, so it takes several such frames to come back down.
+  //
+  // A pending query is disowned rather than waited for: its result describes the previous
+  // drawing. beginFrame still collects and deletes it, and skips the update because the pass
+  // count is zero.
+  reset() {
+    this._msPerPass = null;
+    this._targetPasses = this._minPasses;
+    this._pendingPassCount = 0;
+  }
+
   // Call once at the top of each render frame, before beginPasses().
   // frameStart should be the RAF timestamp — pass it through from draw(t).
   beginFrame(renderer, frameStart = performance.now()) {

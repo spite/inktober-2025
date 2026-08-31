@@ -280,6 +280,10 @@ async function init() {
         return;
       }
       module = loaded;
+      // The old effect is finished with, not merely idle. Pausing it left it subscribed to
+      // the previous sketch's params, and a fresh one was made on every switch — so each
+      // sketch's signals collected another dead subscriber every time you visited it.
+      serializeEffect.stop();
       serializeEffect = makeSerializeEffect();
     } catch (e) {
       console.log(e);

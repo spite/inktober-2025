@@ -328,6 +328,12 @@ class Painted {
     return this.rawAccumPass.shader.uniforms.backgroundColor.value;
   }
 
+  // The accumulation budget is calibrated to whatever was last on screen, so a new drawing
+  // has to earn its own measurement rather than inherit one.
+  resetPassBudget() {
+    this._passTimer.reset();
+  }
+
   invalidate() {
     this.rawAccumPass.shader.uniforms.invalidate.value = true;
     this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;

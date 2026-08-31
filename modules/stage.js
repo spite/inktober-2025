@@ -62,6 +62,8 @@ export function show(group, pose, { screenSpacePanning = false } = {}) {
   // wrong size.
   refitShadowCamera(scene);
 
+  // The pass budget was learned from the sketch we just left and says nothing about this one.
+  painted.resetPassBudget();
   painted.invalidate();
 }
 
