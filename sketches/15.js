@@ -115,10 +115,6 @@ gui.addButton("Reset params", reset);
 
 addInfo(gui);
 
-
-// Paused while another sketch is on screen, resumed in start(). The module is cached, so
-// without this every sketch ever visited resizes its Painted on every window resize.
-
 const group = new Group();
 
 // The pose this sketch is composed to be seen from; stage.show() frames it on every visit.

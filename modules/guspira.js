@@ -187,6 +187,12 @@ function createScheduler(driver = null) {
     const jobs = [...queue2];
     queue2.clear();
     for (const job of jobs) {
+      // Paused after it was queued: pause() only stops new notifications, so without this
+      // the run it asked for still happened. Left dirty instead, for resume() to catch up.
+      if (job.paused) {
+        job.dirty = true;
+        continue;
+      }
       try {
         job.run();
       } catch (error) {

@@ -61,6 +61,21 @@ const defaults = {
   // the curve is written out below rather than imported, to get at it. Under 1 the tube
   // reaches past the axis and the winding folds through itself into a rosette.
   ratio: 2,
+  // Added to q, so it slides continuously between the (p, q) knot and (p, q + 1). Whole
+  // numbers are already reachable with the Q slider; what this gets at is everything between
+  // them, where the curve no longer closes and the strand drifts round the tube instead.
+  twist: 0,
+  // How far each stroke sits round the tube from the centreline, as a fraction of the way
+  // around. Every stroke used to trace the same centreline and differ only in overall scale,
+  // which is why they read as nested outlines; spread round the tube they read as one rope
+  // with thickness.
+  phaseSpread: 0,
+  // A second, faster undulation folded into the tube radius — the thing that separates
+  // CurveExtras' Decorated torus knots from the plain ones, except that theirs are frozen at
+  // one amplitude and frequency. Normalised by (1 + amount) so turning it up flutes the knot
+  // rather than growing it out of frame.
+  rippleFreq: 3,
+  rippleAmount: 0,
   // How far copies sit off the curve, as a multiple of the drawing's own size rather than a
   // distance in world units. Held absolute it went badly out of proportion the moment Size
   // range moved: the same offset that reads as a slight fray on a large knot throws a small
@@ -91,6 +106,13 @@ const shapeSection = gui.addSection("Shape");
 rollWithin(gui.addSlider("Winding P", params.knotP, 1, 12, 1), 1, 9, 1);
 rollWithin(gui.addSlider("Winding Q", params.knotQ, 0, 12, 1), 0, 9, 1);
 rollWithin(gui.addSlider("Tube ratio", params.ratio, 0.5, 4, 0.05), 1, 3.5, 0.05);
+rollWithin(gui.addSlider("Twist", params.twist, 0, 1, 0.01), 0, 1, 0.01);
+rollWithin(
+  gui.addSlider("Tube spread", params.phaseSpread, 0, 1, 0.01),
+  0, 1, 0.01,
+);
+rollWithin(gui.addSlider("Ripple", params.rippleAmount, 0, 0.8, 0.01), 0, 0.5, 0.01);
+rollWithin(gui.addSlider("Ripple freq", params.rippleFreq, 1, 12, 1), 2, 9, 1);
 rollAscending(
   gui.addRangeSlider("Size range", params.sizeRange, 0.05, 0.3, 0.005),
   [0.07, 0.2], 0.28, 0.005,
@@ -122,18 +144,28 @@ addInfo(gui);
 // CurveExtras' TorusKnot, with its hardcoded major/minor ratio opened up as an argument and
 // a reusable target so draw() stops allocating a Vector3 per point per frame. Identical to
 // the imported version at ratio = 2.
-function makeKnot(p, q, ratio) {
+function makeKnot(p, q, ratio, twist, rippleFreq, rippleAmount) {
   // Normalised so the widest point of the curve stays where it is at ratio = 2, the value
-  // CurveExtras hardcodes. Without this the ratio doubles as a size control and fights Size
-  // range for the frame: at 3.8 the knot simply walked off the canvas.
-  const scale = 20 * (3 / (ratio + 1));
+  // CurveExtras hardcodes, and again for the ripple. Without this either one doubles as a
+  // size control and fights Size range for the frame: at ratio 3.8 the knot simply walked
+  // off the canvas.
+  // 60/(ratio + 1) is the ratio normalisation; the ripple only ever adds to the tube radius,
+  // so it joins the same denominator.
+  const scale = 60 / (ratio + 1 + rippleAmount);
+  // v is the angle round the tube. Adding to q is the same as advancing that angle faster
+  // per turn, which is why twist reads as a fractional winding number.
+  const qEff = q + twist;
   return {
-    getPoint(t, target) {
+    getPoint(t, target, phase = 0) {
       t *= p * Math.PI * 2;
-      const quOverP = (q / p) * t;
-      const r = (ratio + Math.cos(quOverP)) * 0.5;
+      const v = (qEff / p) * t + phase;
+      // The ripple swells and pinches the tube, and leaves the centreline where it is. Applied
+      // to the whole radial distance instead it squashed x and y while z stayed put, and the
+      // knot collapsed into a vertical smear at any real amplitude.
+      const tube = 0.5 * (1 + rippleAmount * Math.cos(rippleFreq * t));
+      const r = ratio * 0.5 + Math.cos(v) * tube;
       return target
-        .set(r * Math.cos(t), r * Math.sin(t), Math.sin(quOverP) * 0.5)
+        .set(r * Math.cos(t), r * Math.sin(t), Math.sin(v) * tube)
         .multiplyScalar(scale);
     },
   };
@@ -172,7 +204,15 @@ const sketchEffect = effectRAF(() => {
   // Curve's own scale stays at its default 10 — sizeRange is what scales each stroke, and
   // two scales in series is what put the drawing off the canvas.
   const knotP = params.knotP();
-  curve = makeKnot(knotP, params.knotQ(), params.ratio());
+  curve = makeKnot(
+    knotP,
+    params.knotQ(),
+    params.ratio(),
+    params.twist(),
+    params.rippleFreq(),
+    params.rippleAmount(),
+  );
+  const phaseSpread = params.phaseSpread();
   const taper = params.taper();
   const colorNoise = params.colorNoise();
   const points = Maf.clamp(
@@ -188,6 +228,7 @@ const sketchEffect = effectRAF(() => {
     const w = Maf.randomInRange(wMin, wMax);
     const radius = Maf.randomInRange(rMin, rMax);
     const offset = Maf.randomInRange(0, Maf.TAU);
+    const phase = Maf.randomInRange(0, phaseSpread * Maf.TAU);
     // Where this stroke sits on the knot, nudged by colorNoise towards a free pick.
     const color = Maf.mix(
       offset / Maf.TAU,
@@ -218,7 +259,7 @@ const sketchEffect = effectRAF(() => {
       Maf.randomInRange(-scatter, scatter),
     );
     group.add(mesh);
-    meshes.push({ mesh, radius, offset, range });
+    meshes.push({ mesh, radius, offset, range, phase });
   }
 
   painted.invalidate();
@@ -240,10 +281,10 @@ function draw(startTime) {
 
   for (const m of meshes) {
     const { geo, g } = m.mesh;
-    const { range, radius, offset } = m;
+    const { range, radius, offset, phase } = m;
     for (let j = 0; j < geo.length; j += 3) {
       const t2 = time * Maf.TAU + (j * range) / geo.length + offset;
-      const p = curve.getPoint(1 - Maf.mod(t2 / Maf.TAU, 1), _point);
+      const p = curve.getPoint(1 - Maf.mod(t2 / Maf.TAU, 1), _point, phase);
       geo[j]     = radius * p.x;
       geo[j + 1] = radius * p.y;
       geo[j + 2] = radius * p.z;

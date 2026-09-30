@@ -321,6 +321,7 @@ class Painted {
       else colorReady = true;
     });
 
+    registerActivePainted(this);
     this.invalidate();
   }
 
@@ -368,17 +369,6 @@ class Painted {
   }
 
   render(renderer, scene, camera, frameStart = performance.now()) {
-    // Claimed here rather than in invalidate(). Only the sketch on screen renders, so this
-    // is the one place that is always the visible instance.
-    //
-    // invalidate() is not: sketch modules are cached, so every Painted ever constructed is
-    // still live with its emboss/paper effects subscribed, and a change to one of those
-    // globals invalidated all of them. Each call re-registered, and the last effect to run
-    // won -- module load order, not what you were looking at. From then on the meshline
-    // shadow params drove some hidden sketch's accumulation and left the visible one
-    // alone.
-    registerActivePainted(this);
-
     const needsAccum = this.frames <= this.maxAccumFrames;
     if (!needsAccum && !this.compositeNeedsUpdate) {
       this._drawShadowPreview(renderer, scene);
@@ -395,8 +385,8 @@ class Painted {
     this.pass.shader.uniforms.shadowStrength.value = shadowStrength();
 
     if (needsAccum) {
-      // Hard invalidate: wipe both ping-pong FBOs so no previous-sketch depth can
-      // bleed through, even if prevTexture is stale from a cached module revisit.
+      // Hard invalidate: wipe both ping-pong FBOs so nothing from the previous drawing —
+      // another sketch, or this one before a rebuild — can bleed through.
       if (this.rawAccumPass.shader.uniforms.invalidate.value &&
           this.rawAccumPass.shader.uniforms.invalidateBlend.value === 1.0) {
         for (const fbo of this.rawAccumPass.fbos) {

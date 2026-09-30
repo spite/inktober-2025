@@ -26,7 +26,7 @@ import GUI, {
   addRandomizeParams,
   randomizeSection,
 } from "../modules/gui.js";
-import { effectRAF } from "../modules/reactive.js";
+import { createRebuilder } from "../modules/rebuilder.js";
 import { createParams } from "guspira";
 import { seed } from "../modules/random.js";
 
@@ -76,10 +76,6 @@ const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
-
-
-// Paused while another sketch is on screen, resumed in start(). The module is cached, so
-// without this every sketch ever visited resizes its Painted on every window resize.
 
 const group = new Group();
 
@@ -152,10 +148,7 @@ function generateLines() {
 }
 
 
-// No eager first build: effectRAF runs its body immediately to collect dependencies, so the
-// pair below would only be torn down again by the effect's own clearScene().
-const sketchEffect = effectRAF(() => {
-  clearScene();
+const rebuild = createRebuilder(clearScene, () => {
   generateRing();
   generateLines();
 });
@@ -199,14 +192,14 @@ function draw(frameStart) {
 
 function start() {
   show(group, cameraPose);
-  sketchEffect.resume();
+  rebuild.start();
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
   hide();
-  sketchEffect.pause();
+  rebuild.stop();
   gui.hide();
 }
 

@@ -1,6 +1,6 @@
 import { Scene, Vector3 } from "three";
 import { OrbitControls } from "OrbitControls";
-import { renderer, onResize, getCamera } from "./three.js";
+import { renderer, onResize, camera } from "./three.js";
 import { Painted } from "./painted.js";
 import { refitShadowCamera } from "./three-meshline.js";
 
@@ -21,7 +21,7 @@ import { refitShadowCamera } from "./three-meshline.js";
 // never thrown away, only detached.
 
 export const scene = new Scene();
-export const camera = getCamera();
+export { camera };
 export const canvas = renderer.domElement;
 export const painted = new Painted();
 export const controls = new OrbitControls(camera, canvas);
@@ -48,6 +48,10 @@ export function show(group, pose, { screenSpacePanning = false } = {}) {
   _current = group;
   scene.add(group);
 
+  // The controls orbit by rotating camera.up, so the last sketch's roll is still in it, and
+  // they damp out momentum over several frames — both would carry into this pose.
+  controls.stopMotion();
+  camera.up.set(0, 1, 0);
   camera.position.copy(pose);
   camera.lookAt(_origin);
   controls.screenSpacePanning = screenSpacePanning;

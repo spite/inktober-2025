@@ -70,71 +70,60 @@ effect(() => localStorage.setItem(ADVANCED_KEY, showAdvanced() ? "1" : "0"));
 bindKey("KeyA", () => showAdvanced.set(!showAdvanced.peek()));
 
 let _sharedGui = null;
-const _sharedGuiScenes = new WeakSet();
-let _sharedGuiContainer = null;
 // Called from MeshLineMaterial.onBeforeRender, which three.js runs per mesh per draw call
-// -- so per mesh, per shadow and colour pass, per accumulation pass. A sketch with a couple
-// of thousand lines settling its 120 passes got through a quarter of a million calls in
-// half a minute, every one of them past the first doing nothing but a document.querySelector
-// and two lookups. The already-set-up case now answers without touching the DOM at all, and
-// the container is found once rather than re-queried (only cached once found, so a panel
-// that is not in the document yet is still picked up later).
-function ensureSharedGUI(scene) {
-  if (_sharedGui && _sharedGuiScenes.has(scene)) return;
+// -- so per mesh, per shadow and colour pass, per accumulation pass. Past the first call it
+// must return without touching the DOM.
+function ensureSharedGUI() {
+  if (_sharedGui) return;
 
-  const container =
-    _sharedGuiContainer ??
-    (_sharedGuiContainer = document.querySelector("#gui-container"));
+  const container = document.querySelector("#gui-container");
   if (!container) return;
-  if (!_sharedGui) {
-    _sharedGui = new GUI("Rendering", container);
-    _sharedGui.rowsExpanded.set(false);
-    _sharedGui.addSelect("Shadow mode", shadowMode, shadowModeOptions);
-    _sharedGui.addSlider("Intensity", shadowIntensity, 0, 1, 0.01);
-    _sharedGui.addSeparator();
-    _sharedGui.addSlider("Dark lum", shadingDarkLum, 0, 1, 0.01);
-    _sharedGui.addSlider("Bright lum", shadingBrightLum, 1, 2, 0.01);
-    _sharedGui.addSlider("Dark sat", shadingDarkSat, 0, 2, 0.01);
-    _sharedGui.addSlider("Bright sat", shadingBrightSat, 0, 2, 0.01);
-    _sharedGui.addSeparator();
-    _sharedGui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
-    _sharedGui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
-    _sharedGui.addSelect("Shadow map res", shadowMapRes, [
-      ["512", "512"],
-      ["1024", "1024"],
-      ["2048", "2048"],
-      ["4096", "4096"],
-    ]);
-    _sharedGui.addSeparator();
-    _sharedGui.addCheckbox("Light arrow", showLightArrow);
-    _sharedGui.addCheckbox("Shadow frustum", showShadowFrustum);
-    _sharedGui.addCheckbox("Shadow buffer", showShadowBuffer);
-    _sharedGui.addSeparator();
-    _sharedGui.addColor("Paper color", paperColor);
-    _sharedGui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
-    _sharedGui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
-    _sharedGui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
-    _sharedGui.addSlider("Paper bump", paperStrength, 0, 1, 0.01);
-    _sharedGui.addSlider("Bump size", bumpSize, 0, 30, 0.5);
-    _sharedGui.addSlider("Bump shadow", bumpShadow, 0, 1, 0.01);
-    _sharedGui.addSlider("Shadow blend", shadowStrength, 0, 1, 0.01);
+  // The class puts it after the sketch's own panel. It is created on the first render,
+  // after that sketch's panel but before any sketch imported later, so document order
+  // alone would put it above every panel but the first.
+  _sharedGui = new GUI("Rendering", container, { className: "gui-rendering" });
+  _sharedGui.rowsExpanded.set(false);
+  _sharedGui.addSelect("Shadow mode", shadowMode, shadowModeOptions);
+  _sharedGui.addSlider("Intensity", shadowIntensity, 0, 1, 0.01);
+  _sharedGui.addSeparator();
+  _sharedGui.addSlider("Dark lum", shadingDarkLum, 0, 1, 0.01);
+  _sharedGui.addSlider("Bright lum", shadingBrightLum, 1, 2, 0.01);
+  _sharedGui.addSlider("Dark sat", shadingDarkSat, 0, 2, 0.01);
+  _sharedGui.addSlider("Bright sat", shadingBrightSat, 0, 2, 0.01);
+  _sharedGui.addSeparator();
+  _sharedGui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
+  _sharedGui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
+  _sharedGui.addSelect("Shadow map res", shadowMapRes, [
+    ["512", "512"],
+    ["1024", "1024"],
+    ["2048", "2048"],
+    ["4096", "4096"],
+  ]);
+  _sharedGui.addSeparator();
+  _sharedGui.addCheckbox("Light arrow", showLightArrow);
+  _sharedGui.addCheckbox("Shadow frustum", showShadowFrustum);
+  _sharedGui.addCheckbox("Shadow buffer", showShadowBuffer);
+  _sharedGui.addSeparator();
+  _sharedGui.addColor("Paper color", paperColor);
+  _sharedGui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
+  _sharedGui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
+  _sharedGui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
+  _sharedGui.addSlider("Paper bump", paperStrength, 0, 1, 0.01);
+  _sharedGui.addSlider("Bump size", bumpSize, 0, 30, 0.5);
+  _sharedGui.addSlider("Bump shadow", bumpShadow, 0, 1, 0.01);
+  _sharedGui.addSlider("Shadow blend", shadowStrength, 0, 1, 0.01);
 
-    // The panel is built either way — doing it lazily on a keypress would mean the first press
-    // appearing to do nothing while two dozen rows were constructed. Only its visibility
-    // follows the flag, and this replaces the unconditional show() that used to be here.
-    effect(() => (showAdvanced() ? _sharedGui.show() : _sharedGui.hide()));
-  }
-  if (!_sharedGuiScenes.has(scene)) {
-    _sharedGuiScenes.add(scene);
-    container.appendChild(_sharedGui.container);
-  }
+  // The panel is built either way — doing it lazily on a keypress would mean the first press
+  // appearing to do nothing while two dozen rows were constructed. Only its visibility
+  // follows the flag, and this replaces the unconditional show() that used to be here.
+  effect(() => (showAdvanced() ? _sharedGui.show() : _sharedGui.hide()));
 }
 
-// Single active Painted reference — only the currently visible sketch gets soft-invalidated.
+// The Painted whose accumulation the shadow controls below re-run. There is one, owned by the
+// stage, and it registers itself when it is built.
 let _activePainted = null;
 export function registerActivePainted(painted) {
   _activePainted = painted;
-  painted.backgroundColor.set(paperColor());
 }
 let _shadowInitialized = false;
 effect(() => {
@@ -1208,7 +1197,7 @@ export function setShadowRadius(scene, r) {
 MeshLineMaterial.prototype.onBeforeRender = (renderer, scene, camera, _geometry, mesh) => {
   const canvas = renderer.domElement;
   const t = scene.userData.__meshlineFrameTime ?? performance.now() / 1000;
-  ensureSharedGUI(scene);
+  ensureSharedGUI();
 
   const w = canvas.width;
   const h = canvas.height;

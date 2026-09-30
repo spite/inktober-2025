@@ -15,7 +15,6 @@ const brushes = {
 };
 const brushOptions = Object.keys(brushes).map((v, i) => [v, `Brush ${i + 1}`]);
 
-const cameras = [];
 const initialFov = 35;
 
 function getWebGLRenderer() {
@@ -39,19 +38,10 @@ const resizeHandlers = [];
 const renderer = getWebGLRenderer();
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFSoftShadowMap;
-resize();
 
-function getCamera(fov) {
-  const camera = new PerspectiveCamera(
-    fov ? fov : initialFov,
-    renderer.domElement.width / renderer.domElement.height,
-    0.1,
-    100
-  );
-  cameras.push(camera);
-  resize();
-  return camera;
-}
+// The one camera; the stage frames it for each sketch.
+const camera = new PerspectiveCamera(initialFov, 1, 0.1, 100);
+resize();
 
 window.addEventListener("resize", () => {
   resize();
@@ -70,24 +60,17 @@ function resize() {
 
   for (const fn of resizeHandlers) fn(w, h);
 
-  for (const camera of cameras) {
-    if (camera instanceof PerspectiveCamera) {
-      camera.aspect = w / h;
-      if (w < h) {
-        const initialAspect = 1;
-        const horizontalFOV =
-          2 *
-          Math.atan(Math.tan((initialFov * Math.PI) / 180 / 2) * initialAspect);
-        const newVFovRad =
-          2 * Math.atan(Math.tan(horizontalFOV / 2) / camera.aspect);
-        const newVFovDeg = newVFovRad * (180 / Math.PI);
-        camera.fov = newVFovDeg;
-      } else {
-        camera.fov = initialFov;
-      }
-      camera.updateProjectionMatrix();
-    }
+  camera.aspect = w / h;
+  if (w < h) {
+    // Portrait keeps the landscape framing's horizontal extent, so nothing is cropped at
+    // the sides.
+    const horizontalFOV = (initialFov * Math.PI) / 180;
+    const newVFovRad = 2 * Math.atan(Math.tan(horizontalFOV / 2) / camera.aspect);
+    camera.fov = newVFovRad * (180 / Math.PI);
+  } else {
+    camera.fov = initialFov;
   }
+  camera.updateProjectionMatrix();
 }
 
 const header = document.body.querySelector("header");
@@ -142,7 +125,7 @@ export {
   renderer,
   brushes,
   brushOptions,
-  getCamera,
+  camera,
   wait,
   isRunning,
   onResize,

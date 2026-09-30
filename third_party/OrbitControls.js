@@ -221,6 +221,14 @@ class OrbitControls extends Controls {
     this.up0.copy(this.object.up);
   }
 
+  // Drops any momentum still being damped out, so a camera placed by hand stays where it was
+  // put instead of carrying on with the last drag, pan or zoom.
+  stopMotion() {
+    this._orbitDelta.set(0, 0);
+    this._panOffset.set(0, 0, 0);
+    this._zoomScale = 1.0;
+  }
+
   reset() {
     this.target.copy(this.target0);
     this.object.position.copy(this.position0);

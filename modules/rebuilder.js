@@ -1,4 +1,4 @@
-import { effectRAF } from "./reactive.js";
+import { effect, frame } from "./reactive.js";
 
 // The rebuild loop every sketch that draws progressively was hand-rolling: an effect that
 // throws away the previous scene and starts a new build, plus an AbortController so the
@@ -22,14 +22,19 @@ import { effectRAF } from "./reactive.js";
 //   function stop()  { rebuild.stop(); ... }
 //
 // `build` is handed an AbortSignal and should bail out at its yield points while
-// `signal.aborted` — the scene it was drawing into has already been cleared.
+// `signal.aborted` — the scene it was drawing into has already been cleared. A build that
+// never yields simply ignores it.
+//
+// The effect is lazy: nothing is built at import, only on the first start(). inktober.js
+// applies the URL's params between the two, so a shared link builds once, with its own
+// values, instead of once with the defaults and again with the link's.
 export function createRebuilder(clearScene, build) {
   let abortController = new AbortController();
   let complete = false;
   let abandoned = false;
   let runs = 0;
 
-  const effect = effectRAF(() => {
+  const rebuild = effect(() => {
     runs++;
     abortController.abort();
     clearScene();
@@ -49,20 +54,20 @@ export function createRebuilder(clearScene, build) {
         console.error(error);
       },
     );
-  });
+  }, { scheduler: frame, lazy: true });
 
   return {
     start() {
       const before = runs;
       // Handles the ordinary case: a parameter changed while we were away.
-      effect.resume();
-      // ...and this handles the build that never got to finish. Skipped when resume()
-      // already rebuilt, so returning to a sketch never builds it twice.
-      if (abandoned && runs === before) effect.run();
+      rebuild.resume();
+      // ...and these handle the first visit and the build that never got to finish.
+      // Skipped when resume() already rebuilt, so returning never builds twice.
+      if ((runs === 0 || abandoned) && runs === before) rebuild.run();
     },
 
     stop() {
-      effect.pause();
+      rebuild.pause();
       // Recorded before the abort, while it is still known whether there was anything to
       // interrupt. A build that had already finished leaves a complete scene behind, and
       // that scene is still there when we come back.

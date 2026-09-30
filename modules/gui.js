@@ -12,9 +12,18 @@
 // signals layer, and pulling that in beside this one would give the project two unrelated
 // copies of the signal system: a signal written through one would never notify an effect
 // created by the other. ./reactive.js therefore re-exports from here too.
-export { GUI as default, Controller, Section, Tab } from "guspira";
+export { Controller, Section, Tab } from "guspira";
 
-import { randomInRange } from "guspira";
+import { GUI, randomInRange } from "guspira";
+
+// Panels start hidden. A sketch builds its panel at import, and importing is not the same as
+// being shown: a sketch whose load was overtaken by another navigation is imported and never
+// started, and its panel used to stay on screen next to the real one. start() shows it.
+export default class extends GUI {
+  constructor(title, el, opts = {}) {
+    super(title, el, { visible: false, ...opts });
+  }
+}
 
 // R is bound once, in inktober.js, and runs the sketch's randomize(). It used to be bound
 // here as well, so a single press fired both — the toolbar button rerolled the Shape section

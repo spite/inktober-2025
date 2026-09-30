@@ -25,7 +25,7 @@ import { getPalette, paletteOptions } from "../modules/palettes.js";
 import { MeshLine, MeshLineMaterial } from "../modules/three-meshline.js";
 import Maf from "maf";
 import { gradientLinear } from "../modules/gradient.js";
-import { effectRAF } from "../modules/reactive.js";
+import { createRebuilder } from "../modules/rebuilder.js";
 import GUI, {
   addRandomizeParams,
   randomizeSection,
@@ -93,10 +93,6 @@ const randomizeParams = addRandomizeParams(gui, "Randomize params", () =>
 gui.addButton("Reset params", reset);
 
 addInfo(gui);
-
-
-// Paused while another sketch is on screen, resumed in start(). The module is cached, so
-// without this every sketch ever visited resizes its Painted on every window resize.
 
 const group = new Group();
 
@@ -183,10 +179,7 @@ function generateShape() {
 
 group.scale.setScalar(0.1);
 
-const sketchEffect = effectRAF(() => {
-  clearScene();
-  generateShape();
-});
+const rebuild = createRebuilder(clearScene, generateShape);
 
 function clearScene() {
   clearGroup(group, meshes);
@@ -222,14 +215,14 @@ function draw(frameStart) {
 
 function start() {
   show(group, cameraPose);
-  sketchEffect.resume();
+  rebuild.start();
   gui.show();
   painted.invalidate();
 }
 
 function stop() {
   hide();
-  sketchEffect.pause();
+  rebuild.stop();
   gui.hide();
 }
 

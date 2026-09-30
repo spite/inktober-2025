@@ -1,14 +1,8 @@
 import { effectRAF } from "./reactive.js";
 import { renderer } from "./three.js";
 
-// One canvas for the whole app, added once. Each sketch used to export its own and this file
-// removed and re-added it on every navigation — which, since the stage took ownership, was
-// removing and re-adding the same element.
+// One canvas for the whole app, added once.
 document.body.appendChild(renderer.domElement);
-
-let module;
-let index;
-let params = "";
 
 const sketches = [
   { id: 1, name: "Annular sphere" },
@@ -44,18 +38,26 @@ const sketches = [
   { id: 31, name: "Lines on a sphere" },
 ];
 
+// The sketch on screen, and the one the URL asks for. They differ only while the latter is
+// loading: the one on screen keeps drawing until the new one is ready, and then the two are
+// swapped in one step, in sync() below.
+let current = null;
+let wanted = null;
+let serializeEffect = null;
+
+// Mirrors the sketch's params into the URL so it can be shared. replaceState rather than a
+// new history entry: this runs on every frame a slider is dragged, and Back should leave the
+// sketch rather than replay the drag. It also fires no hashchange, so nothing reads back what
+// was just written.
 function serialize() {
-  const params = module.params;
-  // Older sketches predate the params contract and export none at all. Object.keys(null)
-  // throws, and this runs from an effect the moment a sketch loads, so one of them took
-  // the whole page down on arrival rather than merely having nothing to serialize.
+  const { index, params } = current;
+  // Older sketches predate the params contract and export none at all.
   if (!params) return;
-  const fields = [];
-  for (const key of Object.keys(params)) {
-    fields.push([key, params[key]()]);
-  }
-  const data = fields.map((v) => `${v[0]}=${v[1]}`).join("|");
-  setHash(data);
+  const data = Object.keys(params)
+    .map((key) => `${key}=${params[key]()}`)
+    .join("|");
+  const hash = `#sketch=${index}+params=${data}`;
+  if (window.location.hash !== hash) history.replaceState(null, "", hash);
 }
 window.serialize = serialize;
 
@@ -78,8 +80,6 @@ function deserialize(data, params, defaults) {
         if (arr.every((v) => !isNaN(v))) params[key].set(arr);
         break;
       }
-      // serialize() writes booleans as "true"/"false"; without this they fell through
-      // the switch and a checkbox never survived a shared link.
       case "boolean":
         if (value === "true" || value === "false") {
           params[key].set(value === "true");
@@ -93,13 +93,65 @@ function deserialize(data, params, defaults) {
 }
 
 function reset() {
-  const params = module.params;
-  const defaults = module.defaults;
+  const { params, defaults } = current;
   for (const key of Object.keys(defaults)) {
     params[key].set(defaults[key]);
   }
 }
 window.reset = reset;
+
+function readHash() {
+  const m = /sketch=(\d+)(?:\+params=(.*))?/.exec(window.location.hash);
+  const index = m ? parseInt(m[1]) : NaN;
+  return { index: index > 0 ? index : null, params: m?.[2] ?? "" };
+}
+
+// The only place a sketch is started or stopped.
+//
+// Nothing changes until the requested module has loaded and is still the one wanted, so a
+// request overtaken by a later one — Next pressed twice, or Next then Previous — is simply
+// dropped, and the sketch on screen is never left stopped with nothing in its place.
+//
+// Params are applied before start(), so a shared link builds once, with its own values.
+async function sync() {
+  const { index, params } = readHash();
+  if (index === null) {
+    history.replaceState(null, "", "#sketch=1");
+    return sync();
+  }
+  wanted = index;
+  updateButtonState();
+
+  let next;
+  try {
+    next = await import(`../sketches/${index}.js`);
+  } catch (e) {
+    console.error(e);
+    // Stay on what is showing rather than wait forever on a sketch that is not coming.
+    if (wanted === index && current) wanted = current.index;
+    updateButtonState();
+    return;
+  }
+  if (wanted !== index) return;
+
+  if (params && next.params && next.defaults) {
+    deserialize(params, next.params, next.defaults);
+  }
+  // Same sketch: the effect only writes when a param changes, so a bare #sketch=N (Back to
+  // an entry made before the params were added, or Next then Previous) needs it done here.
+  if (next === current) {
+    serialize();
+    return;
+  }
+
+  serializeEffect?.stop();
+  current?.stop();
+  current = next;
+  current.start();
+  serializeEffect = effectRAF(serialize);
+}
+
+window.addEventListener("hashchange", sync);
 
 const galleryDiv = document.querySelector("#gallery");
 const galleryContainerDiv = document.querySelector(
@@ -109,232 +161,102 @@ for (const sketch of sketches) {
   const el = document.createElement("a");
   el.textContent = `${sketch.id}. ${sketch.name}`;
   el.href = `#sketch=${sketch.id}`;
-  el.addEventListener("click", (e) => {
+  el.addEventListener("click", () => {
     galleryDiv.classList.remove("visible");
   });
   galleryContainerDiv.append(el);
 }
 
 function updateButtonState() {
-  document.getElementById("backButton").classList.toggle("disabled", index === 1);
-  document.getElementById("nextButton").classList.toggle("disabled", index === 31);
+  document
+    .getElementById("backButton")
+    .classList.toggle("disabled", wanted <= 1);
+  document
+    .getElementById("nextButton")
+    .classList.toggle("disabled", wanted >= sketches.length);
 }
 
-function readHash() {
-  const hash = window.location.hash.replace("#", "");
-  const regex = /sketch=(\d*)(\+params=(.*))?/gm;
-  const m = regex.exec(hash);
-  if (m) {
-    index = parseInt(m[1] ?? 1);
-    params = m[3] ?? "";
-  }
-  updateButtonState();
-}
-
-function prev(e) {
+// Stepping goes from the sketch asked for, not the one on screen, so pressing Next twice
+// while the first is still loading moves two sketches on.
+function step(e, delta) {
   e.preventDefault();
   e.stopPropagation();
-
-  readHash();
-
-  // beginning, dont do anything
-  if (index === 1) return;
-  window.location.hash = `sketch=${--index}`;
+  const target = wanted + delta;
+  if (target < 1 || target > sketches.length) return;
+  window.location.hash = `sketch=${target}`;
 }
 
-function next(e) {
+function randomize(e) {
   e.preventDefault();
   e.stopPropagation();
-
-  readHash();
-
-  // end, dont do anything
-  if (index === 31) return;
-  window.location.hash = `sketch=${++index}`;
+  current?.randomize?.();
 }
 
 function home(e) {
-  galleryDiv.classList.toggle("visible");
-
   e.preventDefault();
   e.stopPropagation();
+  galleryDiv.classList.toggle("visible");
 }
 
-document.getElementById("homeButton").addEventListener("click", (e) => home(e));
-document.getElementById("backButton").addEventListener("click", (e) => prev(e));
-document.getElementById("nextButton").addEventListener("click", (e) => next(e));
-document.getElementById("randomizeButton").addEventListener("click", (e) => {
-  if (module?.randomize) {
-    module.randomize();
-  }
+document.getElementById("homeButton").addEventListener("click", home);
+document
+  .getElementById("backButton")
+  .addEventListener("click", (e) => step(e, -1));
+document
+  .getElementById("nextButton")
+  .addEventListener("click", (e) => step(e, 1));
+document
+  .getElementById("randomizeButton")
+  .addEventListener("click", randomize);
+document.getElementById("downloadButton").addEventListener("click", (e) => {
   e.preventDefault();
   e.stopPropagation();
+  saveCanvas();
 });
+
+// A focused select type-aheads on letters, so J would also change the brush. Checkboxes and
+// the like keep focus after a click and take no letters, so they must not block the keys.
+function takesLetters(el) {
+  if (el.isContentEditable) return true;
+  if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
+  return (
+    el.tagName === "INPUT" &&
+    !["checkbox", "radio", "range", "button", "color"].includes(el.type)
+  );
+}
 
 window.addEventListener("keydown", (e) => {
-  if (e.code === "KeyR" && !e.ctrlKey && !e.metaKey) {
-    if (module?.randomize) {
-      module.randomize();
-    }
-  }
-  if (e.code === "KeyS") {
-    saveCanvas();
-  }
-  if (e.code === "KeyJ") {
-    prev(e);
-  }
-  if (e.code === "KeyK") {
-    next(e);
-  }
-});
-
-window.setHash = (data) => {
-  const newHash = `sketch=${index}+params=${data}`;
-  if (window.location.hash !== `#${newHash}`) {
-    window.location.hash = newHash;
-  }
-};
-
-document.getElementById("downloadButton").addEventListener("click", (e) => {
-  saveCanvas();
-  e.preventDefault();
-  e.stopPropagation();
+  // Alt+R belongs to the panel (it rerolls one control), Ctrl/Cmd+R and +S to the browser.
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (takesLetters(e.target)) return;
+  if (e.code === "KeyR") randomize(e);
+  if (e.code === "KeyS") saveCanvas();
+  if (e.code === "KeyJ") step(e, -1);
+  if (e.code === "KeyK") step(e, 1);
 });
 
 function saveCanvas() {
-  {
-    renderer.domElement.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-
-      const downloadBtn = document.createElement("a");
-      downloadBtn.setAttribute(
-        "download",
-        `inktober-2025-${performance.now()}.png`,
-      );
-      downloadBtn.setAttribute("href", url);
-      document.body.appendChild(downloadBtn);
-      downloadBtn.click();
-      downloadBtn.remove();
-      URL.revokeObjectURL(url);
-    });
-  }
-}
-
-readHash();
-if (isNaN(index) || index === "" || index === undefined) {
-  window.location.hash = `sketch=1`;
-  index = 1;
-}
-
-async function loadModule() {
-  const loaded = await import(`../sketches/${index}.js`);
-  if (loaded.start) {
-    loaded.start();
-  }
-  if (params && loaded.defaults && loaded.params) {
-    deserialize(params, loaded.params, loaded.defaults);
-  }
-  return loaded;
+  renderer.domElement.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const downloadBtn = document.createElement("a");
+    downloadBtn.setAttribute("download", `inktober-2025-${performance.now()}.png`);
+    downloadBtn.setAttribute("href", url);
+    document.body.appendChild(downloadBtn);
+    downloadBtn.click();
+    downloadBtn.remove();
+    URL.revokeObjectURL(url);
+  });
 }
 
 const switching = document.querySelector("#switching");
 
-function makeSerializeEffect() {
-  return effectRAF(() => {
-    serialize();
-  });
+// The rAF timestamp is threaded all the way to Painted's pass timer, which budgets
+// accumulation passes from the start of the frame (see gpu-timer.js).
+function update(frameStart) {
+  requestAnimationFrame(update);
+  current?.draw(frameStart);
+  switching.classList.toggle("hidden", current?.index === wanted);
 }
 
-async function init() {
-  module = await loadModule();
-
-  let loadGeneration = 0;
-  let serializeEffect = makeSerializeEffect();
-
-  async function reload() {
-    if (index === module.index) {
-      // Same sketch, but the hash still moved: serialize() writes a fresh entry on every
-      // parameter change, so the browser's Back button walks through that history without
-      // ever leaving the sketch, and a pasted link can differ from what is on screen only
-      // in its params. Returning early here without applying them left the URL saying one
-      // thing and the drawing showing another.
-      //
-      // No reload is needed for that — the module is already the right one, and the params
-      // are signals, so setting them is what a rebuild keys off anyway.
-      if (params && module.defaults && module.params) {
-        deserialize(params, module.params, module.defaults);
-      }
-      return;
-    }
-    const thisGeneration = ++loadGeneration;
-    serializeEffect.pause();
-    if (module.stop) {
-      module.stop();
-    }
-    try {
-      const loaded = await loadModule();
-      if (thisGeneration !== loadGeneration) {
-        if (loaded.stop) {
-          loaded.stop();
-        }
-        return;
-      }
-      module = loaded;
-      // The old effect is finished with, not merely idle. Pausing it left it subscribed to
-      // the previous sketch's params, and a fresh one was made on every switch — so each
-      // sketch's signals collected another dead subscriber every time you visited it.
-      serializeEffect.stop();
-      serializeEffect = makeSerializeEffect();
-    } catch (e) {
-      console.log(e);
-    }
-  }
-
-  // const capturer = new CCapture({
-  //   verbose: false,
-  //   display: true,
-  //   framerate: 60,
-  //   motionBlurFrames: 0 * (960 / 60),
-  //   quality: 99,
-  //   format: 'gif',
-  //   timeLimit: module.loopDuration,
-  //   frameLimit: 0,
-  //   autoSaveTime: 0,
-  //   workersPath: 'js/'
-  // });
-
-  // function capture() {
-  //   capturer.start();
-  //   startTime = performance.now();
-  // }
-
-  // document.getElementById("start").addEventListener("click", (e) => {
-  //   capture();
-  //   e.preventDefault();
-  // });
-
-  // The rAF timestamp is threaded all the way to Painted's pass timer, which budgets
-  // accumulation passes from the start of the frame (see gpu-timer.js). It used to be
-  // handed `startTime`, a variable left at 0 by the disabled capture code, so the budget
-  // was measured from whenever render() happened to be reached — after everything the
-  // sketch had already done that frame.
-  function update(frameStart) {
-    requestAnimationFrame(update);
-    if (module.index === index) {
-      module.draw(frameStart);
-      switching.classList.add("hidden");
-    } else {
-      switching.classList.remove("hidden");
-    }
-    // capturer.capture(module.canvas);
-  }
-
-  update();
-
-  window.addEventListener("hashchange", async (e) => {
-    readHash();
-    reload();
-  });
-}
-
-window.addEventListener("load", init);
+sync();
+requestAnimationFrame(update);
