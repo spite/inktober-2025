@@ -22,12 +22,8 @@ import { effect, frame } from "./reactive.js";
 //   function stop()  { rebuild.stop(); ... }
 //
 // `build` is handed an AbortSignal and should bail out at its yield points while
-// `signal.aborted` — the scene it was drawing into has already been cleared. A build that
-// never yields simply ignores it.
-//
-// The effect is lazy: nothing is built at import, only on the first start(). inktober.js
-// applies the URL's params between the two, so a shared link builds once, with its own
-// values, instead of once with the defaults and again with the link's.
+// `signal.aborted` — the scene it was drawing into has already been cleared.
+// Lazy: nothing builds until the first start().
 export function createRebuilder(clearScene, build) {
   let abortController = new AbortController();
   let complete = false;
@@ -61,8 +57,7 @@ export function createRebuilder(clearScene, build) {
       const before = runs;
       // Handles the ordinary case: a parameter changed while we were away.
       rebuild.resume();
-      // ...and these handle the first visit and the build that never got to finish.
-      // Skipped when resume() already rebuilt, so returning never builds twice.
+      // First visit, or a build that was interrupted.
       if ((runs === 0 || abandoned) && runs === before) rebuild.run();
     },
 

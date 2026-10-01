@@ -42,9 +42,11 @@ const shadingDarkLum = signal(0.55);
 const shadingBrightLum = signal(1.2);
 const shadingDarkSat = signal(1.5);
 const shadingBrightSat = signal(1.4);
+// Gamma on stroke colour: 1 = as written, higher = deeper.
+export const inkDepth = signal(1);
 const shadowMapRes = signal("2048"); // string for select
 
-export const paperColor = signal("#f6f2e9");
+export const paperColor = signal("#ebe2d0");
 export const embossAngle = signal(1.8);
 export const embossEdge = signal(0.13);
 export const embossStrength = signal(0.67);
@@ -53,16 +55,6 @@ export const bumpSize = signal(4); // offset in pixels
 export const bumpShadow = signal(0.1); // dark end of bump shadow (0=black, 1=white)
 export const shadowStrength = signal(0.2); // blend factor for the 2D ink shadow
 
-// The Rendering panel. It is advanced: shadow modes, luminance ranges and shadow-map
-// resolution are for tuning the look of the renderer, not for playing with a sketch, and
-// having it open alongside the sketch's own panel is what filled the screen. Hidden by
-// default, toggled with A, and the choice is remembered.
-//
-// Built once, at import. It used to be built lazily from inside MeshLineMaterial's
-// onBeforeRender, which three.js runs per mesh per pass -- a check paid a few hundred thousand
-// times a second to do something that happens once. #gui-container precedes the module script
-// in index.html, so it exists by the time this runs; the CSS puts the panel after the
-// sketch's own whichever was created first.
 const ADVANCED_KEY = "inktober-advanced-rendering";
 const showAdvanced = signal(localStorage.getItem(ADVANCED_KEY) === "1");
 effect(() => localStorage.setItem(ADVANCED_KEY, showAdvanced() ? "1" : "0"));
@@ -81,6 +73,8 @@ function buildRenderingPanel() {
   gui.addSlider("Bright lum", shadingBrightLum, 1, 2, 0.01);
   gui.addSlider("Dark sat", shadingDarkSat, 0, 2, 0.01);
   gui.addSlider("Bright sat", shadingBrightSat, 0, 2, 0.01);
+  gui.addSeparator();
+  gui.addSlider("Ink depth", inkDepth, 0.45, 1.5, 0.05);
   gui.addSeparator();
   gui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
   gui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
@@ -108,10 +102,6 @@ function buildRenderingPanel() {
 }
 buildRenderingPanel();
 
-// The Painted whose accumulation the shadow controls below re-run. (The shadow-buffer
-// preview is not among them: it is drawn over the finished image, and painted.js only
-// recomposites for it. The arrow and frustum helpers are drawn into the scene, so they are.) There is one, owned by the
-// stage, and it registers itself when it is built.
 let _activePainted = null;
 export function registerActivePainted(painted) {
   _activePainted = painted;
@@ -128,6 +118,7 @@ effect(() => {
   shadingBrightLum();
   shadingDarkSat();
   shadingBrightSat();
+  inkDepth();
   shadowMapRes();
   if (_shadowInitialized) {
     _activePainted?.softInvalidate();
@@ -153,8 +144,6 @@ class MeshLine extends BufferGeometry {
     this.widthCallback = null;
   }
 
-  // The sketches build meshes as `new Mesh(line.geometry, material)`, from when MeshLine
-  // wrapped a geometry rather than being one.
   get geometry() {
     return this;
   }
@@ -285,8 +274,7 @@ MeshLine.prototype.process = function () {
       side: new BufferAttribute(new Float32Array(this.side), 1),
       width: new BufferAttribute(new Float32Array(this.width), 1),
       uv: new BufferAttribute(new Float32Array(this.uvs), 2),
-      // 16-bit indices address 65536 vertices, which is 32768 points; past that they wrap
-      // silently and the ribbon folds back onto its own start.
+      // 16-bit indices wrap past 65536 vertices.
       index: new BufferAttribute(
         vertexCount > 65536
           ? new Uint32Array(this.indices_array)
@@ -324,12 +312,7 @@ MeshLine.prototype.process = function () {
   this.computeBoundingBox();
 };
 
-// Whether a fragment falls in a gap of the dash pattern. The pattern is counted in brush tiles
-// along the line: dashArray.x tiles drawn, then dashArray.y skipped, repeating every x + y --
-// so (1, repeat - 1) is one dash per brush cycle, as the sketches mean it. It used to repeat
-// every length(dashArray), the vector's length rather than the sum: (1, 4) came round every
-// 4.12 tiles and (1, 1) every 1.41, so the gaps drifted along each line instead of keeping
-// the rhythm asked for. One definition for the line and its shadow, which must agree.
+// dashArray.x tiles drawn, then dashArray.y skipped. Shared by the line and its shadow.
 const DASH_GAP = `
   bool inDashGap( vec2 uv ) {
     float tile = floor( mod( uv.x + uvOffset.x, 1. ) * repeat.x + dashOffset );
@@ -489,10 +472,7 @@ ShaderChunk["meshline_depth_vert"] = `
     else if (distance(wPos,  wPrev) < 0.0001) lineDir = normalize(wNext - wPos);
     else                                       lineDir = normalize(wNext - wPrev);
 
-    // The light is directional, so every point sees it along the same direction -- the one
-    // meshline_vert expands the receiving ribbon with. Aiming at the shadow camera's position
-    // instead, as this did, turned the caster up to ~22 degrees away from the receiver at the
-    // edges of the frustum, so a ribbon's lookup no longer landed on its own recorded shape.
+    // Expand along the light direction, as meshline_vert does for the receiver.
     vec3 expandDir = cross(lightDirection, lineDir);
     if (length(expandDir) < 0.0001) expandDir = vec3(0.0, 1.0, 0.0);
     expandDir = normalize(expandDir);
@@ -581,6 +561,7 @@ ShaderChunk["meshline_frag"] = `
   uniform float shadingBrightLum;
   uniform float shadingDarkSat;
   uniform float shadingBrightSat;
+  uniform float inkDepth;
 
   varying vec2 vUV;
   varying vec4 vColor;
@@ -656,6 +637,7 @@ ShaderChunk["meshline_frag"] = `
     ${ShaderChunk.logdepthbuf_fragment}
 
     vec4 c = vColor;
+    c.rgb = pow( c.rgb, vec3( inkDepth ) );
     
     vec2 tuv = mod((vUV + uvOffset) * repeat, vec2(1.));
     
@@ -724,12 +706,7 @@ ShaderChunk["meshline_frag"] = `
     ${ShaderChunk.fog_fragment}
   }`;
 
-// Uniforms whose value is the same for every line and changes once per pass: the clock, the
-// jitter index, the target size, the light, and the Rendering panel's shading settings. Every
-// MeshLineMaterial holds these same objects, so installLineLighting's scene hook sets each one
-// once per render call. They used to be copied into each material from its own
-// onBeforeRender -- six signal reads and a dozen writes per mesh per pass, 4.7 ms of every
-// pass on a sketch with a thousand lines.
+// Shared by every MeshLineMaterial; set once per pass by the scene hook.
 const passUniforms = {
   time: { value: 0 },
   frameIndex: { value: 0 },
@@ -741,10 +718,9 @@ const passUniforms = {
   shadingBrightLum: { value: 1.2 },
   shadingDarkSat: { value: 1.5 },
   shadingBrightSat: { value: 1.4 },
+  inkDepth: { value: 1 },
 };
 
-// Plain accessors, so `material.opacity = 0.5` and the MeshLineMaterial({ opacity }) parameters
-// write the uniform.
 function defineUniformAccessors(material, names) {
   for (const name of names) {
     Object.defineProperty(material, name, {
@@ -799,7 +775,6 @@ class MeshLineMaterial extends ShaderMaterial {
       "repeat",
       "uvOffset",
     ]);
-    // Giving a dash pattern turns dashing on.
     Object.defineProperty(this, "dashArray", {
       enumerable: true,
       get() {
@@ -815,24 +790,17 @@ class MeshLineMaterial extends ShaderMaterial {
   }
 }
 
-// Every mesh that uses a MeshLineMaterial casts and receives shadows, through a depth
-// material cut from the same stroke. Both are set up on the mesh's first draw because the
-// sketches only ever build `new Mesh(geometry, material)`; after that this returns at once.
 MeshLineMaterial.prototype.onBeforeRender = function (renderer, scene, camera, geometry, mesh) {
   if (mesh.customDepthMaterial) return;
   const material = mesh.material;
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  // One per material, not per mesh: a material shared by two meshes would otherwise leave
-  // the first depth material with nothing to dispose it.
+  // One per material, so dispose() can free it.
   material.__depthMaterial ??= new MeshLineDepthMaterial(material);
   mesh.customDepthMaterial = material.__depthMaterial;
 };
 
-// Every sketch's clearScene() disposes mesh.material on rebuild, and used to leave the
-// depth material that onBeforeRender had quietly attached to the mesh behind. Nothing
-// referenced it any more and nothing freed it, so each rebuild leaked one shader material
-// per line. Pairing the two here means the existing dispose() calls free both.
+// Disposing a line material also disposes its depth material.
 const _disposeMeshLineMaterial = MeshLineMaterial.prototype.dispose;
 MeshLineMaterial.prototype.dispose = function () {
   if (this.__depthMaterial) {
@@ -842,10 +810,7 @@ MeshLineMaterial.prototype.dispose = function () {
   return _disposeMeshLineMaterial.call(this);
 };
 
-// Everything that decides which fragments of a line exist, plus the light it is expanded
-// towards. The depth material holds these same uniform objects rather than copies, so the
-// shadow is cut from exactly the stroke that is drawn -- dashes, brush tiling, and the
-// uvOffset the sketches animate every frame -- with nothing to keep in sync.
+// Shared by reference with the line material so the shadow matches the stroke.
 const LINE_UNIFORMS = [
   "map",
   "useMap",
@@ -877,30 +842,21 @@ class MeshLineDepthMaterial extends ShaderMaterial {
   }
 }
 
-// ---- The light, and the once-per-pass hook ----------------------------------------------
-
-// Half-width of the square shadow frustum, in world units. Fitted from the camera on the first
-// render after each refit and then held, so shadows do not swim while a drawing is on screen.
 let frustumR = null;
 let jitterIndex = 0;
 let shadowLight = null;
 
-// For the Rendering panel's shadow-buffer preview.
 export function shadowMapTexture() {
   return shadowLight?.shadow.map?.texture ?? null;
 }
 const _lightDir = new Vector3();
 
-// Drops the fitted frustum so the next render fits it again from the current camera. The
-// stage calls it for every sketch it shows: their camera distances run from about 3.6 to
-// 26.6, and a frustum fitted to one is the wrong size for the others.
 export function refitShadowCamera() {
   frustumR = null;
 }
 
 function fitShadowCamera(camera, light) {
   const halfFov = (camera.fov * Math.PI) / 180 / 2;
-  // The vertical half-extent of the view at the camera's distance, plus 10% padding.
   frustumR = camera.position.length() * Math.tan(halfFov) * 1.1;
 
   const cam = light.shadow.camera;
@@ -908,16 +864,12 @@ function fitShadowCamera(camera, light) {
   cam.right = frustumR;
   cam.top = frustumR;
   cam.bottom = -frustumR;
-  // The light sits 2.5 r from the origin (placed by the hook below).
   const lightDist = frustumR * 2.5;
   cam.near = Math.max(0.1, lightDist - frustumR);
   cam.far = lightDist + frustumR;
   cam.updateProjectionMatrix();
 }
 
-// Adds the shadow-casting light and its debug helpers to the scene, and installs the hook
-// that runs at the start of every render of it -- before three.js draws the shadow map --
-// to update the light and passUniforms for that pass. Called once, by the stage.
 export function installLineLighting(scene) {
   const light = (shadowLight = new DirectionalLight(0xffffff, 1.0));
   light.shadow.mapSize.set(2048, 2048);
@@ -932,9 +884,6 @@ export function installLineLighting(scene) {
     onBeforeRender.call(this, renderer, scene, camera, renderTarget);
 
     const mode = shadowMode();
-    // Off turns the shadow pass off rather than hiding every depth material inside it, which
-    // still cleared the map and walked every mesh each pass. Toggling castShadow changes the
-    // lights state, so three.js recompiles the line program once per switch.
     light.castShadow = mode !== "off";
 
     const wantRes = parseInt(shadowMapRes());
@@ -948,16 +897,13 @@ export function installLineLighting(scene) {
 
     if (frustumR === null) fitShadowCamera(camera, light);
 
-    // The light follows the emboss angle, in camera space.
     const a = embossAngle();
     _lightDir
       .set(Math.cos(a), Math.sin(a), 1.0)
       .normalize()
       .transformDirection(camera.matrixWorld);
     light.position.copy(_lightDir).multiplyScalar(frustumR * 2.5);
-    // three.js has already updated world matrices by the time it calls this hook, so a light
-    // moved here would reach the shadow map one pass late -- a lag that showed while orbiting,
-    // with the map drawn for the previous direction and read with the current one.
+    // World matrices are already updated when this hook runs.
     light.updateMatrixWorld();
 
     passUniforms.lightDirection.value.copy(_lightDir);
@@ -970,6 +916,7 @@ export function installLineLighting(scene) {
     passUniforms.shadingBrightLum.value = shadingBrightLum();
     passUniforms.shadingDarkSat.value = shadingDarkSat();
     passUniforms.shadingBrightSat.value = shadingBrightSat();
+    passUniforms.inkDepth.value = inkDepth();
 
     frustumHelper.visible = showShadowFrustum();
     if (frustumHelper.visible) frustumHelper.update();

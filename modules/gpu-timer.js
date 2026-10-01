@@ -2,15 +2,7 @@
 //
 // Uses EXT_disjoint_timer_query_webgl2 to measure actual GPU time per pass,
 // then computes how many passes fit inside a millisecond budget.
-//
-// Without the extension (Firefox, Safari, much of mobile) nothing measures the GPU, and the
-// fallback used to be a CPU deadline: keep issuing passes until budgetMs of wall clock had
-// gone. But issuing a pass is not running it -- WebGL only queues the work -- so that timed
-// how fast passes could be submitted, and with no cap it queued far more than the GPU could
-// draw in a frame. Measured at 2x pixel ratio it ran about twice the passes the GPU timer
-// allows and lost a quarter to a third of the frame rate. The fallback now steers by the one
-// thing it can observe, the frame interval: add passes while frames arrive on time, back off
-// while they are late. The deadline stays only as a ceiling on CPU time.
+// Without the extension (Firefox, Safari), passes are steered by the frame interval.
 //
 // Usage each render frame:
 //   timer.beginFrame(renderer, rafTimestamp);   // check last frame's query, update target
@@ -41,7 +33,6 @@ export class AdaptivePassTimer {
     this._targetPasses = minPasses;
     this._frameDeadline = 0;
 
-    // Fallback controller state.
     this._lastFrameStart = null;
     this._lastPassCount = 0;
     this._windowFrames = 0;
@@ -114,19 +105,7 @@ export class AdaptivePassTimer {
     this._pendingQuery = null;
   }
 
-  // Judged over windows of WINDOW frames, not frame by frame. Single late frames happen with
-  // no GPU load at all -- a collection, the compositor, the tab being busy -- and reacting to
-  // each one cut the pass count faster than it could grow back, pinning it at one. A window
-  // with a quarter of its frames late means the passes do not fit: cut by a quarter. One with
-  // at most one late frame means they do: grow by a quarter, at least one, which climbs from
-  // the reset value of one to the cap in about a second. In between, stay put.
-  //
-  // Only frames that followed one which ran passes are judged -- a settled drawing runs none,
-  // and its intervals say nothing about what a pass costs -- and gaps long enough to be a
-  // background tab or a stall elsewhere are ignored rather than read as GPU load.
-  //
-  // LATE_MS sits between the 16.7 ms of a 60 Hz frame and the 33.3 ms of a missed one, which
-  // makes the target 60 fps -- the same that the GPU path's 10 ms budget works out to.
+  // Cut passes when a quarter of a window's frames are late, grow when at most one is.
   _steerByFrameInterval(frameStart) {
     const LATE_MS = 20;
     const WINDOW = 15;

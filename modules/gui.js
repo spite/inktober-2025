@@ -16,9 +16,7 @@ export { Controller, Section, Tab } from "guspira";
 
 import { GUI, randomInRange } from "guspira";
 
-// Panels start hidden. A sketch builds its panel at import, and importing is not the same as
-// being shown: a sketch whose load was overtaken by another navigation is imported and never
-// started, and its panel used to stay on screen next to the real one. start() shows it.
+// Panels start hidden; start() shows them.
 export default class extends GUI {
   constructor(title, el, opts = {}) {
     super(title, el, { visible: false, ...opts });

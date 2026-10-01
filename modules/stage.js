@@ -38,11 +38,7 @@ renderer.setClearColor(0, 0);
 
 installLineLighting(scene);
 
-// Textures arrive after the first frames: the brushes, the paper, the blue noise the strokes
-// are dithered with, and whatever a sketch loads itself. Until then they sample as empty -- a
-// stroke with no brush, paper with no grain -- and a drawing that has already converged keeps
-// that result, because nothing else asks it to redraw. Every TextureLoader here goes through
-// the default manager, whose onLoad fires each time its queue drains.
+// Re-accumulate when late textures finish loading.
 const onLoad = DefaultLoadingManager.onLoad;
 DefaultLoadingManager.onLoad = () => {
   onLoad?.();
@@ -61,8 +57,7 @@ export function show(group, pose, { screenSpacePanning = false } = {}) {
   _current = group;
   scene.add(group);
 
-  // The controls orbit by rotating camera.up, so the last sketch's roll is still in it, and
-  // they damp out momentum over several frames — both would carry into this pose.
+  // The controls roll camera.up and damp momentum; reset both.
   controls.stopMotion();
   camera.up.set(0, 1, 0);
   camera.position.copy(pose);
@@ -72,8 +67,6 @@ export function show(group, pose, { screenSpacePanning = false } = {}) {
   controls.enabled = true;
   controls.update();
 
-  // The shadow frustum is sized from the camera distance and then held. The poses range
-  // from roughly 3.6 to 26.6 units out, so it is fitted again for each sketch.
   refitShadowCamera();
 
   // The pass budget was learned from the sketch we just left and says nothing about this one.

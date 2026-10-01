@@ -235,7 +235,7 @@ canvas {
   }
 }
 
-/* The shared Rendering panel always sits below the sketch's own, whichever was created first. */
+/* Keep the Rendering panel below the sketch's own. */
 #gui-container > .gui-rendering {
   order: 1;
 }

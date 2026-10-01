@@ -1,5 +1,8 @@
-import { WebGLRenderer, PerspectiveCamera, PCFSoftShadowMap } from "three";
+import { WebGLRenderer, PerspectiveCamera, PCFSoftShadowMap, ColorManagement } from "three";
 import { TextureLoader } from "three";
+
+// Colours are used as written: nothing converts linear back to sRGB on output.
+ColorManagement.enabled = false;
 const loader = new TextureLoader();
 loader.setPath("./assets/");
 const brushes = {
@@ -39,7 +42,6 @@ const renderer = getWebGLRenderer();
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFSoftShadowMap;
 
-// The one camera; the stage frames it for each sketch.
 const camera = new PerspectiveCamera(initialFov, 1, 0.1, 100);
 resize();
 
@@ -62,8 +64,7 @@ function resize() {
 
   camera.aspect = w / h;
   if (w < h) {
-    // Portrait keeps the landscape framing's horizontal extent, so nothing is cropped at
-    // the sides.
+    // Portrait keeps the landscape horizontal FOV.
     const horizontalFOV = (initialFov * Math.PI) / 180;
     const newVFovRad = 2 * Math.atan(Math.tan(horizontalFOV / 2) / camera.aspect);
     camera.fov = newVFovRad * (180 / Math.PI);

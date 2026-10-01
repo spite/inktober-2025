@@ -89,7 +89,7 @@ function loadModel(entry) {
       const geometry = await entry.loader();
       geometry.scale(entry.scale, entry.scale, entry.scale);
       geometry.computeBoundsTree();
-      const mesh = new Mesh(geometry, new MeshBasicMaterial({ color: 0xf6f2e9 }));
+      const mesh = new Mesh(geometry, new MeshBasicMaterial({ color: 0xebe2d0 }));
       entry.geometry = geometry;
       // Sampled points come off the sketches' generator, not Math.random, so they are
       // part of the seed. See modules/random.js.

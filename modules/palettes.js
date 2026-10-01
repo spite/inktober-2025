@@ -1,203 +1,130 @@
-import { Color } from "three";
+// Hex values are what shows on screen (see three.js).
+
+const sumi = ["#030306", "#0b0e14", "#312921", "#6c5d4c", "#a41409"];
+const indigo = ["#020413", "#050f39", "#102f6b", "#40709c", "#c47723"];
+const dusk = ["#030512", "#210a29", "#741835", "#bc4329", "#ca8e46"];
+const terracotta = ["#0e0503", "#3e0b04", "#83200a", "#a45227", "#b78d55"];
+const riso = ["#07145c", "#a81343", "#d83a1d", "#d29a18"];
+const glacier = ["#01040a", "#061222", "#17344e", "#3a6980", "#729ca8"];
+const berry = ["#130208", "#4f061d", "#af1e21", "#be5a34", "#be8a56"];
+const ink = ["#0b0d12", "#2f3339", "#625d56", "#918b84", "#c2bdb7"];
+
+// The last entry gets the largest share of a gradient, so each ends on its main colour.
+const cobaltCoral = ["#03103e", "#18349b", "#4683c5", "#f58967", "#d73626"];
+const violetGold = ["#1c043d", "#562595", "#a55fb9", "#eab444", "#d57700"];
+const magentaTangerine = ["#f7cc4b", "#fa8927", "#ed4a49", "#3e0026", "#b10b69"];
+const crimsonNavy = ["#040e25", "#17306d", "#4773ab", "#ea6f2f", "#b71824"];
+const ultramarine = ["#050c42", "#16229b", "#2961ce", "#67a3e0", "#f4993c"];
+const saffron = ["#2d1205", "#7f3300", "#ce6500", "#eba002", "#f4cd4b"];
+const lilacApricot = ["#2a1c56", "#f2ad73", "#de6129", "#ae96da", "#7055b0"];
+const scarletInk = ["#04070f", "#252e3d", "#c50710", "#ee5d2b", "#c4b4a3"];
+const amethyst = ["#15082c", "#3c2566", "#6f4fa1", "#a280c8", "#cab4db"];
+const peony = ["#3a0921", "#971558", "#dc467d", "#f3909d", "#426ec2"];
 
 const basic = [
-  "#1e242c",
-  "#4a5b6b",
-  "#8da0b4",
-  "#cdd9e6",
-  "#f5f8fb",
-  "#ebb43a",
-  "#e74c3c",
+  "#030406",
+  "#111b25",
+  "#445a74",
+  "#9cb1ca",
+  "#e9eff6",
+  "#d4740b",
+  "#cc120c",
 ];
 
 const fire = [
-  "#FD7555",
-  "#FE4F2E",
-  "#040720",
-  "#EB9786",
-  "#E02211",
-  "#3A0724",
-  "#F9C163",
+  "#fa2d17",
+  "#fd1407",
+  "#000104",
+  "#d44f3d",
+  "#be0401",
+  "#0b0104",
+  "#f28820",
 ];
 
 const earth = [
-  "#FE695A",
-  "#0F2246",
-  "#CE451C",
-  "#FEF2CD",
-  "#EEC1A6",
-  "#57424A",
-  "#E2902D",
+  "#fd241a",
+  "#010410",
+  "#9d0f03",
+  "#fde29c",
+  "#da8861",
+  "#180e11",
+  "#c24707",
 ];
 
-const florian = ["#20a0aa", "#ec4039", "#ffae12"];
+const florian = ["#045a67", "#d60d0a", "#ff6c02"];
 
 const autumnIntoWinter = [
-  "#DDAA44",
-  "#B9384C",
-  "#7E9793",
-  "#F8F6F2",
-  "#3D5443",
-  "#2F2D30",
-  "#ebb43a",
+  "#b8670f",
+  "#7c0a12",
+  "#354f4a",
+  "#efebe2",
+  "#0c170e",
+  "#070708",
+  "#d4740b",
   "#ffffff",
 ];
 
-const clayForest = ["#FEF2CD", "#E2902D", "#B9384C", "#7E9793", "#3D5443"];
-
-const acidCool = ["#ffffff", "#4477aa", "#3eb9d6", "#ffcb5c"];
-
-const acidTrip = fix([
-  "#baebff",
-  "#bbdbfe",
-  "#bccbfd",
-  "#bebcfc",
-  "#bfacfb",
-  "#c09cfa",
-  "#c18cf9",
-  "#c37df8",
-  "#c46df7",
-  "#c55df6",
-]);
-
-function fix(colors) {
-  const c = new Color();
-  colors.map((v) => {
-    c.setStyle(v);
-    const res = {};
-    c.getHSL(res);
-    c.setHSL(res.h, res.s ** 2, res.l ** 2);
-    return c.getHex();
-  });
-  return colors;
-}
-
-const rainbow = fix([
-  "#ef4444",
-  "#f97316",
-  "#f59e0b",
-  "#84cc16",
-  "#10b981",
-  "#06b6d4",
-  "#3b82f6",
-  "#8b5cf6",
-  "#d946ef",
-  "#f43f5e",
-]);
+const clayForest = ["#fde29c", "#c24707", "#7c0a12", "#354f4a", "#0c170e"];
 
 // https://coolors.co/palettes/trending
 
-const fieryOcean = fix(["#780000", "#c1121f", "#fdf0d5", "#003049", "#669bbc"]);
-const fieryPalette = fix([
-  "#5f0f40",
-  "#9a031e",
-  "#fb8b24",
-  "#e36414",
-  "#0f4c5c",
-]);
-const oliveGardenFeast = fix([
-  "#606c38",
-  "#283618",
-  "#fefae0",
-  "#dda15e",
-  "#bc6c25",
-]);
-const vibrantColorFiesta = fix([
-  "#ffbe0b",
-  "#fb5607",
-  "#ff006e",
-  "#8338ec",
-  "#3a86ff",
-]);
-const blackAndGoldElegance = fix([
-  "#000000",
-  "#14213d",
-  "#fca311",
-  "#e5e5e5",
-  "#ffffff",
-]);
-const refreshingSummerFun = fix([
-  "#8ecae6",
-  "#219ebc",
-  "#023047",
-  "#ffb703",
-  "#fb8500",
-]);
-const warmAutumnGlow = fix([
-  "#003049",
-  "#d62828",
-  "#f77f00",
-  "#fcbf49",
-  "#eae2b7",
-]);
-const oceanSunset = fix([
-  "#001219",
-  "#005f73",
-  "#0a9396",
-  "#94d2bd",
-  "#e9d8a6",
-  "#ee9b00",
-  "#ca6702",
-  "#bb3e03",
-  "#ae2012",
-  "#9b2226",
-]);
-const naturesHarmony = fix([
-  "#004733",
-  "#2b6a4d",
-  "#568d66",
-  "#a5c1ae",
-  "#f3f4f6",
-  "#dcdfe5",
-  "#df8080",
-  "#cb0b0a",
-  "#ad080f",
-  "#8e0413",
-]);
-const mysticBliss = fix([
-  "#b8b8d1",
-  "#5b5f97",
-  "#ffc145",
-  "#fffffb",
-  "#ff6b6c",
-]);
-const mysticalGlow = fix([
-  "#331832",
-  "#d81e5b",
-  "#f0544f",
-  "#c6d8d3",
-  "#fdf0d5",
-]);
-const vibrantNights = fix([
-  "#820263",
-  "#d90368",
-  "#eadeda",
-  "#2e294e",
-  "#ffd400",
-]);
-const brightContrasts = fix([
-  "#f8ffe5",
-  "#06d6a0",
-  "#1b9aaa",
-  "#ef476f",
-  "#ffc43d",
-]);
-const vibrantSunset = fix([
-  "#ff6d00",
+const fieryOcean = ["#300000", "#880203", "#fadeaa", "#000811", "#225480"];
+const oliveGardenFeast = [
+  "#1e260a",
+  "#050902",
+  "#fdf4be",
+  "#b85b1d",
+  "#802605",
+];
+const refreshingSummerFun = [
+  "#4597ca",
+  "#045780",
+  "#000810",
   "#ff7900",
-  "#ff8500",
-  "#ff9100",
-  "#ff9e00",
-  "#240046",
-  "#3c096c",
-  "#5a189a",
-  "#7b2cbf",
-  "#9d4edd",
-]);
-
-const grayscale = ["#000000", "#eeeeee"];
-
+  "#f63c00",
+];
+const warmAutumnGlow = [
+  "#000811",
+  "#ab0505",
+  "#ed3600",
+  "#f88511",
+  "#d2c279",
+];
+const mysticBliss = [
+  "#7a7aa3",
+  "#1b1d4f",
+  "#ff880f",
+  "#fffff6",
+  "#ff2526",
+];
+const vibrantNights = [
+  "#390020",
+  "#b10023",
+  "#d2bab3",
+  "#070613",
+  "#ffa800",
+];
 const palettes = [
+  { id: "sumi", palette: sumi, name: "Sumi" },
+  { id: "indigo", palette: indigo, name: "Indigo" },
+  { id: "dusk", palette: dusk, name: "Dusk" },
+  { id: "terracotta", palette: terracotta, name: "Terracotta" },
+  { id: "riso", palette: riso, name: "Risograph" },
+  { id: "glacier", palette: glacier, name: "Glacier" },
+  { id: "berry", palette: berry, name: "Berry" },
+  { id: "ink", palette: ink, name: "Ink wash" },
+
+  { id: "cobaltCoral", palette: cobaltCoral, name: "Cobalt & coral" },
+  { id: "violetGold", palette: violetGold, name: "Violet & gold" },
+  { id: "magentaTangerine", palette: magentaTangerine, name: "Magenta & tangerine" },
+  { id: "crimsonNavy", palette: crimsonNavy, name: "Crimson & navy" },
+  { id: "ultramarine", palette: ultramarine, name: "Ultramarine" },
+  { id: "saffron", palette: saffron, name: "Saffron" },
+  { id: "lilacApricot", palette: lilacApricot, name: "Lilac & apricot" },
+  { id: "scarletInk", palette: scarletInk, name: "Scarlet & ink" },
+  { id: "amethyst", palette: amethyst, name: "Amethyst" },
+  { id: "peony", palette: peony, name: "Peony" },
+
   { id: "basic", palette: basic, name: "Basic" },
   { id: "fire", palette: fire, name: "Fire" },
   { id: "earth", palette: earth, name: "Earth" },
@@ -209,20 +136,11 @@ const palettes = [
   },
   { id: "clayForest", palette: clayForest, name: "Clay Forest" },
 
-  { id: "acidCool", palette: acidCool, name: "Acid cool" },
-  { id: "acidTrip", palette: acidTrip, name: "Acid trip" },
-
   { id: "fieryOcean", palette: fieryOcean, name: "Fiery ocean" },
-  { id: "fieryPalette", palette: fieryPalette, name: "Fiery palette" },
   {
     id: "oliveGardenFeast",
     palette: oliveGardenFeast,
     name: "Olive garden feast",
-  },
-  {
-    id: "vibrantColorFiesta",
-    palette: vibrantColorFiesta,
-    name: "Vibrant color fiesta",
   },
   {
     id: "vibrantNights",
@@ -232,22 +150,7 @@ const palettes = [
   {
     id: "refreshingSummerFun",
     palette: refreshingSummerFun,
-    name: "Refreshing summmer fun",
-  },
-  {
-    id: "mysticalGlow",
-    palette: mysticalGlow,
-    name: "Mystical glow",
-  },
-  {
-    id: "blackAndGoldElegance",
-    palette: blackAndGoldElegance,
-    name: "Black and gold elegance",
-  },
-  {
-    id: "brightContrasts",
-    palette: brightContrasts,
-    name: "Bright contrasts",
+    name: "Refreshing summer fun",
   },
   {
     id: "mysticBliss",
@@ -259,32 +162,12 @@ const palettes = [
     palette: warmAutumnGlow,
     name: "Warm autumn glow",
   },
-  {
-    id: "naturesHarmony",
-    palette: naturesHarmony,
-    name: `Nature's harmony`,
-  },
-  {
-    id: "oceanSunset",
-    palette: oceanSunset,
-    name: "Ocean sunset",
-  },
-  {
-    id: "vibrantSunset",
-    palette: vibrantSunset,
-    name: "Vibrant sunset",
-  },
-  {
-    id: "grayscale",
-    palette: grayscale,
-    name: "Grayscale",
-  },
-  { id: "rainbow", palette: rainbow, name: "Rainbow" },
 ];
 const paletteOptions = palettes.map((p) => [p.id, p.name]);
 
+// Unknown ids fall back to the first palette.
 function getPalette(id) {
-  return palettes.find((p) => p.id === id).palette;
+  return (palettes.find((p) => p.id === id) ?? palettes[0]).palette;
 }
 
 export { palettes, paletteOptions, getPalette };

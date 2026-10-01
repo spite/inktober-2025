@@ -39,10 +39,7 @@ const fragmentShader = `
 precision highp float;
 
 uniform vec2 resolution;
-// Everything this pass measures in pixels -- the emboss edge, the bump shadow's offset and the
-// paper grain -- is in CSS pixels, scaled by this to the device pixels the buffers are in, so
-// a 2x display shows the same drawing as the 1x one it was tuned on rather than one with half
-// the emboss, half the shadow offset and paper grain at half size.
+// Scales pixel-sized effects to CSS pixels.
 uniform float pixelRatio;
 
 uniform sampler2D inputTexture;
@@ -75,7 +72,6 @@ vec4 calcNormal(in sampler2D map, in vec2 uv) {
   float s11 = i.a;
 
   const vec2 size = vec2(1.,0.0);
-  // One CSS pixel; at 1x exactly the neighbouring texel, as textureOffset sampled it.
   vec2 px = pixelRatio / vec2(textureSize(map, 0));
 
   float s01 = texture(map, uv - vec2(px.x, 0.)).a;
@@ -146,7 +142,6 @@ void main() {
   color = overlay(color, vec4(l), embossStrength);
   color = lighten(color, vec4((l - .5) * embossStrength));
 
-  // Opaque: this is drawn straight onto the canvas.
   fragColor = vec4(color.rgb, 1.);
 }
 `;
@@ -247,8 +242,6 @@ class Painted {
       fragmentShader: accumFragmentShader,
       glslVersion: GLSL3,
     });
-    // Full-screen quads never depth-test, so neither target needs a depth buffer -- at 2x
-    // on a 1400x800 window each one was 18 MB of video memory spent on nothing.
     this.rawAccumPass = new ShaderPingPongPass(rawAccumShader, {
       type: accumulationType(),
       depthBuffer: false,
@@ -275,9 +268,6 @@ class Painted {
       fragmentShader: fragmentShader,
       glslVersion: GLSL3,
     });
-    // Drawn straight onto the canvas. It used to go to a target of its own, which a final
-    // pass then copied to the screen with alpha forced to 1 -- a full-screen pass and a
-    // full-resolution buffer for what one line at the end of this shader now does.
     this.pass = new ShaderPass(shader, { toScreen: true });
 
     // embossAngle drives the 3D light — needs shadow re-accumulation.
@@ -318,9 +308,7 @@ class Painted {
     this._passTimer.reset();
   }
 
-  // Restarts accumulation. The next pass replaces the buffer outright (blend 1); a soft
-  // restart blends it half and half with what was there, for changes to lighting where
-  // snapping to one noisy sample would flash.
+  // blend 1 replaces the buffer; 0.5 eases lighting changes in.
   invalidate(blend = 1.0) {
     const uniforms = this.rawAccumPass.shader.uniforms;
     uniforms.invalidate.value = true;
@@ -367,9 +355,6 @@ class Painted {
     this.pass.shader.uniforms.pixelRatio.value     = renderer.getPixelRatio();
 
     if (needsAccum) {
-      // No clear on a hard invalidate: its first pass blends the new frame in at weight 1,
-      // which replaces the buffer whatever was in it. Nor a warm-up render -- the light and
-      // its hook are installed with the stage, before anything is drawn.
       this._passTimer.beginFrame(renderer, frameStart);
       this._passTimer.beginPasses();
       let passesRun = 0;
@@ -423,10 +408,7 @@ class Painted {
     }
     const { mat, cam, sc } = this._shadowPreview;
     mat.uniforms.shadowMap.value = shadowTex;
-    // setViewport and setScissor take CSS pixels and scale them by the pixel ratio. This used
-    // to hand them this.size, which is in device pixels, and then "restore" the viewport to
-    // it: on a 2x display the viewport was left at twice the canvas, and every pass after
-    // it drew only the bottom-left quarter of the picture.
+    // setViewport/setScissor take CSS pixels.
     renderer.getViewport(_viewport);
     const size = Math.floor(Math.min(_viewport.z, _viewport.w) / 4);
     const margin = 8;

@@ -1,7 +1,6 @@
 import { effectRAF } from "./reactive.js";
 import { renderer } from "./three.js";
 
-// One canvas for the whole app, added once.
 document.body.appendChild(renderer.domElement);
 
 const sketches = [
@@ -38,20 +37,14 @@ const sketches = [
   { id: 31, name: "Lines on a sphere" },
 ];
 
-// The sketch on screen, and the one the URL asks for. They differ only while the latter is
-// loading: the one on screen keeps drawing until the new one is ready, and then the two are
-// swapped in one step, in sync() below.
+// `current` is on screen; `wanted` is what the URL asks for, possibly still loading.
 let current = null;
 let wanted = null;
 let serializeEffect = null;
 
-// Mirrors the sketch's params into the URL so it can be shared. replaceState rather than a
-// new history entry: this runs on every frame a slider is dragged, and Back should leave the
-// sketch rather than replay the drag. It also fires no hashchange, so nothing reads back what
-// was just written.
+// replaceState: no history entry per slider frame, and no hashchange.
 function serialize() {
   const { index, params } = current;
-  // Older sketches predate the params contract and export none at all.
   if (!params) return;
   const data = Object.keys(params)
     .map((key) => `${key}=${params[key]()}`)
@@ -106,13 +99,7 @@ function readHash() {
   return { index: index > 0 ? index : null, params: m?.[2] ?? "" };
 }
 
-// The only place a sketch is started or stopped.
-//
-// Nothing changes until the requested module has loaded and is still the one wanted, so a
-// request overtaken by a later one — Next pressed twice, or Next then Previous — is simply
-// dropped, and the sketch on screen is never left stopped with nothing in its place.
-//
-// Params are applied before start(), so a shared link builds once, with its own values.
+// Swaps in the requested sketch once loaded, unless a later request superseded it.
 async function sync() {
   const { index, params } = readHash();
   if (index === null) {
@@ -127,7 +114,6 @@ async function sync() {
     next = await import(`../sketches/${index}.js`);
   } catch (e) {
     console.error(e);
-    // Stay on what is showing rather than wait forever on a sketch that is not coming.
     if (wanted === index && current) wanted = current.index;
     updateButtonState();
     return;
@@ -137,8 +123,7 @@ async function sync() {
   if (params && next.params && next.defaults) {
     deserialize(params, next.params, next.defaults);
   }
-  // Same sketch: the effect only writes when a param changes, so a bare #sketch=N (Back to
-  // an entry made before the params were added, or Next then Previous) needs it done here.
+  // The serialize effect only writes on change.
   if (next === current) {
     serialize();
     return;
@@ -176,8 +161,7 @@ function updateButtonState() {
     .classList.toggle("disabled", wanted >= sketches.length);
 }
 
-// Stepping goes from the sketch asked for, not the one on screen, so pressing Next twice
-// while the first is still loading moves two sketches on.
+// Step from the requested sketch, not the one on screen.
 function step(e, delta) {
   e.preventDefault();
   e.stopPropagation();
@@ -214,8 +198,7 @@ document.getElementById("downloadButton").addEventListener("click", (e) => {
   saveCanvas();
 });
 
-// A focused select type-aheads on letters, so J would also change the brush. Checkboxes and
-// the like keep focus after a click and take no letters, so they must not block the keys.
+// Selects type-ahead on letters; checkboxes keep focus but don't.
 function takesLetters(el) {
   if (el.isContentEditable) return true;
   if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
@@ -226,7 +209,7 @@ function takesLetters(el) {
 }
 
 window.addEventListener("keydown", (e) => {
-  // Alt+R belongs to the panel (it rerolls one control), Ctrl/Cmd+R and +S to the browser.
+  // Alt+R rerolls one panel control; Ctrl/Cmd combos belong to the browser.
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (takesLetters(e.target)) return;
   if (e.code === "KeyR") randomize(e);
@@ -250,8 +233,6 @@ function saveCanvas() {
 
 const switching = document.querySelector("#switching");
 
-// The rAF timestamp is threaded all the way to Painted's pass timer, which budgets
-// accumulation passes from the start of the frame (see gpu-timer.js).
 function update(frameStart) {
   requestAnimationFrame(update);
   current?.draw(frameStart);
