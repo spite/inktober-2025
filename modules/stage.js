@@ -1,8 +1,8 @@
-import { Scene, Vector3 } from "three";
+import { DefaultLoadingManager, Scene, Vector3 } from "three";
 import { OrbitControls } from "OrbitControls";
 import { renderer, onResize, camera } from "./three.js";
 import { Painted } from "./painted.js";
-import { refitShadowCamera } from "./three-meshline.js";
+import { installLineLighting, refitShadowCamera } from "./three-meshline.js";
 
 // The renderer, the scene, the camera, the controls and the accumulation buffer belong to the
 // app, not to the sketches. A sketch contributes a Group and the pose it wants to be seen
@@ -36,6 +36,19 @@ onResize((w, h) => {
 
 renderer.setClearColor(0, 0);
 
+installLineLighting(scene);
+
+// Textures arrive after the first frames: the brushes, the paper, the blue noise the strokes
+// are dithered with, and whatever a sketch loads itself. Until then they sample as empty -- a
+// stroke with no brush, paper with no grain -- and a drawing that has already converged keeps
+// that result, because nothing else asks it to redraw. Every TextureLoader here goes through
+// the default manager, whose onLoad fires each time its queue drains.
+const onLoad = DefaultLoadingManager.onLoad;
+DefaultLoadingManager.onLoad = () => {
+  onLoad?.();
+  painted.invalidate();
+};
+
 const _origin = new Vector3();
 let _current = null;
 
@@ -59,12 +72,9 @@ export function show(group, pose, { screenSpacePanning = false } = {}) {
   controls.enabled = true;
   controls.update();
 
-  // The shadow frustum is sized from the camera distance and then frozen for the life of the
-  // scene. With one scene serving every sketch that has to be redone on each change: the
-  // poses range from roughly 3.6 to 26.6 units out, so without this the first sketch loaded
-  // would fix the frustum for all of them and the rest would cast shadows from a box of the
-  // wrong size.
-  refitShadowCamera(scene);
+  // The shadow frustum is sized from the camera distance and then held. The poses range
+  // from roughly 3.6 to 26.6 units out, so it is fitted again for each sketch.
+  refitShadowCamera();
 
   // The pass budget was learned from the sketch we just left and says nothing about this one.
   painted.resetPassBudget();

@@ -6,6 +6,7 @@ import {
   RawShaderMaterial,
   RepeatWrapping,
   Vector2,
+  Vector4,
   TextureLoader,
   GLSL3,
   Color,
@@ -30,7 +31,7 @@ import {
   resetPointer,
 } from "./jitter.js";
 import { effect } from "./reactive.js";
-import { registerActivePainted, paperColor, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow, shadowStrength, showShadowBuffer } from "./three-meshline.js";
+import { registerActivePainted, shadowMapTexture, paperColor, embossAngle, embossEdge, embossStrength, paperStrength, bumpSize, bumpShadow, shadowStrength, showShadowBuffer } from "./three-meshline.js";
 import { AdaptivePassTimer } from "./gpu-timer.js";
 import { renderer } from "./three.js";
 
@@ -38,6 +39,11 @@ const fragmentShader = `
 precision highp float;
 
 uniform vec2 resolution;
+// Everything this pass measures in pixels -- the emboss edge, the bump shadow's offset and the
+// paper grain -- is in CSS pixels, scaled by this to the device pixels the buffers are in, so
+// a 2x display shows the same drawing as the 1x one it was tuned on rather than one with half
+// the emboss, half the shadow offset and paper grain at half size.
+uniform float pixelRatio;
 
 uniform sampler2D inputTexture;
 uniform float vignetteBoost;
@@ -69,12 +75,13 @@ vec4 calcNormal(in sampler2D map, in vec2 uv) {
   float s11 = i.a;
 
   const vec2 size = vec2(1.,0.0);
-  const ivec3 off = ivec3(-1,0,1);
+  // One CSS pixel; at 1x exactly the neighbouring texel, as textureOffset sampled it.
+  vec2 px = pixelRatio / vec2(textureSize(map, 0));
 
-  float s01 = textureOffset(map, uv, off.xy).a;
-  float s21 = textureOffset(map, uv, off.zy).a;
-  float s10 = textureOffset(map, uv, off.yx).a;
-  float s12 = textureOffset(map, uv, off.yz).a;
+  float s01 = texture(map, uv - vec2(px.x, 0.)).a;
+  float s21 = texture(map, uv + vec2(px.x, 0.)).a;
+  float s10 = texture(map, uv - vec2(0., px.y)).a;
+  float s12 = texture(map, uv + vec2(0., px.y)).a;
   vec3 va = normalize(vec3(size.xy,s21-s01));
   vec3 vb = normalize(vec3(size.yx,s12-s10));
   vec4 bump = vec4( cross(va,vb), s11 );
@@ -111,7 +118,7 @@ vec4 calcNormalRGB(in sampler2D map, in vec2 uv) {
 void main() {
   vec4 color = texture(inputTexture, vUv);
 
-  vec2 paperUv = gl_FragCoord.xy / vec2(textureSize(paperTexture, 0).xy);
+  vec2 paperUv = gl_FragCoord.xy / (pixelRatio * vec2(textureSize(paperTexture, 0).xy));
   vec4 paper = texture(paperTexture, paperUv);
 
   // paperStrength scales how much the paper texture contributes to the bump normal.
@@ -123,7 +130,7 @@ void main() {
   l = smoothstep(.5 - embossEdge, .5 + embossEdge, l);
 
   vec2 bumpDir = vec2(cos(embossAngle), sin(embossAngle));
-  vec2 offset = bumpDir * bumpSize / resolution.xy;
+  vec2 offset = bumpDir * bumpSize * pixelRatio / resolution.xy;
   vec4 shadowSample = texture(inputTexture, vUv + offset);
   vec3 shadowColor = mix(vec3(bumpShadow), vec3(1.0), 1. - shadowSample.a);
   shadowColor = mix(shadowColor, vec3(1.), color.a);
@@ -138,8 +145,9 @@ void main() {
 
   color = overlay(color, vec4(l), embossStrength);
   color = lighten(color, vec4((l - .5) * embossStrength));
-  
-  fragColor = color;
+
+  // Opaque: this is drawn straight onto the canvas.
+  fragColor = vec4(color.rgb, 1.);
 }
 `;
 
@@ -165,19 +173,6 @@ void main() {
   vec4 frame = vec4(mix(backgroundColor, c.rgb, c.a), c.a);
   float blendWeight = invalidate ? invalidateBlend : 1.0 / samples;
   fragColor = mix(p, frame, blendWeight);
-}`;
-
-const finalFragmentShader = `
-precision highp float;
-uniform sampler2D inputTexture;
-
-in vec2 vUv;
-
-out vec4 fragColor;
-
-void main() {
-  vec4 c = texture(inputTexture, vUv);
-  fragColor = vec4(c.rgb, 1.);
 }`;
 
 const shadowPreviewFragmentShader = `
@@ -215,6 +210,8 @@ function accumulationType() {
   return renderable ? HalfFloatType : UnsignedByteType;
 }
 
+const _viewport = new Vector4();
+
 class Painted {
   constructor() {
     this.maxAccumFrames = 120;
@@ -250,14 +247,18 @@ class Painted {
       fragmentShader: accumFragmentShader,
       glslVersion: GLSL3,
     });
+    // Full-screen quads never depth-test, so neither target needs a depth buffer -- at 2x
+    // on a 1400x800 window each one was 18 MB of video memory spent on nothing.
     this.rawAccumPass = new ShaderPingPongPass(rawAccumShader, {
       type: accumulationType(),
+      depthBuffer: false,
     });
 
     // Composite pass — reads the accumulated raw result, applies emboss/paper/etc.
     const shader = new RawShaderMaterial({
       uniforms: {
         resolution:     { value: new Vector2(w, h) },
+        pixelRatio:     { value: 1 },
         vignetteBoost:  { value: 0.5 },
         vignetteReduction: { value: 0.5 },
         inputTexture:   { value: null },
@@ -274,28 +275,10 @@ class Painted {
       fragmentShader: fragmentShader,
       glslVersion: GLSL3,
     });
-    // ShaderPass takes (shader, options) — this used to be called with a positional
-    // (shader, w, h, format, type, minFilter, magFilter, wrapS, wrapT) list, which handed
-    // `w` over as the options object and dropped the rest. It happened to be invisible
-    // because getFBO's defaults are exactly these values; it would not have stayed
-    // invisible the first time one of them needed to change. Size comes from setSize().
-    this.pass = new ShaderPass(shader, {
-      format: RGBAFormat,
-      type: UnsignedByteType,
-      minFilter: LinearFilter,
-      magFilter: LinearFilter,
-      wrapS: ClampToEdgeWrapping,
-      wrapT: ClampToEdgeWrapping,
-    });
-
-    const finalShader = new RawShaderMaterial({
-      uniforms: { inputTexture: { value: null } },
-      vertexShader: orthoVertexShader,
-      fragmentShader: finalFragmentShader,
-      glslVersion: GLSL3,
-    });
-    // Renders straight to the canvas, so it needs no target of its own.
-    this.finalPass = new ShaderPass(finalShader, { toScreen: true });
+    // Drawn straight onto the canvas. It used to go to a target of its own, which a final
+    // pass then copied to the screen with alpha forced to 1 -- a full-screen pass and a
+    // full-resolution buffer for what one line at the end of this shader now does.
+    this.pass = new ShaderPass(shader, { toScreen: true });
 
     // embossAngle drives the 3D light — needs shadow re-accumulation.
     let angleReady = false;
@@ -335,22 +318,21 @@ class Painted {
     this._passTimer.reset();
   }
 
-  invalidate() {
-    this.rawAccumPass.shader.uniforms.invalidate.value = true;
-    this.rawAccumPass.shader.uniforms.invalidateBlend.value = 1.0;
-    this.rawAccumPass.shader.uniforms.samples.value = 1;
+  // Restarts accumulation. The next pass replaces the buffer outright (blend 1); a soft
+  // restart blends it half and half with what was there, for changes to lighting where
+  // snapping to one noisy sample would flash.
+  invalidate(blend = 1.0) {
+    const uniforms = this.rawAccumPass.shader.uniforms;
+    uniforms.invalidate.value = true;
+    uniforms.invalidateBlend.value = blend;
+    uniforms.samples.value = 1;
     this.frames = 0;
     this.compositeNeedsUpdate = true;
     resetPointer();
   }
 
   softInvalidate() {
-    this.rawAccumPass.shader.uniforms.invalidate.value = true;
-    this.rawAccumPass.shader.uniforms.invalidateBlend.value = 0.5;
-    this.rawAccumPass.shader.uniforms.samples.value = 1;
-    this.frames = 0;
-    this.compositeNeedsUpdate = true;
-    resetPointer();
+    this.invalidate(0.5);
   }
 
   setSize(w, h) {
@@ -363,7 +345,6 @@ class Painted {
     this.rawAccumPass.setSize(w, h);
     this.pass.setSize(w, h);
     this.pass.shader.uniforms.resolution.value.set(w, h);
-    this.finalPass.setSize(w, h);
     this.size.set(w, h);
     this.invalidate();
   }
@@ -371,7 +352,7 @@ class Painted {
   render(renderer, scene, camera, frameStart = performance.now()) {
     const needsAccum = this.frames <= this.maxAccumFrames;
     if (!needsAccum && !this.compositeNeedsUpdate) {
-      this._drawShadowPreview(renderer, scene);
+      this._drawShadowPreview(renderer);
       return;
     }
 
@@ -383,28 +364,12 @@ class Painted {
     this.pass.shader.uniforms.bumpSize.value       = bumpSize();
     this.pass.shader.uniforms.bumpShadow.value     = bumpShadow();
     this.pass.shader.uniforms.shadowStrength.value = shadowStrength();
+    this.pass.shader.uniforms.pixelRatio.value     = renderer.getPixelRatio();
 
     if (needsAccum) {
-      // Hard invalidate: wipe both ping-pong FBOs so nothing from the previous drawing —
-      // another sketch, or this one before a rebuild — can bleed through.
-      if (this.rawAccumPass.shader.uniforms.invalidate.value &&
-          this.rawAccumPass.shader.uniforms.invalidateBlend.value === 1.0) {
-        for (const fbo of this.rawAccumPass.fbos) {
-          renderer.setRenderTarget(fbo);
-          renderer.clear(true, false, false);
-        }
-        renderer.setRenderTarget(null);
-      }
-
-      // Warm-up pass: installs scene-level hooks (shadow light, scene.onBeforeRender)
-      // before the first accumulated frame so the shadow map is correct from frame 1.
-      // Skipped once the shadow system is initialized — avoids a full redundant render
-      // every time the camera moves (OrbitControls resets frames to 0 each frame).
-      if (this.frames === 0 && !scene.userData.__meshlineShadowLight) {
-        renderer.setRenderTarget(this.colorFBO);
-        renderer.render(scene, camera);
-        renderer.setRenderTarget(null);
-      }
+      // No clear on a hard invalidate: its first pass blends the new frame in at weight 1,
+      // which replaces the buffer whatever was in it. Nor a warm-up render -- the light and
+      // its hook are installed with the stage, before anything is drawn.
       this._passTimer.beginFrame(renderer, frameStart);
       this._passTimer.beginPasses();
       let passesRun = 0;
@@ -431,18 +396,15 @@ class Painted {
     // Composite runs once on the fully (or partially) accumulated raw result.
     // Emboss param changes re-run only this step — no 3D re-accumulation needed.
     this.pass.shader.uniforms.inputTexture.value = this.rawAccumPass.texture;
-    this.pass.render(renderer);
-
-    this.finalPass.shader.uniforms.inputTexture.value = this.pass.fbo.texture;
-    this.finalPass.render(renderer, true);
+    this.pass.render(renderer, true);
 
     this.compositeNeedsUpdate = false;
-    this._drawShadowPreview(renderer, scene);
+    this._drawShadowPreview(renderer);
   }
 
-  _drawShadowPreview(renderer, scene) {
+  _drawShadowPreview(renderer) {
     if (!showShadowBuffer()) return;
-    const shadowTex = scene.userData.__meshlineShadowLight?.shadow?.map?.texture;
+    const shadowTex = shadowMapTexture();
     if (!shadowTex) return;
     if (!this._shadowPreview) {
       const mat = new RawShaderMaterial({
@@ -461,7 +423,12 @@ class Painted {
     }
     const { mat, cam, sc } = this._shadowPreview;
     mat.uniforms.shadowMap.value = shadowTex;
-    const size = Math.floor(Math.min(this.size.x, this.size.y) / 4);
+    // setViewport and setScissor take CSS pixels and scale them by the pixel ratio. This used
+    // to hand them this.size, which is in device pixels, and then "restore" the viewport to
+    // it: on a 2x display the viewport was left at twice the canvas, and every pass after
+    // it drew only the bottom-left quarter of the picture.
+    renderer.getViewport(_viewport);
+    const size = Math.floor(Math.min(_viewport.z, _viewport.w) / 4);
     const margin = 8;
     // Disable autoClear: the shadow renderer sets gl.clearColor(1,1,1,1) and never
     // resets it, so autoClear would wipe the preview viewport to white.
@@ -472,7 +439,7 @@ class Painted {
     renderer.setScissorTest(true);
     renderer.render(sc, cam);
     renderer.setScissorTest(false);
-    renderer.setViewport(0, 0, this.size.x, this.size.y);
+    renderer.setViewport(_viewport);
     renderer.autoClear = prevAutoClear;
   }
 }

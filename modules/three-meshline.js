@@ -7,14 +7,12 @@ import {
   RepeatWrapping,
   Vector3,
   ShaderMaterial,
-  Matrix4,
   UniformsLib,
   NearestFilter,
   TextureLoader,
   BufferAttribute,
   RGBADepthPacking,
   DoubleSide,
-  AmbientLight,
   DirectionalLight,
   ArrowHelper,
   CameraHelper,
@@ -55,71 +53,64 @@ export const bumpSize = signal(4); // offset in pixels
 export const bumpShadow = signal(0.1); // dark end of bump shadow (0=black, 1=white)
 export const shadowStrength = signal(0.2); // blend factor for the 2D ink shadow
 
-// Shared GUI — created lazily, repositioned to end of #gui-container once per scene
-// so it always follows the active sketch's own params panel.
+// The Rendering panel. It is advanced: shadow modes, luminance ranges and shadow-map
+// resolution are for tuning the look of the renderer, not for playing with a sketch, and
+// having it open alongside the sketch's own panel is what filled the screen. Hidden by
+// default, toggled with A, and the choice is remembered.
 //
-// It is advanced: shadow modes, luminance ranges and shadow-map resolution are for tuning the
-// look of the renderer, not for playing with a sketch, and having it open alongside the
-// sketch's own panel is what filled the screen. Hidden by default, toggled with A, and the
-// choice is remembered — so it stays out of the way until it is wanted, and stays available
-// once it is.
+// Built once, at import. It used to be built lazily from inside MeshLineMaterial's
+// onBeforeRender, which three.js runs per mesh per pass -- a check paid a few hundred thousand
+// times a second to do something that happens once. #gui-container precedes the module script
+// in index.html, so it exists by the time this runs; the CSS puts the panel after the
+// sketch's own whichever was created first.
 const ADVANCED_KEY = "inktober-advanced-rendering";
 const showAdvanced = signal(localStorage.getItem(ADVANCED_KEY) === "1");
 effect(() => localStorage.setItem(ADVANCED_KEY, showAdvanced() ? "1" : "0"));
 
 bindKey("KeyA", () => showAdvanced.set(!showAdvanced.peek()));
 
-let _sharedGui = null;
-// Called from MeshLineMaterial.onBeforeRender, which three.js runs per mesh per draw call
-// -- so per mesh, per shadow and colour pass, per accumulation pass. Past the first call it
-// must return without touching the DOM.
-function ensureSharedGUI() {
-  if (_sharedGui) return;
-
-  const container = document.querySelector("#gui-container");
-  if (!container) return;
-  // The class puts it after the sketch's own panel. It is created on the first render,
-  // after that sketch's panel but before any sketch imported later, so document order
-  // alone would put it above every panel but the first.
-  _sharedGui = new GUI("Rendering", container, { className: "gui-rendering" });
-  _sharedGui.rowsExpanded.set(false);
-  _sharedGui.addSelect("Shadow mode", shadowMode, shadowModeOptions);
-  _sharedGui.addSlider("Intensity", shadowIntensity, 0, 1, 0.01);
-  _sharedGui.addSeparator();
-  _sharedGui.addSlider("Dark lum", shadingDarkLum, 0, 1, 0.01);
-  _sharedGui.addSlider("Bright lum", shadingBrightLum, 1, 2, 0.01);
-  _sharedGui.addSlider("Dark sat", shadingDarkSat, 0, 2, 0.01);
-  _sharedGui.addSlider("Bright sat", shadingBrightSat, 0, 2, 0.01);
-  _sharedGui.addSeparator();
-  _sharedGui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
-  _sharedGui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
-  _sharedGui.addSelect("Shadow map res", shadowMapRes, [
+function buildRenderingPanel() {
+  const gui = new GUI("Rendering", document.querySelector("#gui-container"), {
+    className: "gui-rendering",
+  });
+  gui.rowsExpanded.set(false);
+  gui.addSelect("Shadow mode", shadowMode, shadowModeOptions);
+  gui.addSlider("Intensity", shadowIntensity, 0, 1, 0.01);
+  gui.addSeparator();
+  gui.addSlider("Dark lum", shadingDarkLum, 0, 1, 0.01);
+  gui.addSlider("Bright lum", shadingBrightLum, 1, 2, 0.01);
+  gui.addSlider("Dark sat", shadingDarkSat, 0, 2, 0.01);
+  gui.addSlider("Bright sat", shadingBrightSat, 0, 2, 0.01);
+  gui.addSeparator();
+  gui.addSlider("Softness", shadowRadius, 0, 16, 0.1);
+  gui.addSlider("Bias", shadowBias, -0.02, 0, 0.001);
+  gui.addSelect("Shadow map res", shadowMapRes, [
     ["512", "512"],
     ["1024", "1024"],
     ["2048", "2048"],
     ["4096", "4096"],
   ]);
-  _sharedGui.addSeparator();
-  _sharedGui.addCheckbox("Light arrow", showLightArrow);
-  _sharedGui.addCheckbox("Shadow frustum", showShadowFrustum);
-  _sharedGui.addCheckbox("Shadow buffer", showShadowBuffer);
-  _sharedGui.addSeparator();
-  _sharedGui.addColor("Paper color", paperColor);
-  _sharedGui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
-  _sharedGui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
-  _sharedGui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
-  _sharedGui.addSlider("Paper bump", paperStrength, 0, 1, 0.01);
-  _sharedGui.addSlider("Bump size", bumpSize, 0, 30, 0.5);
-  _sharedGui.addSlider("Bump shadow", bumpShadow, 0, 1, 0.01);
-  _sharedGui.addSlider("Shadow blend", shadowStrength, 0, 1, 0.01);
+  gui.addSeparator();
+  gui.addCheckbox("Light arrow", showLightArrow);
+  gui.addCheckbox("Shadow frustum", showShadowFrustum);
+  gui.addCheckbox("Shadow buffer", showShadowBuffer);
+  gui.addSeparator();
+  gui.addColor("Paper color", paperColor);
+  gui.addSlider("Emboss angle", embossAngle, -Math.PI, Math.PI, 0.01);
+  gui.addSlider("Emboss edge", embossEdge, 0, 0.5, 0.01);
+  gui.addSlider("Emboss strength", embossStrength, 0, 2, 0.01);
+  gui.addSlider("Paper bump", paperStrength, 0, 1, 0.01);
+  gui.addSlider("Bump size", bumpSize, 0, 30, 0.5);
+  gui.addSlider("Bump shadow", bumpShadow, 0, 1, 0.01);
+  gui.addSlider("Shadow blend", shadowStrength, 0, 1, 0.01);
 
-  // The panel is built either way — doing it lazily on a keypress would mean the first press
-  // appearing to do nothing while two dozen rows were constructed. Only its visibility
-  // follows the flag, and this replaces the unconditional show() that used to be here.
-  effect(() => (showAdvanced() ? _sharedGui.show() : _sharedGui.hide()));
+  effect(() => (showAdvanced() ? gui.show() : gui.hide()));
 }
+buildRenderingPanel();
 
-// The Painted whose accumulation the shadow controls below re-run. There is one, owned by the
+// The Painted whose accumulation the shadow controls below re-run. (The shadow-buffer
+// preview is not among them: it is drawn over the finished image, and painted.js only
+// recomposites for it. The arrow and frustum helpers are drawn into the scene, so they are.) There is one, owned by the
 // stage, and it registers itself when it is built.
 let _activePainted = null;
 export function registerActivePainted(painted) {
@@ -133,7 +124,6 @@ effect(() => {
   shadowBias();
   showLightArrow();
   showShadowFrustum();
-  showShadowBuffer();
   shadingDarkLum();
   shadingBrightLum();
   shadingDarkSat();
@@ -160,63 +150,15 @@ class MeshLine extends BufferGeometry {
     this.width = [];
     this.indices_array = [];
     this.uvs = [];
-    this.counters = [];
-    this._points = [];
-    this._geom = null;
-
     this.widthCallback = null;
+  }
 
-    // Used to raycast
-    this.matrixWorld = new Matrix4();
-
-    Object.defineProperties(this, {
-      // this is now a bufferGeometry
-      // add getter to support previous api
-      geometry: {
-        enumerable: true,
-        get: function () {
-          return this;
-        },
-      },
-      geom: {
-        enumerable: true,
-        get: function () {
-          return this._geom;
-        },
-        set: function (value) {
-          this.setGeometry(value, this.widthCallback);
-        },
-      },
-      // for declaritive architectures
-      // to return the same value that sets the points
-      // eg. this.points = points
-      // console.log(this.points) -> points
-      points: {
-        enumerable: true,
-        get: function () {
-          return this._points;
-        },
-        set: function (value) {
-          this.setPoints(value, this.widthCallback);
-        },
-      },
-    });
+  // The sketches build meshes as `new Mesh(line.geometry, material)`, from when MeshLine
+  // wrapped a geometry rather than being one.
+  get geometry() {
+    return this;
   }
 }
-
-MeshLine.prototype.setMatrixWorld = function (matrixWorld) {
-  this.matrixWorld = matrixWorld;
-};
-
-// setting via a geometry is rather superfluous
-// as you're creating a unecessary geometry just to throw away
-// but exists to support previous api
-MeshLine.prototype.setGeometry = function (g, c) {
-  // as the input geometry are mutated we store them
-  // for later retreival when necessary (declaritive architectures)
-  this._geometry = g;
-  this.setPoints(g.getAttribute("position").array, c);
-};
 
 MeshLine.prototype.setPoints = function (points, wcb) {
   if (!(points instanceof Float32Array) && !(points instanceof Array)) {
@@ -225,110 +167,26 @@ MeshLine.prototype.setPoints = function (points, wcb) {
     );
     return;
   }
-  // as the points are mutated we store them
-  // for later retreival when necessary (declaritive architectures)
-  this._points = points;
   this.widthCallback = wcb;
   this.positions = [];
-  this.counters = [];
   if (points.length && points[0] instanceof Vector3) {
     // could transform Vector3 array into the array used below
     // but this approach will only loop through the array once
     // and is more performant
     for (var j = 0; j < points.length; j++) {
       var p = points[j];
-      var c = j / points.length;
       this.positions.push(p.x, p.y, p.z);
       this.positions.push(p.x, p.y, p.z);
-      this.counters.push(c);
-      this.counters.push(c);
     }
   } else {
     for (var j = 0; j < points.length; j += 3) {
-      var c = j / points.length;
       this.positions.push(points[j], points[j + 1], points[j + 2]);
       this.positions.push(points[j], points[j + 1], points[j + 2]);
-      this.counters.push(c);
-      this.counters.push(c);
     }
   }
   this.process();
 };
 
-function MeshLineRaycast(raycaster, intersects) {
-  var inverseMatrix = new Matrix4();
-  var ray = new Ray();
-  var sphere = new Sphere();
-  var interRay = new Vector3();
-  var geometry = this.geometry;
-  // Checking boundingSphere distance to ray
-
-  if (!geometry.boundingSphere) geometry.computeBoundingSphere();
-  sphere.copy(geometry.boundingSphere);
-  sphere.applyMatrix4(this.matrixWorld);
-
-  if (raycaster.ray.intersectSphere(sphere, interRay) === false) {
-    return;
-  }
-
-  inverseMatrix.copy(this.matrixWorld).invert();
-  ray.copy(raycaster.ray).applyMatrix4(inverseMatrix);
-
-  var vStart = new Vector3();
-  var vEnd = new Vector3();
-  var interSegment = new Vector3();
-  var step = this instanceof LineSegments ? 2 : 1;
-  var index = geometry.index;
-  var attributes = geometry.attributes;
-
-  if (index !== null) {
-    var indices = index.array;
-    var positions = attributes.position.array;
-    var widths = attributes.width.array;
-
-    for (var i = 0, l = indices.length - 1; i < l; i += step) {
-      var a = indices[i];
-      var b = indices[i + 1];
-
-      vStart.fromArray(positions, a * 3);
-      vEnd.fromArray(positions, b * 3);
-      var width =
-        widths[Math.floor(i / 3)] !== undefined ? widths[Math.floor(i / 3)] : 1;
-      var precision =
-        raycaster.params.Line.threshold + (this.material.lineWidth * width) / 2;
-      var precisionSq = precision * precision;
-
-      var distSq = ray.distanceSqToSegment(
-        vStart,
-        vEnd,
-        interRay,
-        interSegment,
-      );
-
-      if (distSq > precisionSq) continue;
-
-      interRay.applyMatrix4(this.matrixWorld); //Move back to world space for distance calculation
-
-      var distance = raycaster.ray.origin.distanceTo(interRay);
-
-      if (distance < raycaster.near || distance > raycaster.far) continue;
-
-      intersects.push({
-        distance: distance,
-        // What do we want? intersection point on the ray or on the segment??
-        // point: raycaster.ray.at( distance ),
-        point: interSegment.clone().applyMatrix4(this.matrixWorld),
-        index: i,
-        face: null,
-        faceIndex: null,
-        object: this,
-      });
-      // make event only fire once
-      i = l;
-    }
-  }
-}
-MeshLine.prototype.raycast = MeshLineRaycast;
 MeshLine.prototype.compareV3 = function (a, b) {
   var aa = a * 6;
   var ab = b * 6;
@@ -427,17 +285,19 @@ MeshLine.prototype.process = function () {
       side: new BufferAttribute(new Float32Array(this.side), 1),
       width: new BufferAttribute(new Float32Array(this.width), 1),
       uv: new BufferAttribute(new Float32Array(this.uvs), 2),
-      index: new BufferAttribute(new Uint16Array(this.indices_array), 1),
-      counters: new BufferAttribute(new Float32Array(this.counters), 1),
+      // 16-bit indices address 65536 vertices, which is 32768 points; past that they wrap
+      // silently and the ribbon folds back onto its own start.
+      index: new BufferAttribute(
+        vertexCount > 65536
+          ? new Uint32Array(this.indices_array)
+          : new Uint16Array(this.indices_array),
+        1,
+      ),
     };
   } else {
     // copyArray takes a plain array — it is `this.array.set(array)` — so the
     // `new Float32Array(...)` these calls used to be wrapped in allocated a full
     // throwaway copy of every buffer on the path whose whole point is not to allocate.
-    //
-    // `counters` is refreshed here too. It was the one attribute the branch left alone,
-    // which never showed because the branch was unreachable, but counters is rebuilt by
-    // setPoints on every call and drives the dash pattern through vCounters.
     const update = (attribute, data) => {
       attribute.copyArray(data);
       attribute.needsUpdate = true;
@@ -448,7 +308,6 @@ MeshLine.prototype.process = function () {
     update(this._attributes.side, this.side);
     update(this._attributes.width, this.width);
     update(this._attributes.uv, this.uvs);
-    update(this._attributes.counters, this.counters);
     update(this._attributes.index, this.indices_array);
   }
 
@@ -458,7 +317,6 @@ MeshLine.prototype.process = function () {
   this.setAttribute("side", this._attributes.side);
   this.setAttribute("width", this._attributes.width);
   this.setAttribute("uv", this._attributes.uv);
-  this.setAttribute("counters", this._attributes.counters);
 
   this.setIndex(this._attributes.index);
 
@@ -466,66 +324,18 @@ MeshLine.prototype.process = function () {
   this.computeBoundingBox();
 };
 
-function memcpy(src, srcOffset, dst, dstOffset, length) {
-  var i;
-
-  src = src.subarray || src.slice ? src : src.buffer;
-  dst = dst.subarray || dst.slice ? dst : dst.buffer;
-
-  src = srcOffset
-    ? src.subarray
-      ? src.subarray(srcOffset, length && srcOffset + length)
-      : src.slice(srcOffset, length && srcOffset + length)
-    : src;
-
-  if (dst.set) {
-    dst.set(src, dstOffset);
-  } else {
-    for (i = 0; i < src.length; i++) {
-      dst[i + dstOffset] = src[i];
-    }
+// Whether a fragment falls in a gap of the dash pattern. The pattern is counted in brush tiles
+// along the line: dashArray.x tiles drawn, then dashArray.y skipped, repeating every x + y --
+// so (1, repeat - 1) is one dash per brush cycle, as the sketches mean it. It used to repeat
+// every length(dashArray), the vector's length rather than the sum: (1, 4) came round every
+// 4.12 tiles and (1, 1) every 1.41, so the gaps drifted along each line instead of keeping
+// the rhythm asked for. One definition for the line and its shadow, which must agree.
+const DASH_GAP = `
+  bool inDashGap( vec2 uv ) {
+    float tile = floor( mod( uv.x + uvOffset.x, 1. ) * repeat.x + dashOffset );
+    return mod( tile, dashArray.x + dashArray.y ) >= dashArray.x;
   }
-
-  return dst;
-}
-
-/**
- * Fast method to advance the line by one position.  The oldest position is removed.
- * @param position
- */
-MeshLine.prototype.advance = function (position) {
-  var positions = this._attributes.position.array;
-  var previous = this._attributes.previous.array;
-  var next = this._attributes.next.array;
-  var l = positions.length;
-
-  // PREVIOUS
-  memcpy(positions, 0, previous, 0, l);
-
-  // POSITIONS
-  memcpy(positions, 6, positions, 0, l - 6);
-
-  positions[l - 6] = position.x;
-  positions[l - 5] = position.y;
-  positions[l - 4] = position.z;
-  positions[l - 3] = position.x;
-  positions[l - 2] = position.y;
-  positions[l - 1] = position.z;
-
-  // NEXT
-  memcpy(positions, 6, next, 0, l - 6);
-
-  next[l - 6] = position.x;
-  next[l - 5] = position.y;
-  next[l - 4] = position.z;
-  next[l - 3] = position.x;
-  next[l - 2] = position.y;
-  next[l - 1] = position.z;
-
-  this._attributes.position.needsUpdate = true;
-  this._attributes.previous.needsUpdate = true;
-  this._attributes.next.needsUpdate = true;
-};
+`;
 
 ShaderChunk["meshline_vert"] = `
   ${ShaderChunk.logdepthbuf_pars_vertex}
@@ -536,7 +346,6 @@ ShaderChunk["meshline_vert"] = `
   attribute vec3 next;
   attribute float side;
   attribute float width;
-  attribute float counters;
   
   uniform vec2 resolution;
   uniform float lineWidth;
@@ -549,13 +358,11 @@ ShaderChunk["meshline_vert"] = `
 
   varying vec2 vUV;
   varying vec4 vColor;
-  varying float vCounters;
   varying float vDiffuse;
   
   vec2 fix( vec4 i, float aspect ) {  
     vec2 res = i.xy / i.w;
     res.x *= aspect;
-    vCounters = counters;
     return res;
   }
   
@@ -661,6 +468,7 @@ ShaderChunk["meshline_depth_vert"] = `
   attribute float width;
 
   uniform float lineWidth;
+  uniform vec3 lightDirection;
 
   varying vec2 vUV;
 
@@ -681,8 +489,11 @@ ShaderChunk["meshline_depth_vert"] = `
     else if (distance(wPos,  wPrev) < 0.0001) lineDir = normalize(wNext - wPos);
     else                                       lineDir = normalize(wNext - wPrev);
 
-    vec3 toLight   = normalize(cameraPosition - wPos);
-    vec3 expandDir = cross(toLight, lineDir);
+    // The light is directional, so every point sees it along the same direction -- the one
+    // meshline_vert expands the receiving ribbon with. Aiming at the shadow camera's position
+    // instead, as this did, turned the caster up to ~22 degrees away from the receiver at the
+    // edges of the frustum, so a ribbon's lookup no longer landed on its own recorded shape.
+    vec3 expandDir = cross(lightDirection, lineDir);
     if (length(expandDir) < 0.0001) expandDir = vec3(0.0, 1.0, 0.0);
     expandDir = normalize(expandDir);
 
@@ -702,10 +513,15 @@ ShaderChunk["meshline_depth_frag"] = `
   uniform vec2 repeat;
   uniform vec2 uvOffset;
   uniform float offset;
+  uniform bool useDash;
+  uniform vec2 dashArray;
+  uniform float dashOffset;
 
   varying vec2 vUV;
 
   out vec4 color;
+
+  ${DASH_GAP}
 
   vec2 rot2d( vec2 p, float theta ) {
     return vec2( p.x * cos(theta) - p.y * sin(theta),
@@ -714,6 +530,8 @@ ShaderChunk["meshline_depth_frag"] = `
 
   void main() {
     vec2 tuv = mod( (vUV + uvOffset) * repeat, vec2(1.) );
+
+    if( useDash && inDashGap( vUV ) ) discard;
 
     vec4 t = vec4(1.);
     if( useMap ) {
@@ -745,15 +563,10 @@ ShaderChunk["meshline_frag"] = `
   ${ShaderChunk.shadowmap_pars_fragment}
   
   uniform sampler2D map;
-  uniform sampler2D alphaMap;
   uniform bool useMap;
-  uniform bool useAlphaMap;
   uniform bool useDash;
   uniform vec2 dashArray;
   uniform float dashOffset;
-  uniform float dashRatio;
-  uniform float visibility;
-  uniform float alphaTest;
   uniform vec2 repeat;
   uniform vec2 uvOffset;
   uniform sampler2D blueNoiseMap;
@@ -771,11 +584,12 @@ ShaderChunk["meshline_frag"] = `
 
   varying vec2 vUV;
   varying vec4 vColor;
-  varying float vCounters;
   varying float vDiffuse;
 
   out vec4 color;
   
+  ${DASH_GAP}
+
   float blueNoise(in vec2 uv) {
     return texture(blueNoiseMap, uv).r;
   }
@@ -845,13 +659,7 @@ ShaderChunk["meshline_frag"] = `
     
     vec2 tuv = mod((vUV + uvOffset) * repeat, vec2(1.));
     
-    if(useDash) {
-      float dash = (vCounters + uvOffset.x) * repeat.x + dashOffset;
-      float i = floor((mod(vUV.x + uvOffset.x, 1.)) * repeat.x + dashOffset);
-      if((mod(i, length(dashArray))) >= dashArray.x) {
-        discard;
-      }
-    }
+    if(useDash && inDashGap(vUV)) discard;
       
     vec4 t = vec4(1.);
     if(useMap) {
@@ -916,40 +724,58 @@ ShaderChunk["meshline_frag"] = `
     ${ShaderChunk.fog_fragment}
   }`;
 
+// Uniforms whose value is the same for every line and changes once per pass: the clock, the
+// jitter index, the target size, the light, and the Rendering panel's shading settings. Every
+// MeshLineMaterial holds these same objects, so installLineLighting's scene hook sets each one
+// once per render call. They used to be copied into each material from its own
+// onBeforeRender -- six signal reads and a dozen writes per mesh per pass, 4.7 ms of every
+// pass on a sketch with a thousand lines.
+const passUniforms = {
+  time: { value: 0 },
+  frameIndex: { value: 0 },
+  resolution: { value: new Vector2(1, 1) },
+  lightDirection: { value: new Vector3(0.408, 0.816, 0.408) },
+  shadingIntensity: { value: 1 },
+  shadingOnly: { value: false },
+  shadingDarkLum: { value: 0.55 },
+  shadingBrightLum: { value: 1.2 },
+  shadingDarkSat: { value: 1.5 },
+  shadingBrightSat: { value: 1.4 },
+};
+
+// Plain accessors, so `material.opacity = 0.5` and the MeshLineMaterial({ opacity }) parameters
+// write the uniform.
+function defineUniformAccessors(material, names) {
+  for (const name of names) {
+    Object.defineProperty(material, name, {
+      enumerable: true,
+      get() {
+        return this.uniforms[name].value;
+      },
+      set(value) {
+        this.uniforms[name].value = value;
+      },
+    });
+  }
+}
+
 class MeshLineMaterial extends ShaderMaterial {
   constructor(parameters) {
     super({
-      uniforms: Object.assign({}, UniformsLib.fog, UniformsLib.lights, {
+      uniforms: Object.assign({}, UniformsLib.fog, UniformsLib.lights, passUniforms, {
         blueNoiseMap: { value: blueNoise },
         lineWidth: { value: 1 },
         map: { value: null },
         useMap: { value: false },
-        alphaMap: { value: null },
-        useAlphaMap: { value: false },
         color: { value: new Color(0xffffff) },
         opacity: { value: 1 },
-        resolution: { value: new Vector2(1, 1) },
         sizeAttenuation: { value: 1 },
-        depthWrite: { value: 1 },
-        depthTest: { value: 1 },
         dashArray: { value: new Vector2(1, 1) },
         dashOffset: { value: 0 },
         offset: { value: 0 },
-        dashRatio: { value: 0.5 },
         useDash: { value: 0 },
-        visibility: { value: 1 },
-        alphaTest: { value: 0 },
-        time: { value: 0 },
-        frameIndex: { value: 0 },
         repeat: { value: new Vector2(1, 1) },
         uvOffset: { value: new Vector2(0, 0) },
-        lightDirection: { value: new Vector3(0.408, 0.816, 0.408) },
-        shadingIntensity: { value: 0.5 },
-        shadingOnly: { value: true },
-        shadingDarkLum: { value: 0.55 },
-        shadingBrightLum: { value: 1.2 },
-        shadingDarkSat: { value: 1.5 },
-        shadingBrightSat: { value: 1.4 },
       }),
       vertexShader: ShaderChunk.meshline_vert,
       fragmentShader: ShaderChunk.meshline_frag,
@@ -960,178 +786,28 @@ class MeshLineMaterial extends ShaderMaterial {
     this.type = "MeshLineMaterial";
     this.shadowSide = DoubleSide;
 
-    Object.defineProperties(this, {
-      lineWidth: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.lineWidth.value;
-        },
-        set: function (value) {
-          this.uniforms.lineWidth.value = value;
-        },
+    defineUniformAccessors(this, [
+      "lineWidth",
+      "map",
+      "useMap",
+      "color",
+      "opacity",
+      "sizeAttenuation",
+      "offset",
+      "dashOffset",
+      "useDash",
+      "repeat",
+      "uvOffset",
+    ]);
+    // Giving a dash pattern turns dashing on.
+    Object.defineProperty(this, "dashArray", {
+      enumerable: true,
+      get() {
+        return this.uniforms.dashArray.value;
       },
-      map: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.map.value;
-        },
-        set: function (value) {
-          this.uniforms.map.value = value;
-        },
-      },
-      useMap: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.useMap.value;
-        },
-        set: function (value) {
-          this.uniforms.useMap.value = value;
-        },
-      },
-      alphaMap: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.alphaMap.value;
-        },
-        set: function (value) {
-          this.uniforms.alphaMap.value = value;
-        },
-      },
-      useAlphaMap: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.useAlphaMap.value;
-        },
-        set: function (value) {
-          this.uniforms.useAlphaMap.value = value;
-        },
-      },
-      color: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.color.value;
-        },
-        set: function (value) {
-          this.uniforms.color.value = value;
-        },
-      },
-      opacity: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.opacity.value;
-        },
-        set: function (value) {
-          this.uniforms.opacity.value = value;
-        },
-      },
-      resolution: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.resolution.value;
-        },
-        set: function (value) {
-          this.uniforms.resolution.value.copy(value);
-        },
-      },
-      sizeAttenuation: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.sizeAttenuation.value;
-        },
-        set: function (value) {
-          this.uniforms.sizeAttenuation.value = value;
-        },
-      },
-      dashArray: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.dashArray.value;
-        },
-        set: function (value) {
-          this.uniforms.dashArray.value = value;
-          this.useDash = value !== 0 ? 1 : 0;
-        },
-      },
-      offset: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.offset.value;
-        },
-        set: function (value) {
-          this.uniforms.offset.value = value;
-        },
-      },
-      dashOffset: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.dashOffset.value;
-        },
-        set: function (value) {
-          this.uniforms.dashOffset.value = value;
-        },
-      },
-      dashRatio: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.dashRatio.value;
-        },
-        set: function (value) {
-          this.uniforms.dashRatio.value = value;
-        },
-      },
-      useDash: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.useDash.value;
-        },
-        set: function (value) {
-          this.uniforms.useDash.value = value;
-        },
-      },
-      visibility: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.visibility.value;
-        },
-        set: function (value) {
-          this.uniforms.visibility.value = value;
-        },
-      },
-      alphaTest: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.alphaTest.value;
-        },
-        set: function (value) {
-          this.uniforms.alphaTest.value = value;
-        },
-      },
-      repeat: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.repeat.value;
-        },
-        set: function (value) {
-          this.uniforms.repeat.value.copy(value);
-        },
-      },
-      uvOffset: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.uvOffset.value;
-        },
-        set: function (value) {
-          this.uniforms.uvOffset.value.copy(value);
-        },
-      },
-      time: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.time.value;
-        },
-        set: function (value) {
-          this.uniforms.time.value = value;
-        },
+      set(value) {
+        this.uniforms.dashArray.value = value;
+        this.useDash = 1;
       },
     });
 
@@ -1139,259 +815,24 @@ class MeshLineMaterial extends ShaderMaterial {
   }
 }
 
-const _lightDir = new Vector3();
-
-function fitShadowCamera(scene, camera, light) {
-  // Frozen on first call — r must not change after the initial framing.
-  if (scene.userData.__meshlineShadowFrustumR) return;
-
-  const camDist = camera.position.length();
-  const halfFov = (camera.fov * Math.PI) / 180 / 2;
-  const halfH = camDist * Math.tan(halfFov);
-  // Use halfH (vertical content radius) + 10% padding instead of the diagonal.
-  // All sketches share camera distance ≈ 9.36 with FOV 35°, so this produces
-  // the same r ≈ 3.25 for every sketch regardless of aspect ratio.
-  const r = halfH * 1.1;
-
-  _applyShadowRadius(scene, light, r);
-}
-
-function _applyShadowRadius(scene, light, r) {
-  if (!light.target.parent) scene.add(light.target);
-  light.target.updateMatrixWorld();
-
-  const cam = light.shadow.camera;
-  cam.left = -r;
-  cam.right = r;
-  cam.top = r;
-  cam.bottom = -r;
-  // Light is placed at r * 2.5 from the origin (set in onBeforeRender),
-  // so use that distance — not light.position.length() which reflects the
-  // initial placeholder position before the first frame repositions the light.
-  const lightDist = r * 2.5;
-  cam.near = Math.max(0.1, lightDist - r);
-  cam.far = lightDist + r;
-  cam.updateProjectionMatrix();
-  scene.userData.__meshlineShadowFrustumR = r;
-}
-
-// Drops the frozen frustum radius so the next frame fits it again from the current camera.
-//
-// fitShadowCamera deliberately computes r once and then leaves it alone — it must not drift
-// while a drawing is on screen. That was safe while every sketch owned its own scene. With
-// one scene shared across all of them it is not: the sketches' camera distances run from
-// about 3.6 to 26.6, so whichever loaded first would otherwise impose its frustum on every
-// sketch after it, and their shadows would be cast from a box the wrong size.
-export function refitShadowCamera(scene) {
-  scene.userData.__meshlineShadowFrustumR = null;
-}
-
-// Call before the first render to override the auto-computed frustum radius.
-// r is the half-width of the square shadow frustum in world units.
-export function setShadowRadius(scene, r) {
-  scene.userData.__meshlineShadowFrustumR = r; // freeze early so fitShadowCamera skips
-  const light = scene.userData.__meshlineShadowLight;
-  if (light) _applyShadowRadius(scene, light, r); // apply if light already exists
-}
-
-MeshLineMaterial.prototype.onBeforeRender = (renderer, scene, camera, _geometry, mesh) => {
-  const canvas = renderer.domElement;
-  const t = scene.userData.__meshlineFrameTime ?? performance.now() / 1000;
-  ensureSharedGUI();
-
-  const w = canvas.width;
-  const h = canvas.height;
-  mesh.material.uniforms.time.value = t;
-  mesh.material.uniforms.frameIndex.value =
-    scene.userData.__meshlineJitterIndex ?? 0;
-  mesh.material.uniforms.resolution.value.set(w, h);
-
-  // Apply shared shadow mode and settings to this material.
-  const mode = shadowMode();
-  mesh.material.uniforms.shadingIntensity.value =
-    mode === "off" ? 0.0 : shadowIntensity();
-  mesh.material.uniforms.shadingOnly.value = mode === "only";
-  mesh.material.uniforms.shadingDarkLum.value = shadingDarkLum();
-  mesh.material.uniforms.shadingBrightLum.value = shadingBrightLum();
-  mesh.material.uniforms.shadingDarkSat.value = shadingDarkSat();
-  mesh.material.uniforms.shadingBrightSat.value = shadingBrightSat();
-  if (mesh.customDepthMaterial) {
-    mesh.customDepthMaterial.visible = mode !== "off";
-  }
-
-  // Auto-add a fixed shadow light to any scene that doesn't have one yet.
-  if (!scene.userData.__meshlineShadowLight) {
-    const ambient = new AmbientLight(0xffffff, 0.6);
-    scene.add(ambient);
-
-    const dir = new DirectionalLight(0xffffff, 1.0);
-    dir.position.set(5, 10, 5);
-    dir.castShadow = true;
-    dir.shadow.mapSize.width = 2048;
-    dir.shadow.mapSize.height = 2048;
-    dir.shadow.camera.left = -6;
-    dir.shadow.camera.right = 6;
-    dir.shadow.camera.top = 6;
-    dir.shadow.camera.bottom = -6;
-    dir.shadow.camera.near = 1;
-    dir.shadow.camera.far = 30;
-    dir.shadow.bias = shadowBias();
-    dir.shadow.radius = shadowRadius();
-    scene.add(dir);
-
-    scene.userData.__meshlineShadowLight = dir;
-    scene.userData.__meshlineAmbientLight = ambient;
-    scene.userData.__meshlineShadowBasePos = dir.position.clone();
-    scene.userData.__meshlineLightDir = new Vector3();
-
-    const lightDir = new Vector3()
-      .subVectors(new Vector3(0, 0, 0), dir.position)
-      .normalize();
-    const arrow = new ArrowHelper(
-      lightDir,
-      dir.position,
-      dir.position.length(),
-      0xffff00,
-      0.15,
-      0.06,
-    );
-    scene.add(arrow);
-    scene.userData.__meshlineLightArrow = arrow;
-
-    const frustumHelper = new CameraHelper(dir.shadow.camera);
-    frustumHelper.visible = false;
-    scene.add(frustumHelper);
-    scene.userData.__meshlineShadowFrustumHelper = frustumHelper;
-
-    // Install a scene-level hook that runs BEFORE the shadow pass each frame,
-    // so the shadow map always uses the current frame's light position.
-    scene.onBeforeRender = (function (origHook) {
-      return function (renderer, scene, camera) {
-        origHook?.call(this, renderer, scene, camera);
-        const shadowLight = scene.userData.__meshlineShadowLight;
-        if (!shadowLight) return;
-
-        // Shadow map resolution — rebuild if changed.
-        const wantRes = parseInt(shadowMapRes());
-        if (shadowLight.shadow.mapSize.width !== wantRes) {
-          shadowLight.shadow.mapSize.width = wantRes;
-          shadowLight.shadow.mapSize.height = wantRes;
-          shadowLight.shadow.map?.dispose();
-          shadowLight.shadow.map = null;
-        }
-
-        shadowLight.shadow.radius = shadowRadius();
-        shadowLight.shadow.bias = shadowBias();
-
-        // Fit frustum from camera FOV + distance (no bounding box needed).
-        fitShadowCamera(scene, camera, shadowLight);
-        const r = scene.userData.__meshlineShadowFrustumR;
-
-        // Light direction follows emboss angle in camera space.
-        const _a = embossAngle();
-        _lightDir.set(Math.cos(_a), Math.sin(_a), 1.0).normalize().transformDirection(camera.matrixWorld);
-        scene.userData.__meshlineShadowBasePos
-          .copy(_lightDir)
-          .multiplyScalar(r * 2.5);
-        scene.userData.__meshlineLightDir.copy(_lightDir);
-
-        scene.userData.__meshlineJitterIndex = (scene.userData.__meshlineJitterIndex ?? 0) + 1;
-        scene.userData.__meshlineFrameTime = performance.now() / 1000;
-        shadowLight.position.copy(scene.userData.__meshlineShadowBasePos);
-
-        // Frustum helper.
-        const frustumHelper = scene.userData.__meshlineShadowFrustumHelper;
-        if (frustumHelper) {
-          frustumHelper.visible = showShadowFrustum();
-          if (frustumHelper.visible) frustumHelper.update();
-        }
-
-        // Arrow helper.
-        const arrow = scene.userData.__meshlineLightArrow;
-        if (arrow) {
-          arrow.visible = showLightArrow();
-          arrow.position.copy(scene.userData.__meshlineShadowBasePos);
-          _lightDir
-            .set(0, 0, 0)
-            .sub(scene.userData.__meshlineShadowBasePos)
-            .normalize();
-          arrow.setDirection(_lightDir);
-          arrow.setLength(
-            scene.userData.__meshlineShadowBasePos.length(),
-            0.15,
-            0.06,
-          );
-        }
-      };
-    })(scene.onBeforeRender);
-  }
-
-  // Auto-enable shadow casting/receiving on the mesh.
-  if (!mesh.castShadow) {
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-  }
-
-  // Auto-create a matching depth material for shadow casting. Paired to the material it
-  // was derived from, so disposing that one disposes this one too -- see the dispose
-  // override below. Nothing else can free it: it is created here, at render time, and the
-  // sketches only ever see mesh.material.
-  if (!mesh.customDepthMaterial) {
-    const mat = mesh.material;
-    mesh.customDepthMaterial = new MeshLineDepthMaterial({
-      map: mat.uniforms.map?.value,
-      useMap: mat.uniforms.useMap?.value ? 1 : 0,
-      opacity: mat.uniforms.opacity?.value ?? 1,
-      offset: mat.uniforms.offset?.value ?? 0,
-    });
-    mesh.customDepthMaterial.lineWidth = mat.lineWidth;
-    mat.__depthMaterial = mesh.customDepthMaterial;
-  }
-
-  // Keep light direction in sync — written by the scene-level hook each frame.
-  const lightDirStore = scene.userData.__meshlineLightDir;
-  if (lightDirStore) {
-    mesh.material.uniforms.lightDirection.value.copy(lightDirStore);
-  }
-
-  if (mesh.customDepthMaterial?.uniforms) {
-    mesh.customDepthMaterial.lineWidth = mesh.material.lineWidth;
-    mesh.customDepthMaterial.uniforms.time.value = t;
-  }
-};
-
-MeshLineMaterial.prototype.copy = function (source) {
-  ShaderMaterial.prototype.copy.call(this, source);
-
-  this.lineWidth = source.lineWidth;
-  this.map = source.map;
-  this.useMap = source.useMap;
-  this.alphaMap = source.alphaMap;
-  this.useAlphaMap = source.useAlphaMap;
-  this.color.copy(source.color);
-  this.opacity = source.opacity;
-  this.resolution.copy(source.resolution);
-  this.time.copy(source.time);
-  this.sizeAttenuation = source.sizeAttenuation;
-  this.dashArray.copy(source.dashArray);
-  this.dashOffset.copy(source.dashOffset);
-  this.offset.copy(source.offset);
-  this.dashRatio.copy(source.dashRatio);
-  this.useDash = source.useDash;
-  this.visibility = source.visibility;
-  this.alphaTest = source.alphaTest;
-  this.repeat.copy(source.repeat);
-  this.uvOffset.copy(source.uvOffset);
-
-  return this;
+// Every mesh that uses a MeshLineMaterial casts and receives shadows, through a depth
+// material cut from the same stroke. Both are set up on the mesh's first draw because the
+// sketches only ever build `new Mesh(geometry, material)`; after that this returns at once.
+MeshLineMaterial.prototype.onBeforeRender = function (renderer, scene, camera, geometry, mesh) {
+  if (mesh.customDepthMaterial) return;
+  const material = mesh.material;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  // One per material, not per mesh: a material shared by two meshes would otherwise leave
+  // the first depth material with nothing to dispose it.
+  material.__depthMaterial ??= new MeshLineDepthMaterial(material);
+  mesh.customDepthMaterial = material.__depthMaterial;
 };
 
 // Every sketch's clearScene() disposes mesh.material on rebuild, and used to leave the
 // depth material that onBeforeRender had quietly attached to the mesh behind. Nothing
 // referenced it any more and nothing freed it, so each rebuild leaked one shader material
-// per line: with a couple of hundred lines and a slider being dragged, that is thousands of
-// live materials and a program whose usedTimes climbed by ~50 per rebuild and never came
-// back down. Pairing the two here means the existing dispose() calls free both.
+// per line. Pairing the two here means the existing dispose() calls free both.
 const _disposeMeshLineMaterial = MeshLineMaterial.prototype.dispose;
 MeshLineMaterial.prototype.dispose = function () {
   if (this.__depthMaterial) {
@@ -1401,21 +842,31 @@ MeshLineMaterial.prototype.dispose = function () {
   return _disposeMeshLineMaterial.call(this);
 };
 
+// Everything that decides which fragments of a line exist, plus the light it is expanded
+// towards. The depth material holds these same uniform objects rather than copies, so the
+// shadow is cut from exactly the stroke that is drawn -- dashes, brush tiling, and the
+// uvOffset the sketches animate every frame -- with nothing to keep in sync.
+const LINE_UNIFORMS = [
+  "map",
+  "useMap",
+  "opacity",
+  "offset",
+  "lineWidth",
+  "time",
+  "repeat",
+  "uvOffset",
+  "useDash",
+  "dashArray",
+  "dashOffset",
+  "lightDirection",
+];
+
 class MeshLineDepthMaterial extends ShaderMaterial {
-  constructor(parameters) {
+  constructor(line) {
+    const uniforms = { blueNoiseMap: { value: blueNoise } };
+    for (const key of LINE_UNIFORMS) uniforms[key] = line.uniforms[key];
     super({
-      uniforms: {
-        blueNoiseMap: { value: blueNoise },
-        lineWidth: { value: 1 },
-        map: { value: null },
-        useMap: { value: false },
-        opacity: { value: 1 },
-        resolution: { value: new Vector2(1, 1) },
-        time: { value: 0 },
-        repeat: { value: new Vector2(1, 1) },
-        uvOffset: { value: new Vector2(0, 0) },
-        offset: { value: 0 },
-      },
+      uniforms,
       vertexShader: ShaderChunk.meshline_depth_vert,
       fragmentShader: ShaderChunk.meshline_depth_frag,
       glslVersion: GLSL3,
@@ -1423,84 +874,114 @@ class MeshLineDepthMaterial extends ShaderMaterial {
     this.depthPacking = RGBADepthPacking;
     this.isMeshLineDepthMaterial = true;
     this.type = "MeshLineDepthMaterial";
-
-    Object.defineProperties(this, {
-      lineWidth: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.lineWidth.value;
-        },
-        set: function (v) {
-          this.uniforms.lineWidth.value = v;
-        },
-      },
-      map: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.map.value;
-        },
-        set: function (v) {
-          this.uniforms.map.value = v;
-        },
-      },
-      useMap: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.useMap.value;
-        },
-        set: function (v) {
-          this.uniforms.useMap.value = v;
-        },
-      },
-      opacity: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.opacity.value;
-        },
-        set: function (v) {
-          this.uniforms.opacity.value = v;
-        },
-      },
-      resolution: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.resolution.value;
-        },
-        set: function (v) {
-          this.uniforms.resolution.value.copy(v);
-        },
-      },
-      repeat: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.repeat.value;
-        },
-        set: function (v) {
-          this.uniforms.repeat.value.copy(v);
-        },
-      },
-      uvOffset: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.uvOffset.value;
-        },
-        set: function (v) {
-          this.uniforms.uvOffset.value.copy(v);
-        },
-      },
-      offset: {
-        enumerable: true,
-        get: function () {
-          return this.uniforms.offset.value;
-        },
-        set: function (v) {
-          this.uniforms.offset.value = v;
-        },
-      },
-    });
-
-    this.setValues(parameters);
   }
 }
 
-export { MeshLine, MeshLineMaterial, MeshLineDepthMaterial };
+// ---- The light, and the once-per-pass hook ----------------------------------------------
+
+// Half-width of the square shadow frustum, in world units. Fitted from the camera on the first
+// render after each refit and then held, so shadows do not swim while a drawing is on screen.
+let frustumR = null;
+let jitterIndex = 0;
+let shadowLight = null;
+
+// For the Rendering panel's shadow-buffer preview.
+export function shadowMapTexture() {
+  return shadowLight?.shadow.map?.texture ?? null;
+}
+const _lightDir = new Vector3();
+
+// Drops the fitted frustum so the next render fits it again from the current camera. The
+// stage calls it for every sketch it shows: their camera distances run from about 3.6 to
+// 26.6, and a frustum fitted to one is the wrong size for the others.
+export function refitShadowCamera() {
+  frustumR = null;
+}
+
+function fitShadowCamera(camera, light) {
+  const halfFov = (camera.fov * Math.PI) / 180 / 2;
+  // The vertical half-extent of the view at the camera's distance, plus 10% padding.
+  frustumR = camera.position.length() * Math.tan(halfFov) * 1.1;
+
+  const cam = light.shadow.camera;
+  cam.left = -frustumR;
+  cam.right = frustumR;
+  cam.top = frustumR;
+  cam.bottom = -frustumR;
+  // The light sits 2.5 r from the origin (placed by the hook below).
+  const lightDist = frustumR * 2.5;
+  cam.near = Math.max(0.1, lightDist - frustumR);
+  cam.far = lightDist + frustumR;
+  cam.updateProjectionMatrix();
+}
+
+// Adds the shadow-casting light and its debug helpers to the scene, and installs the hook
+// that runs at the start of every render of it -- before three.js draws the shadow map --
+// to update the light and passUniforms for that pass. Called once, by the stage.
+export function installLineLighting(scene) {
+  const light = (shadowLight = new DirectionalLight(0xffffff, 1.0));
+  light.shadow.mapSize.set(2048, 2048);
+  scene.add(light, light.target);
+
+  const arrow = new ArrowHelper(new Vector3(0, -1, 0), new Vector3(), 1, 0xffff00, 0.15, 0.06);
+  const frustumHelper = new CameraHelper(light.shadow.camera);
+  scene.add(arrow, frustumHelper);
+
+  const onBeforeRender = scene.onBeforeRender;
+  scene.onBeforeRender = function (renderer, scene, camera, renderTarget) {
+    onBeforeRender.call(this, renderer, scene, camera, renderTarget);
+
+    const mode = shadowMode();
+    // Off turns the shadow pass off rather than hiding every depth material inside it, which
+    // still cleared the map and walked every mesh each pass. Toggling castShadow changes the
+    // lights state, so three.js recompiles the line program once per switch.
+    light.castShadow = mode !== "off";
+
+    const wantRes = parseInt(shadowMapRes());
+    if (light.shadow.mapSize.width !== wantRes) {
+      light.shadow.mapSize.set(wantRes, wantRes);
+      light.shadow.map?.dispose();
+      light.shadow.map = null;
+    }
+    light.shadow.radius = shadowRadius();
+    light.shadow.bias = shadowBias();
+
+    if (frustumR === null) fitShadowCamera(camera, light);
+
+    // The light follows the emboss angle, in camera space.
+    const a = embossAngle();
+    _lightDir
+      .set(Math.cos(a), Math.sin(a), 1.0)
+      .normalize()
+      .transformDirection(camera.matrixWorld);
+    light.position.copy(_lightDir).multiplyScalar(frustumR * 2.5);
+    // three.js has already updated world matrices by the time it calls this hook, so a light
+    // moved here would reach the shadow map one pass late -- a lag that showed while orbiting,
+    // with the map drawn for the previous direction and read with the current one.
+    light.updateMatrixWorld();
+
+    passUniforms.lightDirection.value.copy(_lightDir);
+    passUniforms.time.value = performance.now() / 1000;
+    passUniforms.frameIndex.value = ++jitterIndex;
+    passUniforms.resolution.value.set(renderer.domElement.width, renderer.domElement.height);
+    passUniforms.shadingIntensity.value = mode === "off" ? 0 : shadowIntensity();
+    passUniforms.shadingOnly.value = mode === "only";
+    passUniforms.shadingDarkLum.value = shadingDarkLum();
+    passUniforms.shadingBrightLum.value = shadingBrightLum();
+    passUniforms.shadingDarkSat.value = shadingDarkSat();
+    passUniforms.shadingBrightSat.value = shadingBrightSat();
+
+    frustumHelper.visible = showShadowFrustum();
+    if (frustumHelper.visible) frustumHelper.update();
+
+    arrow.visible = showLightArrow();
+    if (arrow.visible) {
+      arrow.position.copy(light.position);
+      arrow.setDirection(_lightDir.copy(light.position).negate().normalize());
+      arrow.setLength(light.position.length(), 0.15, 0.06);
+    }
+  };
+
+}
+
+export { MeshLine, MeshLineMaterial };

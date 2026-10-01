@@ -13,7 +13,6 @@ import {
 } from "../modules/three.js";
 import {
   camera,
-  canvas,
   clearGroup,
   controls,
   hide,
@@ -87,7 +86,6 @@ const cameraPose = new Vector3(5, -2.5, -26).multiplyScalar(1);
 
 
 
-const resolution = new Vector2(canvas.width, canvas.height);
 
 const meshes = [];
 
@@ -137,7 +135,6 @@ function generateShape() {
       map: brushes[params.brush()],
       useMap: true,
       color: gradient.getAt(color),
-      resolution: resolution,
       lineWidth: w,
       offset: Maf.randomInRange(-100, 100),
       repeat: new Vector2(repeat, 1),
