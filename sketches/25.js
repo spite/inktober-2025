@@ -393,7 +393,7 @@ function draw(frameStart) {
 }
 
 function start() {
-  show(group, cameraPose, { screenSpacePanning: true });
+  show(group, cameraPose);
   rebuild.start();
   gui.show();
   painted.invalidate();

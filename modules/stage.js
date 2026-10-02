@@ -52,7 +52,7 @@ let _current = null;
 // sketches: each one names the pose it was composed for and gets it back every time, which is
 // both simpler than saving and restoring per-sketch camera state and more predictable than
 // returning to whatever angle the last visit was left at.
-export function show(group, pose, { screenSpacePanning = false } = {}) {
+export function show(group, pose) {
   if (_current) scene.remove(_current);
   _current = group;
   scene.add(group);
@@ -62,7 +62,6 @@ export function show(group, pose, { screenSpacePanning = false } = {}) {
   camera.up.set(0, 1, 0);
   camera.position.copy(pose);
   camera.lookAt(_origin);
-  controls.screenSpacePanning = screenSpacePanning;
   controls.target.copy(_origin);
   controls.enabled = true;
   controls.update();
