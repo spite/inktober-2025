@@ -119,6 +119,9 @@ function addInfo(gui) {
             <b>Tab</b> to toggle the UI, and <b>A</b> to show the advanced rendering
             controls.<br/><br/>
             Click <b>Previous</b> or press <b>J</b> to navigate to the previous sketch, and click <b>Next</b> or press <b>K</b> to navigate to the next one. Click <b>Gallery</b> to see a list of all sketches.
+          </p>
+          <p>
+            Made by Jaume Sanchez Elias <a href="https://twitter.com/thespite" target="_blank" rel="noopener">@thespite</a> - <a href="https://github.com/spite/inktober-2025" target="_blank" rel="noopener">GitHub repo</a>
           </p>`);
 }
 
