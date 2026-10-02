@@ -112,7 +112,7 @@ function addInfo(gui) {
   gui.addSeparator();
   gui.addText(`<p>
             Click and drag to rotate. Right click and drag to pan. Mousewheel to
-            zoom. Click <b>Pause</b> of press <b>Space</b> to toggle animation. Click <b>Randomize</b> or
+            zoom. Click <b>Pause</b> or press <b>Space</b> to toggle animation. Click <b>Randomize</b> or
             press <b>R</b> to find a new shape.<br/><br/>
             In the params panel, click <b>Randomize params</b> to reroll everything, ink included.<br/><br/>
             Click <b>Save</b> or press <b>S</b> to download an image. Press
@@ -121,7 +121,7 @@ function addInfo(gui) {
             Click <b>Previous</b> or press <b>J</b> to navigate to the previous sketch, and click <b>Next</b> or press <b>K</b> to navigate to the next one. Click <b>Gallery</b> to see a list of all sketches.
           </p>
           <p>
-            Made by Jaume Sanchez Elias <a href="https://twitter.com/thespite" target="_blank" rel="noopener">@thespite</a> - <a href="https://github.com/spite/inktober-2025" target="_blank" rel="noopener">GitHub repo</a>
+            <br/>Made by Jaume Sanchez Elias <a href="https://twitter.com/thespite" target="_blank" rel="noopener">@thespite</a> - <a href="https://github.com/spite/inktober-2025" target="_blank" rel="noopener">GitHub repo</a>
           </p>`);
 }
 
