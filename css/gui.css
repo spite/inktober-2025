@@ -23,6 +23,7 @@
     "Segoe UI",
     system-ui,
     sans-serif;
+  /* The label size; every other size in the panel is this less a pixel or three. */
   --gui-font-size: 13px;
   --gui-padding: 20px;
   --gui-gap: 8px;
@@ -102,7 +103,7 @@
 .gui-title {
   display: flex;
   flex-direction: row;
-  font-size: 12px;
+  font-size: calc(var(--gui-font-size) - 1px);
   font-weight: bold;
   justify-content: space-between;
   align-items: center;
@@ -192,13 +193,14 @@
   color: var(--gui-fg);
   padding: 0 6px;
   border-radius: var(--gui-radius);
-  font-size: 12px;
+  font-size: calc(var(--gui-font-size) - 1px);
   font-family: inherit;
   line-height: 1;
   outline: none;
 }
 .gui input:focus,
 .gui select:focus,
+.gui textarea:focus,
 .gui button:focus-visible {
   border-color: var(--gui-focus);
 }
@@ -270,7 +272,7 @@
 .gui-segment {
   flex: 1 1 0;
   min-width: 0;
-  font-size: 11px;
+  font-size: calc(var(--gui-font-size) - 2px);
   color: var(--gui-muted);
   cursor: pointer;
   border-radius: 0;
@@ -317,6 +319,8 @@
    is an ordinary text field again. */
 .gui-scrubbable {
   cursor: ew-resize;
+  /* A sideways drag is the scrub, not the browser's to pan; vertical still scrolls the panel. */
+  touch-action: pan-y;
 }
 .gui-scrubbable:focus {
   cursor: text;
@@ -436,7 +440,7 @@ body.gui-scrubbing * {
   flex: 0 0 auto;
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: calc(var(--gui-font-size) - 1px);
 }
 .gui-slider-container {
   display: flex;
@@ -456,7 +460,7 @@ body.gui-scrubbing * {
   width: 52px;
   text-align: right;
   opacity: 0.7;
-  font-size: 11px;
+  font-size: calc(var(--gui-font-size) - 2px);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -478,7 +482,7 @@ body.gui-scrubbing * {
   width: 100%;
   opacity: 0.75;
   line-height: 1.4;
-  font-size: 12px;
+  font-size: calc(var(--gui-font-size) - 1px);
 }
 .gui-text a {
   color: inherit;
@@ -502,7 +506,7 @@ body.gui-scrubbing * {
   flex: 1 1 auto;
   min-width: 46px;
   padding: 5px 4px;
-  font-size: 11px;
+  font-size: calc(var(--gui-font-size) - 2px);
   background: var(--gui-field-bg);
   border: 1px solid var(--gui-border);
   border-bottom: none;
@@ -535,7 +539,7 @@ body.gui-scrubbing * {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: calc(var(--gui-font-size) - 3px);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--gui-muted);
